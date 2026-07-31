@@ -24,6 +24,7 @@ import {
 } from '../lib/analysis'
 import { todayLocal } from '../lib/dates'
 import type { RoutineBundle } from '../lib/useRoutine'
+import { useSettings } from '../store/settings'
 
 const WEEKS_SHOWN = 12
 
@@ -57,8 +58,19 @@ export default function AnalyzeScreen({ bundle }: { bundle: RoutineBundle }) {
   const [selected, setSelected] = useState<string | null>(null)
   const [metric, setMetric] = useState<'topLoad' | 'volume' | 'e1rm'>('topLoad')
 
-  const aKeys = useMemo(() => strengthRecordKeys(sessions, bundle.routine), [sessions, bundle.routine])
+  /*
+    B그룹 무게 차트는 Phase 2부터만 노출한다 (T12).
+    Phase 0~1에서 무게 추이를 주면 감각이 아니라 무게를 쫓게 되는 역효과가 있고,
+    Phase 2부터는 루틴 문서 9장이 B그룹 "무게 회복"을 규정하므로 필요한 정보가 된다.
+  */
+  const phase = useSettings((st) => st.currentPhase)
+  const includeB = phase >= 2
+  const aKeys = useMemo(
+    () => strengthRecordKeys(sessions, bundle.routine, { includeB }),
+    [sessions, bundle.routine, includeB],
+  )
   const activeKey = selected ?? aKeys[0]?.recordKey ?? null
+  const activeGroup = aKeys.find((k) => k.recordKey === activeKey)?.group ?? 'A'
   const trend = useMemo(
     () => (activeKey ? strengthTrend(sessions, activeKey) : []),
     [sessions, activeKey],
@@ -104,9 +116,9 @@ export default function AnalyzeScreen({ bundle }: { bundle: RoutineBundle }) {
 
       {/* ① A그룹 종목별 추이 */}
       <div className="card">
-        <div className="card-label">A그룹 추이</div>
+        <div className="card-label">{includeB ? '종목별 추이' : 'A그룹 추이'}</div>
         {aKeys.length === 0 ? (
-          <p className="row-sub">A그룹 기록이 없습니다.</p>
+          <p className="row-sub">기록이 없습니다.</p>
         ) : (
           <>
             <div className="chip-scroll">
@@ -118,6 +130,9 @@ export default function AnalyzeScreen({ bundle }: { bundle: RoutineBundle }) {
                 >
                   {nameOf(k.exerciseId)}
                   <span style={{ opacity: 0.6, marginLeft: 4 }}>{k.dayId.toUpperCase()}</span>
+                  {k.group === 'B' && (
+                    <span style={{ opacity: 0.6, marginLeft: 4 }}>· B</span>
+                  )}
                 </button>
               ))}
             </div>
@@ -150,7 +165,17 @@ export default function AnalyzeScreen({ bundle }: { bundle: RoutineBundle }) {
                     <Tooltip
                       contentStyle={TOOLTIP_STYLE}
                       labelStyle={{ color: C.dim }}
-                      formatter={(value) => [String(value), metricLabel]}
+                      /*
+                        B그룹은 감각 점수를 같이 띄운다 (T12) — 무게가 올랐는데 감각이
+                        떨어지는 패턴을 한눈에 봐야 문서 9장의 복귀 기준을 스스로 적용할 수 있다
+                      */
+                      formatter={(value, _name, item) => {
+                        const point = item?.payload as { sensoryScore?: number } | undefined
+                        if (activeGroup !== 'B') return [String(value), metricLabel]
+                        const sensory =
+                          point?.sensoryScore === undefined ? '미입력' : `${point.sensoryScore}점`
+                        return [`${value} · 감각 ${sensory}`, metricLabel]
+                      }}
                     />
                     <Line
                       type="monotone"
@@ -170,6 +195,12 @@ export default function AnalyzeScreen({ bundle }: { bundle: RoutineBundle }) {
                 {nameOfKey(activeKey!)} · 최근 {trend[trend.length - 1].topWeight}kg ×{' '}
                 {trend[trend.length - 1].maxReps}회
                 {trend.some((p) => p.mode !== 'normal') && ' · 디로드/복귀 세션 포함'}
+              </p>
+            )}
+            {activeGroup === 'B' && (
+              <p className="row-sub" style={{ color: 'var(--warn)' }}>
+                B그룹 기준은 감각입니다. 무게 추이는 회복 참고용 — 감각 점수가 1로 떨어지면
+                이전 무게로 복귀하세요 (문서 9장).
               </p>
             )}
             <p className="row-sub">

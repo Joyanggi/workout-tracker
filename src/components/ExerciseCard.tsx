@@ -280,6 +280,20 @@ export default function ExerciseCard({
             <span className="chip">{routineExercise.group}그룹</span>
             <span className="chip">휴식 {routineExercise.restSec}초</span>
             {routineExercise.optional && <span className="chip chip-warn">컨디션 좋을 때만</span>}
+            {/*
+              B그룹 무게 회복/복귀 (T10, Phase 2+). 복귀는 프리필이 이미 내려간 상태이므로
+              칩은 "왜 내려갔는지"를 설명하는 역할이다.
+            */}
+            {prefill?.bGroup?.kind === 'recover' && (
+              <span className="chip chip-accent">
+                감각 3점 유지 + 상단 도달 — 무게 회복 시도 가능
+              </span>
+            )}
+            {prefill?.bGroup?.kind === 'revert' && (
+              <span className="chip chip-warn">
+                감각 {1}점 이하 — {prefill.bGroup.from} → {prefill.bGroup.to}kg 복귀 (문서 9장)
+              </span>
+            )}
             {compensationWatch && (
               <button className="chip chip-warn chip-tap" onClick={() => setShowingWatch(true)}>
                 보상작용 {compensationWatch.count}/{3}회 — 무게 하향 검토 ▸

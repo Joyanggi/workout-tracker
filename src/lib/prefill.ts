@@ -9,6 +9,7 @@ import type {
 } from '../types'
 import { NO_COMPENSATION } from '../types'
 import { completedSessions, doneSets } from './derive'
+import { bGroupGuide, type BGroupGuide } from './bGroupGuide'
 import { nextWeightForProgression, scaleFor, type WeightScaleMap } from './weightScale'
 
 /**
@@ -38,6 +39,13 @@ export interface RecordPrefill {
    * `to === null`이면 사다리 최상단 (T9) — 프리필 무게는 그대로 두고 표시만 바꾼다.
    */
   progression?: { from: number; to: number | null }
+  /**
+   * B그룹 무게 회복/복귀 신호 (T10, Phase 2+).
+   *
+   * 카드가 아니라 여기서 계산한다 — 프리필은 이미 "카드에 무엇을 넣을지"의 단일 출구이고,
+   * 복귀는 프리필 무게 자체를 바꿔야 하는 규칙이라 두 곳에서 판단하면 어긋난다.
+   */
+  bGroup?: BGroupGuide
 }
 
 /** 무게 우선, 동무게면 반복수 */
@@ -90,6 +98,7 @@ export function buildPrefill(args: {
     bestBySet,
     best,
     lastSets,
+    bGroup: bGroupGuide({ history, recordKey, routineExercise, phase }),
     progression: computeProgression({
       routine,
       routineExercise,
@@ -149,6 +158,19 @@ export function defaultSetFor(
 ): SetRecord {
   const ref = prefill.bestBySet[index] ?? prefill.best
   const base = ref?.weight ?? 0
+  /*
+    B그룹 복귀(T10)는 루틴 문서 9장이 "절대 기준"이라고 못 박은 규칙이므로 프리필을
+    자동으로 이전 무게로 내린다. 회복 힌트('recover')는 제안이라 프리필을 바꾸지 않는다 —
+    B그룹 성공 기준은 기록이 아니라 감각이고, 올릴지는 사용자가 결정한다.
+    디로드·복귀 모드에서는 그 모드의 무게 규칙이 우선이므로 적용하지 않는다.
+  */
+  if (mode === 'normal' && prefill.bGroup?.kind === 'revert' && prefill.bGroup.to !== undefined) {
+    return {
+      weight: prefill.bGroup.to,
+      reps: ref?.reps ?? routineExercise.repMin,
+      done: false,
+    }
+  }
   const weight = mode === 'normal' ? (prefill.progression?.to ?? base) : base
   return {
     weight,

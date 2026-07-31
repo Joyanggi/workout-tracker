@@ -23,6 +23,8 @@ export interface StrengthPoint {
   volume: number
   e1rm: number
   mode: Session['mode']
+  /** 그 세션의 감각 점수 (B그룹 차트 툴팁용, T12). 미입력이면 undefined */
+  sensoryScore?: 0 | 1 | 2 | 3
 }
 
 /**
@@ -49,23 +51,43 @@ export function strengthTrend(sessions: Session[], recordKey: RecordKey): Streng
       volume: sets.reduce((n, s) => n + s.weight * s.reps, 0),
       e1rm: Math.round(e1rm(best.weight, best.reps) * 10) / 10,
       mode: session.mode,
+      sensoryScore: entry.sensoryScore,
     })
   }
   return out
 }
 
-/** A그룹 recordKey 목록 (루틴 순서). 기록이 있는 것만 */
+/**
+ * 추이 차트에 올릴 recordKey 목록 (루틴 순서). 기록이 있는 것만.
+ *
+ * 기본은 A그룹만이다 — **의도된 제한**이다. B그룹의 성공 기준은 감각이라,
+ * 무게 차트를 주면 무게를 쫓게 되는 역효과가 있다.
+ *
+ * `includeB`는 Phase 2부터만 켠다 (T12). 그 시점부터 루틴 문서 9장이 B그룹
+ * "무게 회복"을 규정하므로, 무게 추이가 회복 진행을 판단하는 정보가 된다.
+ * 조건부 노출이면 원래 의도(Phase 0~1 무게 집착 방지)와 충돌하지 않는다.
+ */
 export function strengthRecordKeys(
   sessions: Session[],
   routine: RoutineTemplate,
-): { recordKey: RecordKey; exerciseId: string; dayId: string; sessionCount: number }[] {
+  opts: { includeB?: boolean } = {},
+): {
+  recordKey: RecordKey
+  exerciseId: string
+  dayId: string
+  sessionCount: number
+  group: 'A' | 'B'
+}[] {
   const counts = new Map<RecordKey, number>()
+  const groups = new Map<RecordKey, 'A' | 'B'>()
   for (const session of completedSessions(sessions)) {
     for (const entry of session.entries) {
       if (doneSets(entry).length === 0) continue
       const { exerciseId, dayId } = parseRecordKey(entry.recordKey)
-      if (findRoutineExercise(routine, dayId, exerciseId)?.group !== 'A') continue
+      const group = findRoutineExercise(routine, dayId, exerciseId)?.group
+      if (group !== 'A' && !(opts.includeB && group === 'B')) continue
       counts.set(entry.recordKey, (counts.get(entry.recordKey) ?? 0) + 1)
+      groups.set(entry.recordKey, group === 'B' ? 'B' : 'A')
     }
   }
 
@@ -83,6 +105,7 @@ export function strengthRecordKeys(
       recordKey,
       ...parseRecordKey(recordKey),
       sessionCount,
+      group: groups.get(recordKey) ?? 'A',
     }))
     .sort(
       (a, b) =>

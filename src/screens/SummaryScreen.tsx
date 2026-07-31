@@ -2,6 +2,9 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import { compensationSummary, hasCompensation } from '../lib/compensation'
 import { progressionSuggestions } from '../lib/progression'
+import { revertWarning } from '../lib/bGroupGuide'
+import { sessionsForRecord } from '../lib/prefill'
+import { routineExerciseOfEntry } from '../lib/derive'
 import { buildScaleMap, formatProgression } from '../lib/weightScale'
 import { useExerciseSettings } from '../lib/useExerciseSettings'
 import { PR_LABEL, detectPrs, topPrPerRecord } from '../lib/pr'
@@ -67,6 +70,24 @@ export default function SummaryScreen({
     bundle.catalog,
   ).map((p) => ({ ...p, name: nameOf(p.recordKey) }))
 
+  /*
+    B그룹 복귀 경고 (T10, Phase 2+). 루틴 문서 9장의 절대 기준 —
+    무게를 올렸는데 감각이 1점 이하로 떨어졌으면 즉시 이전 무게로 돌린다.
+    다음 세션 프리필은 이미 자동으로 내려가지만(prefill.bGroup), 이유를 여기서 알려야
+    "왜 무게가 내려갔지"가 되지 않는다.
+  */
+  const reverts = session.entries.flatMap((entry) => {
+    const routineExercise = routineExerciseOfEntry(bundle.routine, entry)
+    if (!routineExercise) return []
+    const warning = revertWarning({
+      history: sessionsForRecord(allSessions, entry.recordKey),
+      recordKey: entry.recordKey,
+      routineExercise,
+      phase,
+    })
+    return warning ? [{ recordKey: entry.recordKey, name: nameOf(entry.recordKey), ...warning }] : []
+  })
+
   // PR (T5). 감량기에는 증량 조건이 잘 안 뜨므로 e1RM·반복 PR이 진전을 보여주는 주 채널이다
   const prs = topPrPerRecord(detectPrs(allSessions, session))
 
@@ -128,6 +149,28 @@ export default function SummaryScreen({
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {reverts.length > 0 && (
+        <div className="card">
+          <div className="card-label">감각 저하 — 이전 무게로 복귀</div>
+          {reverts.map((r) => (
+            <div className="row" key={r.recordKey}>
+              <div className="row-main">
+                <div className="row-title">{r.name}</div>
+                <div className="row-sub">
+                  무게를 올린 뒤 감각이 1점 이하 — 문서 9장의 절대 기준입니다
+                </div>
+              </div>
+              <div className="row-meta" style={{ color: 'var(--warn)' }}>
+                {r.from} → {r.to}kg
+              </div>
+            </div>
+          ))}
+          <p className="row-sub" style={{ marginTop: 8 }}>
+            다음 세션 프리필이 자동으로 {reverts.map((r) => `${r.to}kg`).join(' · ')}로 내려갑니다.
+          </p>
         </div>
       )}
 
