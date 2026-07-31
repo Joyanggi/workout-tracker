@@ -72,13 +72,21 @@ export function applyToggleDone(
   })
 }
 
-export function applyAddSet(session: Session, recordKey: RecordKey): Session {
+export function applyAddSet(
+  session: Session,
+  recordKey: RecordKey,
+  opts: { warmup?: boolean } = {},
+): Session {
   return mapEntry(session, recordKey, (entry) => {
     const last = entry.sets[entry.sets.length - 1]
-    return {
-      ...entry,
-      sets: [...entry.sets, { weight: last?.weight ?? 0, reps: last?.reps ?? 0, done: false }],
+    const set: SetRecord = {
+      weight: last?.weight ?? 0,
+      reps: last?.reps ?? 0,
+      done: false,
+      ...(opts.warmup ? { warmup: true } : {}),
     }
+    // 워밍업은 앞에 붙인다 — 실제 수행 순서가 그렇고, 세트 번호도 작업 세트가 1부터 시작해야 한다
+    return { ...entry, sets: opts.warmup ? [set, ...entry.sets] : [...entry.sets, set] }
   })
 }
 

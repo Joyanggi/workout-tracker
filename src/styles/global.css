@@ -1413,3 +1413,13 @@ button.chip {
   width: auto;
   flex-shrink: 0;
 }
+
+/* 워밍업 세트 (T7) — 작업 세트와 구분되게 흐리게. 볼륨·PR에 안 들어간다는 신호 */
+.set-row-warmup {
+  opacity: 0.62;
+}
+
+.set-row-warmup .set-no {
+  font-size: 12px;
+  color: var(--accent);
+}

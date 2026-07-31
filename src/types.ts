@@ -139,6 +139,14 @@ export interface SetRecord {
   reps: number
   done: boolean
   doneAt?: string
+  /**
+   * 워밍업 세트 (T7). 볼륨·증량 판정·PR·Phase 조건에서 **제외**된다.
+   *
+   * 제외는 `derive.doneSets()` 한 곳에서 이뤄진다 — 분석 경로 전부가 그 함수를
+   * 거치므로, 새 분석을 추가해도 자동으로 올바르게 동작한다.
+   * 화면의 "완료 n세트" 같은 표시는 `doneSetsAll()`을 써서 실제로 한 것을 보여준다.
+   */
+  warmup?: boolean
 }
 
 export interface SessionEntry {

@@ -44,7 +44,7 @@ interface SessionState {
 
   patchSet: (recordKey: RecordKey, index: number, patch: Partial<SetRecord>) => void
   toggleDone: (recordKey: RecordKey, index: number, now?: Date) => void
-  addSet: (recordKey: RecordKey) => void
+  addSet: (recordKey: RecordKey, opts?: { warmup?: boolean }) => void
   removeSet: (recordKey: RecordKey, index: number) => void
   setSkipped: (recordKey: RecordKey, skipped: boolean) => void
   setSensoryScore: (recordKey: RecordKey, score: 0 | 1 | 2 | 3) => void
@@ -106,7 +106,7 @@ export const useSessionStore = create<SessionState>((set, get) => {
     toggleDone: (recordKey, index, now = new Date()) =>
       update((s) => applyToggleDone(s, recordKey, index, now)),
 
-    addSet: (recordKey) => update((s) => applyAddSet(s, recordKey)),
+    addSet: (recordKey, opts) => update((s) => applyAddSet(s, recordKey, opts)),
 
     removeSet: (recordKey, index) => update((s) => applyRemoveSet(s, recordKey, index)),
 

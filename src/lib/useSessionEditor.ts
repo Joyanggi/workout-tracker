@@ -76,7 +76,7 @@ export function useSessionEditor(sessionId: string | null): SessionEditor {
     // 편집 화면의 체크는 "그 세트를 실제로 했는가"를 정정하는 것이다.
     // performedOrder 재부여 규칙은 세션 중과 동일하게 sessionOps가 처리한다.
     toggleDone: (key, i) => update((s) => applyToggleDone(s, key, i, new Date())),
-    addSet: (key) => update((s) => applyAddSet(s, key)),
+    addSet: (key, opts) => update((s) => applyAddSet(s, key, opts)),
     removeSet: (key, i) => update((s) => applyRemoveSet(s, key, i)),
     setSkipped: (key, v) => update((s) => applySkipped(s, key, v)),
     setSensoryScore: (key, v) => update((s) => applySensoryScore(s, key, v)),

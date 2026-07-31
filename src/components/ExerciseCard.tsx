@@ -3,7 +3,7 @@ import CompensationSheet from './CompensationSheet'
 import NumberStepper from './NumberStepper'
 import { getExerciseNote, setExerciseNote } from '../db'
 import { compensationSummary, hasCompensation } from '../lib/compensation'
-import { doneSets } from '../lib/derive'
+import { doneSetsAll } from '../lib/derive'
 import type { RecordPrefill } from '../lib/prefill'
 import type { RecordKey, RoutineExercise, SessionEntry, SetRecord } from '../types'
 
@@ -25,7 +25,7 @@ const SENSORY_LABELS: Record<0 | 1 | 2 | 3, string> = {
 export interface EntryActions {
   patchSet: (recordKey: RecordKey, index: number, patch: Partial<SetRecord>) => void
   toggleDone: (recordKey: RecordKey, index: number) => void
-  addSet: (recordKey: RecordKey) => void
+  addSet: (recordKey: RecordKey, opts?: { warmup?: boolean }) => void
   removeSet: (recordKey: RecordKey, index: number) => void
   setSkipped: (recordKey: RecordKey, skipped: boolean) => void
   setSensoryScore: (recordKey: RecordKey, score: 0 | 1 | 2 | 3) => void
@@ -93,9 +93,13 @@ export default function ExerciseCard({
       cancelled = true
     }
   }, [entry.recordKey])
-  const done = doneSets(entry)
+  const done = doneSetsAll(entry)
   const complete = done.length >= entry.sets.length
   const isB = routineExercise.group === 'B'
+
+  // 세트 표시 라벨: 워밍업은 'W', 작업 세트는 1부터
+  let workCount = 0
+  const setLabels = entry.sets.map((set) => (set.warmup ? 'W' : String((workCount += 1))))
 
   const summary = showPrefillHints
     ? prefill?.lastSets.length
@@ -212,7 +216,13 @@ export default function ExerciseCard({
             <span>횟수</span>
           </div>
 
-          {entry.sets.map((set, i) => (
+          {/*
+            워밍업은 번호를 받지 않는다(W) — 작업 세트가 1부터 시작해야 계획 세트 수와 맞는다.
+            라벨을 미리 계산해 map 안에서 누적 변수를 쓰지 않는다.
+          */}
+          {setLabels.map((label, i) => {
+            const set = entry.sets[i]
+            return (
             /*
               체크 버튼을 고스트 줄로 올려 입력 행을 전폭으로 쓴다.
               §9는 숫자 24px+와 터치 타깃 44pt를 동시에 요구하는데, 한 줄에 [스테퍼][스테퍼][체크]를
@@ -224,8 +234,8 @@ export default function ExerciseCard({
               중간 제거를 추가하면 NumberStepper의 편집 중 로컬 상태가 옆 세트로 옮겨 붙는다.
               그때는 SetRecord에 id를 추가해야 한다 (persist되는 타입이라 백업 스키마도 함께).
             */
-            <div className="set-row" key={i}>
-              <div className="set-no">{i + 1}</div>
+            <div className={`set-row${set.warmup ? ' set-row-warmup' : ''}`} key={i}>
+              <div className="set-no">{label}</div>
               <div className="set-meta">
                 <span className="set-ghost">
                   {showPrefillHints ? ghostText(prefill, i) || '기준 기록 없음' : ''}
@@ -262,11 +272,23 @@ export default function ExerciseCard({
                 </div>
               </div>
             </div>
-          ))}
+            )
+          })}
 
           <div className="btn-row" style={{ marginTop: 10 }}>
             <button className="btn btn-sm" onClick={() => actions.addSet(entry.recordKey)}>
               + 세트
+            </button>
+            {/*
+              워밍업 세트 (T7). 볼륨·증량·PR에서 제외된다.
+              계획서는 "+ 세트" 롱프레스를 제안했지만 롱프레스는 어포던스가 없어 존재를
+              모르게 된다. 작은 버튼으로 두되 앞에 내세우지 않는다.
+            */}
+            <button
+              className="btn btn-sm"
+              onClick={() => actions.addSet(entry.recordKey, { warmup: true })}
+            >
+              + 워밍업
             </button>
             {entry.sets.length > 1 && (
               <button

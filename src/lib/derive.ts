@@ -27,13 +27,26 @@ export function completedSessions(sessions: Session[]): Session[] {
     .sort((a, b) => (a.date === b.date ? b.startedAt.localeCompare(a.startedAt) : b.date.localeCompare(a.date)))
 }
 
+/**
+ * 체크된 **작업 세트** (워밍업 제외).
+ *
+ * 분석 경로 전부가 이 함수를 통과한다 — 볼륨, 증량 판정, PR, Phase 조건, 내보내기,
+ * 부위별 집계. 워밍업 제외를 여기 한 곳에 두면 새 분석을 추가해도 자동으로 맞는다.
+ * 반대로 각 호출부에서 필터하면 한 군데만 빠뜨려도 조용히 틀린 숫자가 나온다.
+ */
 export function doneSets(entry: SessionEntry) {
+  return entry.sets.filter((s) => s.done && !s.warmup)
+}
+
+/** 체크된 전 세트 (워밍업 포함). "완료 n세트" 같은 **표시**용 */
+export function doneSetsAll(entry: SessionEntry) {
   return entry.sets.filter((s) => s.done)
 }
 
 /** 세션 전체에서 실제로 체크된 세트 수 */
+/** 표시용 — 워밍업도 "내가 한 세트"이므로 포함한다 */
 export function totalDoneSets(session: Session): number {
-  return session.entries.reduce((n, e) => n + doneSets(e).length, 0)
+  return session.entries.reduce((n, e) => n + doneSetsAll(e).length, 0)
 }
 
 /** 총 볼륨 = Σ(무게 × 반복수). 체크된 세트만. (§7 진전 지표) */

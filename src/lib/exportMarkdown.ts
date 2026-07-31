@@ -131,7 +131,8 @@ export function sessionToMarkdown(
   const progressed = new Set(
     progressionSuggestions(session, routine, phase).map((p) => p.recordKey),
   )
-  const performed = timeline.map((t) => t.entry)
+  // 워밍업만 체크한 종목은 작업 세트가 없어 반복수 줄이 비어버린다 — 본문에서 제외한다
+  const performed = timeline.map((t) => t.entry).filter((e) => doneSets(e).length > 0)
   for (const entry of performed) {
     out.push(...entryLine(entry, session, routine, catalog, progressed, routine.rules.weightIncrementKg))
     out.push('')
