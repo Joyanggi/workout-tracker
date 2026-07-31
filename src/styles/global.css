@@ -1359,3 +1359,14 @@ button.chip {
   min-height: 44px;
   padding: 3px 12px;
 }
+
+/* 자극 요령 (T1). note와 구분되게 살짝 강조하되 시선을 빼앗지 않는다 */
+.ex-cue {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  background: var(--accent-soft);
+  color: #ffcfa8;
+  font-size: 13px;
+  line-height: 1.5;
+}

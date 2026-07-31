@@ -133,6 +133,7 @@ export default function SessionScreen({
               routineExercise={routineExercise}
               name={exercise?.shortName ?? routineExercise.exerciseId}
               fullName={exercise?.name ?? routineExercise.exerciseId}
+              cueTip={exercise?.cueTip}
               compensationSigns={exercise?.compensationSigns ?? []}
               prefill={prefills.get(entry.recordKey)}
               showProgression={session.mode === 'normal'}

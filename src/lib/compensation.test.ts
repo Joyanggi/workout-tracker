@@ -123,3 +123,30 @@ describe('카탈로그 체크리스트', () => {
     }
   })
 })
+
+describe('T1 자극 팁 (cueTip)', () => {
+  it('17종목 전부 cueTip이 있다', () => {
+    expect(EXERCISES).toHaveLength(17)
+    for (const e of EXERCISES) {
+      expect(e.cueTip, e.id).toBeTruthy()
+      expect(e.cueTip.trim(), e.id).toBe(e.cueTip)
+    }
+  })
+
+  it('cueTip은 한 줄이다 (줄바꿈 없음)', () => {
+    // ExerciseCard가 한 줄 박스로 표시하므로 개행이 들어가면 레이아웃이 깨진다
+    for (const e of EXERCISES) {
+      expect(e.cueTip, e.id).not.toMatch(/[\n\r]/)
+    }
+  })
+
+  it('compensationSigns와 내용이 겹치지 않는다', () => {
+    // "하지 말 것"(compensationSigns)과 "어떻게 할 것"(cueTip)은 역할이 다르다.
+    // 같은 문장을 양쪽에 넣으면 카드에 같은 말이 두 번 나온다.
+    for (const e of EXERCISES) {
+      for (const sign of e.compensationSigns) {
+        expect(e.cueTip, `${e.id}: "${sign}"`).not.toBe(sign)
+      }
+    }
+  })
+})

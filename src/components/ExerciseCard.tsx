@@ -49,6 +49,7 @@ export default function ExerciseCard({
   routineExercise,
   name,
   fullName,
+  cueTip,
   compensationSigns,
   prefill,
   actions,
@@ -68,6 +69,7 @@ export default function ExerciseCard({
   routineExercise: RoutineExercise
   name: string
   fullName: string
+  cueTip?: string
   compensationSigns: string[]
   prefill?: RecordPrefill
   actions: EntryActions
@@ -139,6 +141,11 @@ export default function ExerciseCard({
           {routineExercise.weightHint && (
             <p className="ex-note">무게 기준: {routineExercise.weightHint}</p>
           )}
+          {/*
+            자극 요령. 접지 않고 항상 노출한다 — B그룹은 감각 점수를 매겨야 하는데
+            무엇을 느껴야 하는지 모르면 점수 자체가 무의미해진다.
+          */}
+          {cueTip && <p className="ex-cue">💡 {cueTip}</p>}
           <div className="ex-chips">
             <span className="chip">{routineExercise.group}그룹</span>
             <span className="chip">휴식 {routineExercise.restSec}초</span>

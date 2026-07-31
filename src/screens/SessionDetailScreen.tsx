@@ -124,6 +124,7 @@ export default function SessionDetailScreen({
             routineExercise={routineExercise}
             name={exercise?.shortName ?? exerciseId}
             fullName={exercise?.name ?? exerciseId}
+            cueTip={exercise?.cueTip}
             compensationSigns={exercise?.compensationSigns ?? []}
             actions={editor.actions}
             open={openKey === entry.recordKey}

@@ -104,6 +104,13 @@ export interface Exercise {
   id: string // "incline-chest-press"
   name: string // "인클라인 체스트프레스 머신"
   shortName: string // "인클라인 프레스"
+  /**
+   * 자극을 어디서 느껴야 하는지 한 줄 요령.
+   *
+   * `compensationSigns`가 "하지 말 것"이라면 이쪽은 "어떻게 할 것"이다.
+   * B그룹은 감각 점수(0~3)를 매기는데, 무엇을 느껴야 하는지 모르면 점수가 무의미해진다.
+   */
+  cueTip: string
   compensationSigns: string[] // 루틴 문서 12장 보상작용 체크리스트
 }
 
