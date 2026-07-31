@@ -259,6 +259,7 @@ describe('JSON 백업 — 비밀값이 새지 않는다', () => {
         completedSession({ dayId: 'd2', date: '2026-08-05' }),
       ],
       settings: [{ key: 'currentPhase', value: 0 }],
+      exerciseNotes: [{ recordKey: 'lat-pulldown@d2', note: '시트 3칸' }],
     }
     const parsed = parseBackup(JSON.stringify(file))
     expect('file' in parsed).toBe(true)
@@ -305,5 +306,41 @@ describe('한국어 조사와 순서 이탈 축약', () => {
   it('순서가 계획과 같으면 이탈 줄이 없다', () => {
     const s = completedSession({ dayId: 'd2', date: '2026-08-03' })
     expect(md(s)).not.toContain('계획 대비')
+  })
+})
+
+describe('T4 머신 세팅 메모 백업', () => {
+  const base = {
+    app: APP_ID,
+    schemaVersion: SCHEMA_VERSION,
+    exportedAt: '2026-08-05T10:00:00.000Z',
+    routines: [ROUTINE],
+    exercises: exercisesJson as Exercise[],
+    sessions: [],
+    settings: [],
+  }
+
+  it('exerciseNotes가 없는 v1 백업도 받아들인다', () => {
+    // 구버전에서 내보낸 파일이 v1.1 앱에서 열려야 한다
+    const v1 = { ...base, schemaVersion: 1 }
+    expect('file' in parseBackup(JSON.stringify(v1))).toBe(true)
+  })
+
+  it('exerciseNotes가 배열이 아니면 거부한다', () => {
+    const bad = { ...base, exerciseNotes: { a: 1 } }
+    const r = parseBackup(JSON.stringify(bad))
+    expect('problems' in r && r.problems.some((p) => p.includes('exerciseNotes'))).toBe(true)
+  })
+
+  it('구버전 앱은 v2 파일을 거부한다 (스키마 버전 상향)', () => {
+    // 앱 v1(SCHEMA_VERSION=1)에서 v2 파일을 열면 "앱을 업데이트하세요"가 나와야 한다.
+    // 여기서는 반대 방향(앱보다 새 파일)을 같은 로직으로 확인한다
+    const future = { ...base, schemaVersion: SCHEMA_VERSION + 1 }
+    const r = parseBackup(JSON.stringify(future))
+    expect('problems' in r && r.problems.some((p) => p.includes('앱을 업데이트'))).toBe(true)
+  })
+
+  it('스키마 버전이 2다 (exerciseNotes 도입)', () => {
+    expect(SCHEMA_VERSION).toBe(2)
   })
 })

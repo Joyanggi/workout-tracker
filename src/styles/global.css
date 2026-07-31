@@ -1375,3 +1375,41 @@ button.chip {
   background: rgba(52, 199, 89, 0.12);
   color: var(--ok);
 }
+
+/* 머신 세팅 메모 (T4) */
+.setup-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  border-radius: var(--r-sm);
+  border: 1px dashed var(--line);
+  background: transparent;
+  font-size: 13px;
+  text-align: left;
+}
+
+.setup-value {
+  color: var(--text);
+}
+
+.setup-empty {
+  color: var(--text-faint);
+}
+
+.setup-edit {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.setup-edit .field {
+  flex: 1;
+}
+
+.setup-edit .btn-sm {
+  width: auto;
+  flex-shrink: 0;
+}

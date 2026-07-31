@@ -193,6 +193,18 @@ export interface Settings {
   phaseChangedAt?: Partial<Record<Phase, string>>
 }
 
+/**
+ * recordKey별 머신 세팅 메모 (T4). "시트 3칸, 등받이 2" 같은 것.
+ *
+ * 세션 기록이 아니라 **종목에 붙는 고정값**이다. 내보내기 Markdown에는 넣지 않는다 —
+ * 세팅값은 분석 대상이 아니고, LLM에 붙여넣는 문서를 길게 만들 이유가 없다.
+ * JSON 백업에는 포함한다 (기기를 바꾸면 같이 옮겨져야 한다).
+ */
+export interface ExerciseNote {
+  recordKey: RecordKey
+  note: string
+}
+
 /** settings 테이블은 key-value (§3) */
 export interface SettingRow {
   key: string

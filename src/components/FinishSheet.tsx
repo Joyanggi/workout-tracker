@@ -14,10 +14,18 @@ export default function FinishSheet({
   bundle,
   onClose,
   onFinished,
+  onDiscarded,
 }: {
   bundle: RoutineBundle
   onClose: () => void
+  /** 기록을 남기고 종료 → 요약 화면으로 */
   onFinished: () => void
+  /**
+   * 버리고 종료 → 홈으로.
+   * 요약 화면으로 보내면 lastFinished가 없어서 "표시할 세션이 없습니다"가 뜬다.
+   * 버린 세션의 요약을 보여줄 것이 애초에 없으므로 경로를 분리한다.
+   */
+  onDiscarded: () => void
 }) {
   const session = useSessionStore((s) => s.session)
   const { finish, setCardio, setNote, discard } = useSessionStore()
@@ -147,7 +155,7 @@ export default function FinishSheet({
               <button className="btn" onClick={() => setConfirmDiscard(false)}>
                 취소
               </button>
-              <button className="btn btn-danger" onClick={() => void discard().then(onFinished)}>
+              <button className="btn btn-danger" onClick={() => void discard().then(onDiscarded)}>
                 정말 버리기
               </button>
             </div>

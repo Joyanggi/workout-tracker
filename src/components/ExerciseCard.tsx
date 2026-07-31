@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import CompensationSheet from './CompensationSheet'
 import NumberStepper from './NumberStepper'
+import { getExerciseNote, setExerciseNote } from '../db'
 import { compensationSummary, hasCompensation } from '../lib/compensation'
 import { doneSets } from '../lib/derive'
 import type { RecordPrefill } from '../lib/prefill'
@@ -80,6 +81,18 @@ export default function ExerciseCard({
   showProgression?: boolean
 }) {
   const [editingCompensation, setEditingCompensation] = useState(false)
+  // 머신 세팅 메모 (T4). recordKey에 붙는 고정값이라 세션 상태와 별도로 읽고 쓴다
+  const [setupNote, setSetupNote] = useState<string | null>(null)
+  const [editingSetup, setEditingSetup] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    void getExerciseNote(entry.recordKey).then((n) => {
+      if (!cancelled) setSetupNote(n)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [entry.recordKey])
   const done = doneSets(entry)
   const complete = done.length >= entry.sets.length
   const isB = routineExercise.group === 'B'
@@ -146,6 +159,42 @@ export default function ExerciseCard({
             무엇을 느껴야 하는지 모르면 점수 자체가 무의미해진다.
           */}
           {cueTip && <p className="ex-cue">💡 {cueTip}</p>}
+
+          {/*
+            머신 세팅 메모 (T4). 세션 기록이 아니라 종목에 붙는 고정값이라,
+            다음 세션에도 같은 값이 그대로 보인다 — 매번 세팅을 다시 찾지 않는 것이 목적이다.
+          */}
+          {editingSetup ? (
+            <div className="setup-edit">
+              <input
+                className="field"
+                value={setupNote ?? ''}
+                onChange={(e) => setSetupNote(e.target.value)}
+                placeholder="예: 시트 3칸, 등받이 2"
+                aria-label={`${name} 머신 세팅 메모`}
+                autoFocus
+              />
+              <button
+                className="btn btn-sm"
+                onClick={() => {
+                  void setExerciseNote(entry.recordKey, setupNote ?? '')
+                  setEditingSetup(false)
+                }}
+              >
+                저장
+              </button>
+            </div>
+          ) : (
+            <button className="setup-row" onClick={() => setEditingSetup(true)}>
+              <span aria-hidden="true">🔧</span>
+              <span className={setupNote ? 'setup-value' : 'setup-empty'}>
+                {setupNote || '머신 세팅 메모 추가'}
+              </span>
+              <span aria-hidden="true" style={{ marginLeft: 'auto', opacity: 0.5 }}>
+                ✎
+              </span>
+            </button>
+          )}
           <div className="ex-chips">
             <span className="chip">{routineExercise.group}그룹</span>
             <span className="chip">휴식 {routineExercise.restSec}초</span>

@@ -1,12 +1,20 @@
 import Dexie, { type Table } from 'dexie'
 import { isSecretSettingKey } from '../lib/secrets'
-import type { Exercise, RoutineTemplate, Session, SettingRow } from '../types'
+import type {
+  Exercise,
+  ExerciseNote,
+  RoutineTemplate,
+  Session,
+  SettingRow,
+} from '../types'
 
 export class WorkoutDB extends Dexie {
   routines!: Table<RoutineTemplate, string>
   exercises!: Table<Exercise, string>
   sessions!: Table<Session, string>
   settings!: Table<SettingRow, string>
+  /** recordKey별 머신 세팅 메모 (T4) */
+  exerciseNotes!: Table<ExerciseNote, string>
 
   constructor() {
     super('workout-tracker')
@@ -23,6 +31,20 @@ export class WorkoutDB extends Dexie {
       exercises: 'id',
       sessions: 'id, date, dayId, routineId',
       settings: 'key',
+    })
+
+    /*
+     * 스키마 마이그레이션 규칙
+     *
+     * Dexie는 version()을 누적 선언한다 — 이전 version 블록을 **지우면 안 된다.**
+     * v1에서 멈춰 있던 기기가 앱을 열면 v1 → v2를 순서대로 밟는다.
+     * 테이블을 추가하는 것만으로는 upgrade() 콜백이 필요 없다 (빈 테이블이 생긴다).
+     * 기존 데이터를 변형해야 할 때만 .upgrade()를 붙인다.
+     *
+     * v2: exerciseNotes 추가 (T4 머신 세팅 메모)
+     */
+    this.version(2).stores({
+      exerciseNotes: 'recordKey',
     })
   }
 }
@@ -87,4 +109,21 @@ export async function getOpenSession(): Promise<Session | undefined> {
   return all
     .filter((s) => !s.endedAt)
     .sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0]
+}
+
+// ─── 머신 세팅 메모 (T4) ─────────────────────────────────
+
+/**
+ * recordKey별 고정 메모. 세션이 아니라 **종목에 붙는다** — 매 세션 같은 세팅을
+ * 다시 찾는 시간을 없애는 것이 목적이므로 다음 세션에도 그대로 보여야 한다.
+ * 빈 문자열이면 행을 지운다 (undefined 값 행을 남기지 않는다).
+ */
+export async function getExerciseNote(recordKey: string): Promise<string> {
+  return (await db.exerciseNotes.get(recordKey))?.note ?? ''
+}
+
+export async function setExerciseNote(recordKey: string, note: string): Promise<void> {
+  const trimmed = note.trim()
+  if (trimmed) await db.exerciseNotes.put({ recordKey, note: trimmed })
+  else await db.exerciseNotes.delete(recordKey)
 }

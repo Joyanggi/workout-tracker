@@ -18,9 +18,11 @@ import type { RecordKey } from '../types'
 export default function SessionScreen({
   bundle,
   onFinished,
+  onDiscarded,
 }: {
   bundle: RoutineBundle
   onFinished: () => void
+  onDiscarded: () => void
 }) {
   const session = useSessionStore((s) => s.session)
   const actions = useSessionStore()
@@ -165,6 +167,10 @@ export default function SessionScreen({
             // §5.5 "세션 종료마다 debounce 동기화". 토큰이 없으면 아무것도 하지 않는다
             requestSync()
             onFinished()
+          }}
+          onDiscarded={() => {
+            timer.dismiss()
+            onDiscarded()
           }}
         />
       )}

@@ -102,6 +102,7 @@ export default function App() {
       <SessionScreen
         bundle={bundle}
         onFinished={() => setView('summary')}
+        onDiscarded={() => setView('tabs')}
       />
     )
   }
