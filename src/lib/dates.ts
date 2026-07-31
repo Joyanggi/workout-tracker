@@ -48,6 +48,26 @@ export function weekDates(dateStr: string): string[] {
   })
 }
 
+/** from~to를 포함하는 모든 주의 월요일, 오름차순 */
+export function weekStartsBetween(from: string, to: string): string[] {
+  const out: string[] = []
+  let cursor = parseDateStr(weekStart(from))
+  const end = parseDateStr(weekStart(to)).getTime()
+  while (cursor.getTime() <= end) {
+    out.push(toDateStr(cursor))
+    const next = new Date(cursor)
+    next.setDate(next.getDate() + 7)
+    cursor = next
+  }
+  return out
+}
+
+export function addDays(dateStr: string, days: number): string {
+  const d = parseDateStr(dateStr)
+  d.setDate(d.getDate() + days)
+  return toDateStr(d)
+}
+
 const WEEKDAY_KO = ['일', '월', '화', '수', '목', '금', '토']
 
 export function weekdayKo(dateStr: string): string {

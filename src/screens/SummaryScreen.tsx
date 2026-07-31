@@ -1,9 +1,11 @@
 import { compensationSummary, hasCompensation } from '../lib/compensation'
+import { progressionSuggestions } from '../lib/progression'
 import { formatClock, formatElapsed } from '../lib/dates'
 import { doneSets, e1rm, findDay, totalDoneSets, totalVolume } from '../lib/derive'
 import type { RoutineBundle } from '../lib/useRoutine'
 import { useSessionStore } from '../store/session'
-import { NO_COMPENSATION, parseRecordKey, type Session } from '../types'
+import { useSettings } from '../store/settings'
+import { parseRecordKey, type Session } from '../types'
 
 /** 계획 순서 대비 수행 순서가 얼마나 어긋났는지 (§5.2 수행 순서 타임라인) */
 function orderDeviations(session: Session) {
@@ -25,6 +27,7 @@ export default function SummaryScreen({
   onDone: () => void
 }) {
   const session = useSessionStore((s) => s.lastFinished)
+  const phase = useSettings((s) => s.currentPhase)
 
   if (!session) {
     return (
@@ -47,21 +50,12 @@ export default function SummaryScreen({
     bundle.catalog.get(parseRecordKey(recordKey).exerciseId)?.shortName ??
     parseRecordKey(recordKey).exerciseId
 
-  // 다음 세션 증량 대상 (§7 더블 프로그레션). recordKey의 dayId 기준으로 종목 정의를 찾는다
-  const progressed = session.entries.flatMap((entry) => {
-    const { exerciseId, dayId } = parseRecordKey(entry.recordKey)
-    const routineExercise = bundle.routine.days
-      .concat(bundle.routine.fallbackDays)
-      .find((d) => d.id === dayId)
-      ?.exercises.find((e) => e.exerciseId === exerciseId)
-    if (!routineExercise || routineExercise.group !== 'A') return []
-    const sets = doneSets(entry)
-    if (sets.length === 0) return []
-    if (entry.compensation !== NO_COMPENSATION) return []
-    if (!sets.every((s) => s.reps >= routineExercise.repMax)) return []
-    const from = Math.max(...sets.map((s) => s.weight))
-    return [{ name: nameOf(entry.recordKey), from, to: from + bundle.routine.rules.weightIncrementKg }]
-  })
+  // 다음 세션 증량 대상 (§7 더블 프로그레션).
+  // 홈 배지(§5.1)와 같은 함수를 쓴다 — 두 화면이 다른 답을 말하면 안 된다.
+  const progressed = progressionSuggestions(session, bundle.routine, phase).map((p) => ({
+    ...p,
+    name: nameOf(p.recordKey),
+  }))
 
   const lowSensory = session.entries.filter(
     (e) => e.sensoryScore !== undefined && e.sensoryScore <= 1 && doneSets(e).length > 0,
@@ -105,7 +99,7 @@ export default function SummaryScreen({
         <div className="card">
           <div className="card-label">다음 세션 증량 제안</div>
           {progressed.map((p) => (
-            <div className="row" key={p.name}>
+            <div className="row" key={p.recordKey}>
               <div className="row-main">
                 <div className="row-title">{p.name}</div>
                 <div className="row-sub">모든 세트 상단 도달 · 보상작용 없음</div>

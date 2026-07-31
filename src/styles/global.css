@@ -956,3 +956,154 @@ select {
   border-color: var(--warn);
   color: var(--warn);
 }
+
+/* ─── 주간 도트 (§5.1) ─────────────────────────────────── */
+
+.week-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.week-count {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.week-dots {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.week-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.week-dot {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  max-width: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface-2);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.week-dot-done {
+  background: rgba(255, 122, 26, 0.16);
+}
+
+/* 오늘은 링으로 표시 (§5.1) */
+.week-dot-today {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.week-dot-future {
+  opacity: 0.4;
+}
+
+.week-dot-multi {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 0 3px;
+}
+
+.week-day-label {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+/* ─── 부위별 볼륨 바 (§5.1) ────────────────────────────── */
+
+.mbar {
+  margin-bottom: 12px;
+}
+
+.mbar:last-of-type {
+  margin-bottom: 0;
+}
+
+.mbar-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 5px;
+}
+
+.mbar-name {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.mbar-num {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.mbar-num-met {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.mbar-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+/* width가 아니라 scaleX — 레이아웃 재계산 없이 애니메이션된다 */
+.mbar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transform-origin: left center;
+  transition: transform 0.3s ease-out;
+}
+
+.mbar-fill-met {
+  background: var(--ok);
+}
+
+.mbar-fill-warn {
+  background: var(--warn);
+}
+
+.banner-warn {
+  background: rgba(255, 204, 0, 0.12);
+  color: var(--warn);
+}
+
+details.card > summary {
+  list-style: none;
+}
+
+details.card > summary::-webkit-details-marker {
+  display: none;
+}
+
+details.card > summary::after {
+  content: ' ▸';
+}
+
+details.card[open] > summary::after {
+  content: ' ▾';
+}

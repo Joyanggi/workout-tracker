@@ -1,5 +1,5 @@
 import routineJson from '../data/routine-v2.4.json'
-import type { RoutineTemplate, Session, SessionEntry, SetRecord } from '../types'
+import type { RoutineTemplate, Session, SessionEntry, SessionMode, SetRecord } from '../types'
 import { NO_COMPENSATION, makeRecordKey, recordDayIdOf } from '../types'
 import { findDay } from './derive'
 
@@ -21,6 +21,9 @@ export function completedSession(args: {
   /** 이 종목들만 수행 (부분 수행 시나리오) */
   onlyExercises?: string[]
   compensation?: string
+  /** 전 세트 반복수를 이 값으로 고정 (수행 저하 시나리오) */
+  repsOverride?: number
+  mode?: SessionMode
 }): Session {
   const {
     dayId,
@@ -31,6 +34,8 @@ export function completedSession(args: {
     weight = 40,
     onlyExercises,
     compensation = NO_COMPENSATION,
+    repsOverride,
+    mode = 'normal',
   } = args
 
   const day = findDay(ROUTINE, dayId)
@@ -41,7 +46,7 @@ export function completedSession(args: {
     .map((ex, i) => {
       const sets: SetRecord[] = Array.from({ length: ex.sets }, () => ({
         weight,
-        reps: fullReps ? ex.repMax : ex.repMin,
+        reps: repsOverride ?? (fullReps ? ex.repMax : ex.repMin),
         done: true,
         doneAt: startedAt,
       }))
@@ -62,7 +67,7 @@ export function completedSession(args: {
     date,
     dayId,
     routineId: ROUTINE.id,
-    mode: 'normal',
+    mode,
     startedAt,
     endedAt,
     entries,
