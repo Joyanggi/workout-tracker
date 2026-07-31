@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import TabBar, { type TabId } from './components/TabBar'
 import UpdatePrompt from './components/UpdatePrompt'
 import { ensureSeed, type SeedResult } from './db/seed'
+import { usePwaUpdate } from './lib/usePwaUpdate'
 import HomeScreen from './screens/HomeScreen'
 import Onboarding from './screens/Onboarding'
 import PlaceholderScreen from './screens/PlaceholderScreen'
@@ -9,6 +10,8 @@ import SettingsScreen from './screens/SettingsScreen'
 import { useSettings } from './store/settings'
 
 export default function App() {
+  // 최상위에서 호출해야 온보딩 전에도 서비스워커가 등록된다 (usePwaUpdate 주석 참조)
+  const pwa = usePwaUpdate()
   const [seed, setSeed] = useState<SeedResult | null>(null)
   const [bootError, setBootError] = useState<string | null>(null)
   const [tab, setTab] = useState<TabId>('home')
@@ -27,29 +30,46 @@ export default function App() {
     })()
   }, [load])
 
+  const banner = <UpdatePrompt {...pwa} />
+
   if (bootError) {
     return (
-      <div className="screen">
-        <h1 className="screen-title">시작 실패</h1>
-        <div className="banner banner-danger">
-          <span>{bootError}</span>
+      <>
+        {banner}
+        <div className="screen">
+          <h1 className="screen-title">시작 실패</h1>
+          <div className="banner banner-danger">
+            <span>{bootError}</span>
+          </div>
+          <p className="row-sub">
+            사파리 프라이빗 브라우징에서는 IndexedDB를 쓸 수 없습니다. 일반 탭에서 열어 주세요.
+          </p>
         </div>
-        <p className="row-sub">
-          사파리 프라이빗 브라우징에서는 IndexedDB를 쓸 수 없습니다. 일반 탭에서 열어 주세요.
-        </p>
-      </div>
+      </>
     )
   }
 
   if (!seed || !loaded) {
-    return <div className="center-note">불러오는 중…</div>
+    return (
+      <>
+        {banner}
+        <div className="center-note">불러오는 중…</div>
+      </>
+    )
   }
 
-  if (!onboardingDone) return <Onboarding />
+  if (!onboardingDone) {
+    return (
+      <>
+        {banner}
+        <Onboarding />
+      </>
+    )
+  }
 
   return (
     <div className="app">
-      <UpdatePrompt />
+      {banner}
       {tab === 'home' && <HomeScreen onOpenSettings={() => setTab('settings')} />}
       {tab === 'history' && (
         <PlaceholderScreen
