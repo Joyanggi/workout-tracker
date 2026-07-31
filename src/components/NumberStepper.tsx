@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { stepDown, stepUp } from '../lib/weightScale'
 
 /**
  * 입력 중 허용 패턴 (T2).
@@ -36,6 +37,11 @@ export default function NumberStepper({
   ariaLabel,
   /** 소수점 허용 자리수. 무게는 2, 횟수는 0 (§T2) */
   decimals = 0,
+  /**
+   * 불규칙 스택의 핀 값 (T9). 있으면 ±가 `step`이 아니라 이웃 핀으로 이동한다.
+   * 직접 입력은 여전히 자유다 — 사다리는 ± 버튼에만 적용된다.
+   */
+  ladder,
 }: {
   value: number
   step: number
@@ -44,20 +50,21 @@ export default function NumberStepper({
   onChange: (next: number) => void
   ariaLabel: string
   decimals?: 0 | 2
+  ladder?: number[]
 }) {
   const [text, setText] = useState<string | null>(null)
   const timers = useRef<{ delay?: number; repeat?: number }>({})
   // 롱프레스 반복은 콜백을 다시 만들지 않도록 최신 값을 ref로 읽는다
-  const latest = useRef({ value, step, min, max, onChange, decimals })
-  latest.current = { value, step, min, max, onChange, decimals }
+  const latest = useRef({ value, step, min, max, onChange, decimals, ladder })
+  latest.current = { value, step, min, max, onChange, decimals, ladder }
 
   const clamp = (n: number) => Math.min(max, Math.max(min, n))
 
   const bump = (dir: 1 | -1) => {
-    const { value: v, step: st, onChange: cb } = latest.current
-    // 부동소수 누적 방지 (2.5 스텝에서 40.00000000000001 같은 값 방지)
-    const factor = latest.current.decimals === 2 ? 100 : 1
-    const next = clamp(Math.round((v + dir * st) * factor) / factor)
+    const { value: v, step: st, ladder: lad, onChange: cb } = latest.current
+    // 부동소수 누적 방지는 stepUp/stepDown이 담당한다 (2.5 스텝에서 40.00000000000001 방지)
+    const scale = { step: st, ladder: lad }
+    const next = clamp(dir === 1 ? stepUp(v, scale) : stepDown(v, scale))
     if (next !== v) cb(next)
   }
 

@@ -9,6 +9,7 @@ import type {
 } from '../types'
 import { NO_COMPENSATION } from '../types'
 import { completedSessions, doneSets } from './derive'
+import { nextWeightForProgression, scaleFor, type WeightScaleMap } from './weightScale'
 
 /**
  * 무게·횟수 프리필 (DESIGN.md §5.2).
@@ -32,8 +33,11 @@ export interface RecordPrefill {
   best?: SetRef
   /** 직전 세션의 세트 (고스트 표시용) */
   lastSets: SetRef[]
-  /** 더블 프로그레션 충족 → 증량 제안 (§7). 강제 아님 */
-  progression?: { from: number; to: number }
+  /**
+   * 더블 프로그레션 충족 → 증량 제안 (§7). 강제 아님.
+   * `to === null`이면 사다리 최상단 (T9) — 프리필 무게는 그대로 두고 표시만 바꾼다.
+   */
+  progression?: { from: number; to: number | null }
 }
 
 /** 무게 우선, 동무게면 반복수 */
@@ -57,8 +61,9 @@ export function buildPrefill(args: {
   recordKey: RecordKey
   routineExercise: RoutineExercise
   phase: Phase
+  scales?: WeightScaleMap
 }): RecordPrefill {
-  const { sessions, routine, recordKey, routineExercise, phase } = args
+  const { sessions, routine, recordKey, routineExercise, phase, scales } = args
   const history = sessionsForRecord(sessions, recordKey)
   const recent = history.slice(0, RECENT_SESSIONS_FOR_PREFILL)
 
@@ -85,7 +90,14 @@ export function buildPrefill(args: {
     bestBySet,
     best,
     lastSets,
-    progression: computeProgression({ routine, routineExercise, phase, lastSets, lastCompensation: lastEntry?.compensation }),
+    progression: computeProgression({
+      routine,
+      routineExercise,
+      phase,
+      lastSets,
+      lastCompensation: lastEntry?.compensation,
+      scale: scaleFor(scales, recordKey, routine.rules.weightIncrementKg),
+    }),
   }
 }
 
@@ -104,7 +116,9 @@ export function computeProgression(args: {
   phase: Phase
   lastSets: SetRef[]
   lastCompensation?: string
-}): { from: number; to: number } | undefined {
+  /** 종목별 무게 단위 (T9). 미지정 시 루틴 전역값 */
+  scale?: { step: number; ladder?: number[] }
+}): { from: number; to: number | null } | undefined {
   const { routine, routineExercise, phase, lastSets, lastCompensation } = args
   if (routineExercise.group !== 'A') return undefined
   if (phase === 0 && !routine.rules.allowProgressionInPhase0) return undefined
@@ -115,7 +129,8 @@ export function computeProgression(args: {
   if (!lastSets.every((s) => s.reps >= routineExercise.repMax)) return undefined
 
   const from = Math.max(...lastSets.map((s) => s.weight))
-  return { from, to: from + routine.rules.weightIncrementKg }
+  const scale = args.scale ?? { step: routine.rules.weightIncrementKg }
+  return { from, to: nextWeightForProgression(from, scale) }
 }
 
 /**

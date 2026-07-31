@@ -2,6 +2,8 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import { compensationSummary, hasCompensation } from '../lib/compensation'
 import { progressionSuggestions } from '../lib/progression'
+import { buildScaleMap, formatProgression } from '../lib/weightScale'
+import { useExerciseSettings } from '../lib/useExerciseSettings'
 import { PR_LABEL, detectPrs, topPrPerRecord } from '../lib/pr'
 import { formatClock, formatElapsed } from '../lib/dates'
 import { doneSets, e1rm, findDay, totalDoneSets, totalVolume } from '../lib/derive'
@@ -32,6 +34,7 @@ export default function SummaryScreen({
   const session = useSessionStore((s) => s.lastFinished)
   const phase = useSettings((s) => s.currentPhase)
   const allSessions = useLiveQuery(() => db.sessions.toArray(), [], [])
+  const exerciseSettings = useExerciseSettings()
 
   if (!session) {
     return (
@@ -56,10 +59,12 @@ export default function SummaryScreen({
 
   // 다음 세션 증량 대상 (§7 더블 프로그레션).
   // 홈 배지(§5.1)와 같은 함수를 쓴다 — 두 화면이 다른 답을 말하면 안 된다.
-  const progressed = progressionSuggestions(session, bundle.routine, phase).map((p) => ({
-    ...p,
-    name: nameOf(p.recordKey),
-  }))
+  const progressed = progressionSuggestions(
+    session,
+    bundle.routine,
+    phase,
+    buildScaleMap(exerciseSettings, bundle.routine.rules.weightIncrementKg),
+  ).map((p) => ({ ...p, name: nameOf(p.recordKey) }))
 
   // PR (T5). 감량기에는 증량 조건이 잘 안 뜨므로 e1RM·반복 PR이 진전을 보여주는 주 채널이다
   const prs = topPrPerRecord(detectPrs(allSessions, session))
@@ -135,7 +140,7 @@ export default function SummaryScreen({
                 <div className="row-sub">모든 세트 상단 도달 · 보상작용 없음</div>
               </div>
               <div className="row-meta" style={{ color: 'var(--accent)' }}>
-                {p.from} → {p.to}kg
+                {formatProgression(p.from, p.to)}
               </div>
             </div>
           ))}

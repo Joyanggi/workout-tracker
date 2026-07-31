@@ -1,6 +1,7 @@
 import { NO_COMPENSATION, parseRecordKey } from '../types'
 import type { Phase, RoutineTemplate, Session } from '../types'
 import { doneSets, findRoutineExercise } from './derive'
+import { nextWeightForProgression, scaleFor, type WeightScaleMap } from './weightScale'
 
 /**
  * 더블 프로그레션 증량 판정 (DESIGN.md §7).
@@ -13,18 +14,25 @@ import { doneSets, findRoutineExercise } from './derive'
  * prefill.ts의 computeProgression은 "다음 세션 프리필에 넣을 무게"를 구하고,
  * 이 함수는 "완료된 세션에서 달성한 종목 목록"을 구한다. 판정 규칙은 동일하다 —
  * 홈 배지(§5.1)와 세션 요약(§5.2)이 같은 답을 말해야 하므로 한 곳에 둔다.
+ *
+ * 증량 폭은 종목별 무게 단위(T9)를 따른다. `scales`를 넘기지 않으면 루틴 전역값이다.
  */
 export interface ProgressionSuggestion {
   recordKey: string
   exerciseId: string
   from: number
-  to: number
+  /**
+   * 다음 무게. **`null`이면 사다리 최상단** — 조건은 충족했지만 스택에 다음 핀이 없다.
+   * 조건 충족 자체가 사용자에게 필요한 정보이므로 목록에서 빼지 않고 이 상태로 알린다.
+   */
+  to: number | null
 }
 
 export function progressionSuggestions(
   session: Session,
   routine: RoutineTemplate,
   phase: Phase,
+  scales?: WeightScaleMap,
 ): ProgressionSuggestion[] {
   if (phase === 0 && !routine.rules.allowProgressionInPhase0) return []
 
@@ -43,13 +51,7 @@ export function progressionSuggestions(
     if (!sets.every((s) => s.reps >= routineExercise.repMax)) return []
 
     const from = Math.max(...sets.map((s) => s.weight))
-    return [
-      {
-        recordKey: entry.recordKey,
-        exerciseId,
-        from,
-        to: from + routine.rules.weightIncrementKg,
-      },
-    ]
+    const scale = scaleFor(scales, entry.recordKey, routine.rules.weightIncrementKg)
+    return [{ recordKey: entry.recordKey, exerciseId, from, to: nextWeightForProgression(from, scale) }]
   })
 }

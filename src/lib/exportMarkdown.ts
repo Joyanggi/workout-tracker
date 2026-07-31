@@ -5,6 +5,8 @@ import { formatClock, weekdayKo } from './dates'
 import { withObjectParticle } from './korean'
 import { completedSessions, doneSets, findRoutineExercise, orderDeviations } from './derive'
 import { progressionSuggestions } from './progression'
+import { buildScaleMap, type WeightScaleMap } from './weightScale'
+import type { ExerciseSetting } from '../types'
 
 /**
  * Markdown 내보내기 (DESIGN.md §6).
@@ -37,8 +39,7 @@ function entryLine(
   session: Session,
   routine: RoutineTemplate,
   catalog: Map<string, Exercise>,
-  progressed: Set<string>,
-  increment: number,
+  nextWeights: Map<string, number | null>,
 ): string[] {
   const { exerciseId, dayId } = parseRecordKey(entry.recordKey)
   const routineExercise = findRoutineExercise(routine, dayId, exerciseId)
@@ -60,13 +61,20 @@ function entryLine(
   }
   lines.push(`보상작용: ${entry.compensation}`)
 
-  // 증량 판단은 더블 프로그레션 규칙으로 자동 산출 (§6). A그룹만 판단 대상이다
+  // 증량 판단은 더블 프로그레션 규칙으로 자동 산출 (§6). A그룹만 판단 대상이다.
+  // 증량 폭은 종목별 무게 단위(T9)를 따른다 — 5kg 머신에 +2.5를 적어 보내면
+  // LLM 분석도 존재하지 않는 무게를 전제하게 된다.
   if (routineExercise?.group === 'A' && sets.length > 0) {
-    lines.push(
-      progressed.has(entry.recordKey)
-        ? `다음: ${fmtWeight(weight + increment)}kg로 증량`
-        : `다음: ${fmtWeight(weight)}kg 유지`,
-    )
+    if (!nextWeights.has(entry.recordKey)) {
+      lines.push(`다음: ${fmtWeight(weight)}kg 유지`)
+    } else {
+      const next = nextWeights.get(entry.recordKey) ?? null
+      lines.push(
+        next === null
+          ? `다음: ${fmtWeight(weight)}kg 유지 (증량 조건 충족 — 스택 최대)`
+          : `다음: ${fmtWeight(next)}kg로 증량`,
+      )
+    }
   }
   // 사용하지 않는 인자 경고 방지 겸 명시: session은 호출부 문맥용
   void session
@@ -78,6 +86,7 @@ export function sessionToMarkdown(
   routine: RoutineTemplate,
   catalog: Map<string, Exercise>,
   phase: Phase,
+  scales?: WeightScaleMap,
 ): string {
   const day = [...routine.days, ...routine.fallbackDays].find((d) => d.id === session.dayId)
   const nameOf = (recordKey: string) =>
@@ -128,13 +137,13 @@ export function sessionToMarkdown(
   }
   out.push('')
 
-  const progressed = new Set(
-    progressionSuggestions(session, routine, phase).map((p) => p.recordKey),
+  const nextWeights = new Map(
+    progressionSuggestions(session, routine, phase, scales).map((p) => [p.recordKey, p.to]),
   )
   // 워밍업만 체크한 종목은 작업 세트가 없어 반복수 줄이 비어버린다 — 본문에서 제외한다
   const performed = timeline.map((t) => t.entry).filter((e) => doneSets(e).length > 0)
   for (const entry of performed) {
-    out.push(...entryLine(entry, session, routine, catalog, progressed, routine.rules.weightIncrementKg))
+    out.push(...entryLine(entry, session, routine, catalog, nextWeights))
     out.push('')
   }
 
@@ -159,8 +168,11 @@ export function exportMarkdown(args: {
   catalog: Map<string, Exercise>
   phase: Phase
   range: ExportRange
+  /** 종목별 무게 단위 행 (T9). 없으면 루틴 전역 증량폭 */
+  exerciseSettings?: ExerciseSetting[]
 }): string {
   const { sessions, routine, catalog, phase, range } = args
+  const scales = buildScaleMap(args.exerciseSettings, routine.rules.weightIncrementKg)
   // 오래된 것부터 — 추이를 읽는 문서이므로 시간순이어야 한다
   const inRange = completedSessions(sessions)
     .filter((s) => s.date >= range.from && s.date <= range.to)
@@ -172,7 +184,7 @@ export function exportMarkdown(args: {
   return [
     head,
     '',
-    ...inRange.flatMap((s) => [sessionToMarkdown(s, routine, catalog, phase), '']),
+    ...inRange.flatMap((s) => [sessionToMarkdown(s, routine, catalog, phase, scales), '']),
   ]
     .join('\n')
     .trimEnd()

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { createBackup } from '../lib/backup'
 import { addDays, addMonths, monthStart, todayLocal } from '../lib/dates'
 import { completedSessions } from '../lib/derive'
+import { useExerciseSettings } from '../lib/useExerciseSettings'
 import { exportMarkdown, type ExportRange } from '../lib/exportMarkdown'
 import { OUTCOME_MESSAGE, copyText, shareFile, shareText } from '../lib/share'
 import type { RoutineBundle } from '../lib/useRoutine'
@@ -51,6 +52,7 @@ export default function ExportPanel({
   const [status, setStatus] = useState<string | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const today = todayLocal()
+  const exerciseSettings = useExerciseSettings()
 
   const range = useMemo(() => rangeFor(preset, today, sessions), [preset, today, sessions])
   const inRange = useMemo(
@@ -65,6 +67,7 @@ export default function ExportPanel({
       catalog: bundle.catalog,
       phase,
       range,
+      exerciseSettings,
     })
 
   const onShareMd = async () => {

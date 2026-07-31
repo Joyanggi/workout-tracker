@@ -9,6 +9,8 @@ import { formatElapsed } from '../lib/dates'
 import { doneSets, findDay } from '../lib/derive'
 import { requestSync } from '../lib/gistSync'
 import { buildPrefill, type RecordPrefill } from '../lib/prefill'
+import { buildScaleMap } from '../lib/weightScale'
+import { useExerciseSettings } from '../lib/useExerciseSettings'
 import { useRestTimer } from '../lib/useRestTimer'
 import type { RoutineBundle } from '../lib/useRoutine'
 import { useSessionStore } from '../store/session'
@@ -46,6 +48,7 @@ export default function SessionScreen({
   }, [startedAt])
 
   const allSessions = useLiveQuery(() => db.sessions.toArray(), [], [])
+  const exerciseSettings = useExerciseSettings()
 
   // 프리필은 저장하지 않고 매번 파생 계산한다 (앱 재시작 후 이어하기에서도 동일하게 나와야 함).
   // buildPrefill은 완료 세션만 보므로 진행 중인 현재 세션은 자동으로 제외된다.
@@ -72,12 +75,13 @@ export default function SessionScreen({
           recordKey: entry.recordKey,
           routineExercise,
           phase,
+          scales: buildScaleMap(exerciseSettings, bundle.routine.rules.weightIncrementKg),
         }),
       )
     }
     return map
     // eslint-disable-next-line react-hooks/exhaustive-deps -- session은 id/dayId/키 목록으로 대표한다
-  }, [sessionId, sessionDayId, entryKeys, allSessions, bundle.routine, phase])
+  }, [sessionId, sessionDayId, entryKeys, allSessions, bundle.routine, phase, exerciseSettings])
 
   // 첫 진입 시 아직 손대지 않은 첫 종목을 펼쳐둔다.
   // openKey를 조건으로 쓰면 사용자가 카드를 접을 때(openKey → null) 다른 카드가
@@ -137,6 +141,7 @@ export default function SessionScreen({
               fullName={exercise?.name ?? routineExercise.exerciseId}
               cueTip={exercise?.cueTip}
               compensationSigns={exercise?.compensationSigns ?? []}
+              defaultStep={bundle.routine.rules.weightIncrementKg}
               prefill={prefills.get(entry.recordKey)}
               showProgression={session.mode === 'normal'}
               actions={actions}

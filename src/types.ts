@@ -202,15 +202,24 @@ export interface Settings {
 }
 
 /**
- * recordKey별 머신 세팅 메모 (T4). "시트 3칸, 등받이 2" 같은 것.
+ * recordKey별 고정 설정 — 머신 세팅 메모(T4)와 무게 단위(T9).
  *
  * 세션 기록이 아니라 **종목에 붙는 고정값**이다. 내보내기 Markdown에는 넣지 않는다 —
  * 세팅값은 분석 대상이 아니고, LLM에 붙여넣는 문서를 길게 만들 이유가 없다.
  * JSON 백업에는 포함한다 (기기를 바꾸면 같이 옮겨져야 한다).
+ *
+ * Dexie 테이블 이름은 `exerciseNotes`로 남겨둔다 — T4가 이미 스키마 v2로 배포됐고,
+ * 이름만 바꾸려면 두 단계 마이그레이션으로 실제 기록을 옮겨야 한다.
+ * 얻는 것이 이름뿐이라 사용자 데이터를 건드릴 이유가 되지 않는다.
  */
-export interface ExerciseNote {
+export interface ExerciseSetting {
   recordKey: RecordKey
-  note: string
+  /** 머신 세팅 메모 (T4). "시트 3칸, 등받이 2" */
+  note?: string
+  /** 균일 핀 간격 (T9). 미설정 시 루틴의 weightIncrementKg */
+  weightStepKg?: number
+  /** 불규칙 스택의 실제 핀 값 (T9, 오름차순). 있으면 weightStepKg보다 우선 */
+  weightLadderKg?: number[]
 }
 
 /** settings 테이블은 key-value (§3) */

@@ -1,7 +1,7 @@
 import { db } from "../db";
 import type {
   Exercise,
-  ExerciseNote,
+  ExerciseSetting,
   RoutineTemplate,
   Session,
   SettingRow,
@@ -18,6 +18,11 @@ import { isSecretSettingKey } from "./secrets";
 /**
  * 백업 파일 스키마 버전.
  * v2: exerciseNotes 추가 (T4). 구버전 앱은 parseBackup에서 "더 새로운 스키마"로 거부한다.
+ *
+ * T9(무게 단위)는 **버전을 올리지 않는다.** 같은 테이블·같은 행에 필드를 더한 것이고,
+ * 복원은 행을 통째로 put하므로 모르는 필드도 그대로 실려간다 — 즉 v2 앱이 T9 파일을
+ * 복원해도 무게 단위가 유실되지 않는다. 버전을 올리면 그 앱이 파일을 **거부**해
+ * 오히려 복원이 막힌다.
  */
 export const SCHEMA_VERSION = 2;
 export const APP_ID = "workout-tracker";
@@ -31,7 +36,7 @@ export interface BackupFile {
   sessions: Session[];
   settings: SettingRow[];
   /** v2+. 구버전 백업에는 없으므로 optional (복원 시 [] 취급) */
-  exerciseNotes?: ExerciseNote[];
+  exerciseNotes?: ExerciseSetting[];
 }
 
 /**

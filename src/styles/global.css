@@ -1423,3 +1423,45 @@ button.chip {
   font-size: 12px;
   color: var(--accent);
 }
+
+/* 종목별 고정 설정 행 묶음 (T4 메모 + T9 무게 단위) */
+.setting-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.setting-rows .setup-row,
+.setting-rows .setup-edit {
+  margin-bottom: 0;
+}
+
+/* 무게 단위 프리셋 (T9). 44pt 터치 타깃을 유지하면서 375px에 5개가 들어가야 한다 */
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip-btn {
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  border-radius: var(--r-sm);
+}
+
+.chip-btn-on {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(10, 132, 255, 0.12);
+}
+
+textarea.field {
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.5;
+}

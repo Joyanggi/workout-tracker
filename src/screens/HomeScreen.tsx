@@ -18,6 +18,8 @@ import { backupReminder, isGistConfigured } from '../lib/gistSync'
 import { completedSessions, findDay } from '../lib/derive'
 import { storageAtRisk } from '../lib/platform'
 import { progressionSuggestions } from '../lib/progression'
+import { buildScaleMap, formatProgression } from '../lib/weightScale'
+import { useExerciseSettings } from '../lib/useExerciseSettings'
 import { buildSession } from '../lib/sessionFactory'
 import { suggestNextDay } from '../lib/suggestNextDay'
 import { exerciseLabel, useRoutine } from '../lib/useRoutine'
@@ -31,6 +33,7 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
   const currentPhase = useSettings((s) => s.currentPhase)
   const setPhase = useSettings((s) => s.setPhase)
   const sessions = useLiveQuery(() => db.sessions.toArray(), [], [])
+  const exerciseSettings = useExerciseSettings()
   const openSession = useSessionStore((s) => s.session)
   const begin = useSessionStore((s) => s.begin)
   const finishSession = useSessionStore((s) => s.finish)
@@ -59,10 +62,17 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
       volume: muscleBars(sessions, routine, today),
       deload: deloadState(sessions, routine, today),
       phase0: phase0Progress(sessions, routine, today),
-      progressions: last ? progressionSuggestions(last, routine, currentPhase) : [],
+      progressions: last
+        ? progressionSuggestions(
+            last,
+            routine,
+            currentPhase,
+            buildScaleMap(exerciseSettings, routine.rules.weightIncrementKg),
+          )
+        : [],
       phase: phaseReadiness(sessions, routine, currentPhase, today),
     }
-  }, [bundle, sessions, today, currentPhase])
+  }, [bundle, sessions, today, currentPhase, exerciseSettings])
 
   if (!bundle || !dash) {
     return (
@@ -241,7 +251,9 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
             <br />
             <small>
               {progressions
-                .map((p) => `${exerciseLabel(catalog, p.exerciseId)} ${p.from}→${p.to}kg`)
+                .map(
+                  (p) => `${exerciseLabel(catalog, p.exerciseId)} ${formatProgression(p.from, p.to)}`,
+                )
                 .join(' · ')}
             </small>
           </span>

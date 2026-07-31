@@ -2,7 +2,7 @@ import Dexie, { type Table } from 'dexie'
 import { isSecretSettingKey } from '../lib/secrets'
 import type {
   Exercise,
-  ExerciseNote,
+  ExerciseSetting,
   RoutineTemplate,
   Session,
   SettingRow,
@@ -13,8 +13,11 @@ export class WorkoutDB extends Dexie {
   exercises!: Table<Exercise, string>
   sessions!: Table<Session, string>
   settings!: Table<SettingRow, string>
-  /** recordKey별 머신 세팅 메모 (T4) */
-  exerciseNotes!: Table<ExerciseNote, string>
+  /**
+   * recordKey별 고정 설정 — 머신 세팅 메모(T4) + 무게 단위(T9).
+   * 테이블 이름을 `exerciseSettings`로 바꾸지 않는 이유는 types.ts의 ExerciseSetting 주석 참조.
+   */
+  exerciseNotes!: Table<ExerciseSetting, string>
 
   constructor() {
     super('workout-tracker')
@@ -111,19 +114,52 @@ export async function getOpenSession(): Promise<Session | undefined> {
     .sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0]
 }
 
-// ─── 머신 세팅 메모 (T4) ─────────────────────────────────
+// ─── 종목별 고정 설정: 세팅 메모(T4) + 무게 단위(T9) ────
 
 /**
- * recordKey별 고정 메모. 세션이 아니라 **종목에 붙는다** — 매 세션 같은 세팅을
+ * recordKey별 고정값. 세션이 아니라 **종목에 붙는다** — 매 세션 같은 세팅을
  * 다시 찾는 시간을 없애는 것이 목적이므로 다음 세션에도 그대로 보여야 한다.
- * 빈 문자열이면 행을 지운다 (undefined 값 행을 남기지 않는다).
+ *
+ * 한 행에 메모와 무게 단위가 같이 있으므로 **부분 수정은 반드시 병합**해야 한다.
+ * put으로 통째로 덮으면 메모를 저장할 때 무게 단위가 조용히 사라진다.
+ * 남는 필드가 없으면 행을 지운다 (전부 undefined인 행이 백업에 실리지 않게).
  */
+async function patchExerciseSetting(
+  recordKey: string,
+  patch: Partial<Omit<ExerciseSetting, 'recordKey'>>,
+): Promise<void> {
+  const current = await db.exerciseNotes.get(recordKey)
+  const next: ExerciseSetting = { ...current, ...patch, recordKey }
+  if (next.note === undefined && next.weightStepKg === undefined && !next.weightLadderKg?.length) {
+    await db.exerciseNotes.delete(recordKey)
+    return
+  }
+  await db.exerciseNotes.put(next)
+}
+
+export async function getExerciseSetting(recordKey: string): Promise<ExerciseSetting | undefined> {
+  return db.exerciseNotes.get(recordKey)
+}
+
 export async function getExerciseNote(recordKey: string): Promise<string> {
   return (await db.exerciseNotes.get(recordKey))?.note ?? ''
 }
 
 export async function setExerciseNote(recordKey: string, note: string): Promise<void> {
   const trimmed = note.trim()
-  if (trimmed) await db.exerciseNotes.put({ recordKey, note: trimmed })
-  else await db.exerciseNotes.delete(recordKey)
+  await patchExerciseSetting(recordKey, { note: trimmed || undefined })
+}
+
+/**
+ * 무게 단위 저장. 사다리와 균일 스텝은 배타적이다 — 둘 다 있으면 사다리가 이기는데,
+ * 그 상태로 남겨두면 사다리를 지웠을 때 예상 밖의 옛 스텝이 살아난다.
+ */
+export async function setExerciseWeightScale(
+  recordKey: string,
+  scale: { weightStepKg?: number; weightLadderKg?: number[] },
+): Promise<void> {
+  await patchExerciseSetting(recordKey, {
+    weightStepKg: scale.weightLadderKg?.length ? undefined : scale.weightStepKg,
+    weightLadderKg: scale.weightLadderKg?.length ? scale.weightLadderKg : undefined,
+  })
 }

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import CompensationSheet from './CompensationSheet'
 import NumberStepper from './NumberStepper'
-import { getExerciseNote, setExerciseNote } from '../db'
+import WeightScaleSheet from './WeightScaleSheet'
+import { getExerciseSetting, setExerciseNote, setExerciseWeightScale } from '../db'
+import { describeScale, type WeightScale } from '../lib/weightScale'
 import { compensationSummary, hasCompensation } from '../lib/compensation'
 import { doneSetsAll } from '../lib/derive'
 import type { RecordPrefill } from '../lib/prefill'
@@ -53,6 +55,7 @@ export default function ExerciseCard({
   cueTip,
   compensationSigns,
   prefill,
+  defaultStep,
   actions,
   open,
   onToggleOpen,
@@ -73,6 +76,8 @@ export default function ExerciseCard({
   cueTip?: string
   compensationSigns: string[]
   prefill?: RecordPrefill
+  /** 무게 단위 기본값 = 루틴의 weightIncrementKg. 종목별 설정(T9)이 이 값을 덮는다 */
+  defaultStep: number
   actions: EntryActions
   open: boolean
   onToggleOpen: () => void
@@ -81,18 +86,32 @@ export default function ExerciseCard({
   showProgression?: boolean
 }) {
   const [editingCompensation, setEditingCompensation] = useState(false)
-  // 머신 세팅 메모 (T4). recordKey에 붙는 고정값이라 세션 상태와 별도로 읽고 쓴다
+  // 종목별 고정 설정 — 세팅 메모(T4) + 무게 단위(T9).
+  // recordKey에 붙는 값이라 세션 상태와 별도로 읽고 쓴다. 한 행이므로 한 번만 읽는다.
   const [setupNote, setSetupNote] = useState<string | null>(null)
   const [editingSetup, setEditingSetup] = useState(false)
+  const [scaleRow, setScaleRow] = useState<{
+    weightStepKg?: number
+    weightLadderKg?: number[]
+  }>({})
+  const [editingScale, setEditingScale] = useState(false)
   useEffect(() => {
     let cancelled = false
-    void getExerciseNote(entry.recordKey).then((n) => {
-      if (!cancelled) setSetupNote(n)
+    void getExerciseSetting(entry.recordKey).then((row) => {
+      if (cancelled) return
+      setSetupNote(row?.note ?? '')
+      setScaleRow({ weightStepKg: row?.weightStepKg, weightLadderKg: row?.weightLadderKg })
     })
     return () => {
       cancelled = true
     }
   }, [entry.recordKey])
+
+  const weightScale: WeightScale = {
+    step: scaleRow.weightStepKg ?? defaultStep,
+    ...(scaleRow.weightLadderKg?.length ? { ladder: scaleRow.weightLadderKg } : {}),
+  }
+  const scaleIsCustom = scaleRow.weightStepKg !== undefined || !!scaleRow.weightLadderKg?.length
   const done = doneSetsAll(entry)
   const complete = done.length >= entry.sets.length
   const isB = routineExercise.group === 'B'
@@ -168,6 +187,7 @@ export default function ExerciseCard({
             머신 세팅 메모 (T4). 세션 기록이 아니라 종목에 붙는 고정값이라,
             다음 세션에도 같은 값이 그대로 보인다 — 매번 세팅을 다시 찾지 않는 것이 목적이다.
           */}
+          <div className="setting-rows">
           {editingSetup ? (
             <div className="setup-edit">
               <input
@@ -199,6 +219,21 @@ export default function ExerciseCard({
               </span>
             </button>
           )}
+
+          {/*
+            무게 단위 (T9). 루틴 문서 10장의 증량은 "머신 한 핀"인데 한 핀이 몇 kg인지는
+            머신마다 다르다. 미설정 종목은 루틴 전역값이라 표시를 흐리게 둔다.
+          */}
+          <button className="setup-row" onClick={() => setEditingScale(true)}>
+            <span aria-hidden="true">⚖</span>
+            <span className={scaleIsCustom ? 'setup-value' : 'setup-empty'}>
+              무게 단위 · {describeScale(weightScale)}
+            </span>
+            <span aria-hidden="true" style={{ marginLeft: 'auto', opacity: 0.5 }}>
+              ✎
+            </span>
+          </button>
+          </div>
           <div className="ex-chips">
             <span className="chip">{routineExercise.group}그룹</span>
             <span className="chip">휴식 {routineExercise.restSec}초</span>
@@ -253,7 +288,8 @@ export default function ExerciseCard({
                 <div className="stepper-slot stepper-slot-wide">
                   <NumberStepper
                     value={set.weight}
-                    step={2.5}
+                    step={weightScale.step}
+                    ladder={weightScale.ladder}
                     max={500}
                     onChange={(weight) => actions.patchSet(entry.recordKey, i, { weight })}
                     ariaLabel={`${name} ${i + 1}세트 무게`}
@@ -349,6 +385,19 @@ export default function ExerciseCard({
             </button>
           </div>
         </div>
+      )}
+
+      {editingScale && (
+        <WeightScaleSheet
+          exerciseName={fullName}
+          defaultStep={defaultStep}
+          current={scaleRow}
+          onSave={(next) => {
+            setScaleRow(next)
+            void setExerciseWeightScale(entry.recordKey, next)
+          }}
+          onClose={() => setEditingScale(false)}
+        />
       )}
 
       {editingCompensation && (

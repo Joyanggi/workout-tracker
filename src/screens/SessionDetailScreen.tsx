@@ -126,6 +126,7 @@ export default function SessionDetailScreen({
             fullName={exercise?.name ?? exerciseId}
             cueTip={exercise?.cueTip}
             compensationSigns={exercise?.compensationSigns ?? []}
+            defaultStep={bundle.routine.rules.weightIncrementKg}
             actions={editor.actions}
             open={openKey === entry.recordKey}
             onToggleOpen={() => setOpenKey(openKey === entry.recordKey ? null : entry.recordKey)}

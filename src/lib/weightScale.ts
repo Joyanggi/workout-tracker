@@ -1,0 +1,132 @@
+import type { ExerciseSetting, RecordKey } from '../types'
+
+/**
+ * 종목별 무게 단위 (T9).
+ *
+ * 루틴 문서 10장은 증량을 "머신은 한 핀"으로 규정한다. 그런데 앱은 전역
+ * `weightIncrementKg: 2.5` 하나만 알고 있어서, 한 핀이 5kg인 머신에서 "40 → 42.5"처럼
+ * **존재하지 않는 무게**를 제안했다. 핀 간격은 머신마다 다르고 균일하지도 않다.
+ *
+ * 그래서 두 단계로 표현한다:
+ *   - `step`  — 균일 간격 머신 (대다수). 미설정 시 루틴의 전역값
+ *   - `ladder` — 불규칙 스택 (2.5씩 가다 3씩 뛰는 것). 실제 핀 값을 나열
+ *
+ * `ladder`가 있으면 그것이 우선한다. 사다리는 **스테퍼 이동과 증량 제안에만** 쓰고
+ * 저장값을 강제로 스냅하지 않는다 — 직접 입력은 자유여야 한다 (원판을 얹거나,
+ * 머신을 잘못 등록했을 때 기록이 막히면 안 된다).
+ */
+export interface WeightScale {
+  step: number
+  ladder?: number[]
+}
+
+export type WeightScaleMap = Map<RecordKey, WeightScale>
+
+/** 로딩 중에도 매 렌더 새 Map을 만들지 않도록 공용 상수를 쓴다 */
+export const EMPTY_SCALES: WeightScaleMap = new Map()
+
+/** 무게 단위 프리셋 (설정 시트). 직접 입력·사다리는 별도 경로 */
+export const STEP_PRESETS = [1, 1.25, 2, 2.5, 5] as const
+
+/** 0.01 단위 반올림 — 2.5 스텝 누적에서 40.00000000000001 같은 값을 막는다 */
+export function round2(n: number): number {
+  return Math.round(n * 100) / 100
+}
+
+export function buildScaleMap(
+  rows: ExerciseSetting[] | undefined,
+  defaultStep: number,
+): WeightScaleMap {
+  const map: WeightScaleMap = new Map()
+  for (const row of rows ?? []) {
+    const ladder = row.weightLadderKg
+    const step = row.weightStepKg
+    // 아무것도 설정되지 않은 행(메모만 있는 행)은 넣지 않는다 — 기본값과 같다
+    if (!ladder?.length && step === undefined) continue
+    map.set(row.recordKey, {
+      step: step ?? defaultStep,
+      ...(ladder?.length ? { ladder } : {}),
+    })
+  }
+  return map
+}
+
+export function scaleFor(
+  scales: WeightScaleMap | undefined,
+  recordKey: RecordKey,
+  defaultStep: number,
+): WeightScale {
+  return scales?.get(recordKey) ?? { step: defaultStep }
+}
+
+/** 사다리 등록 입력 파싱. "5,10,15" / 공백·줄바꿈 구분 모두 허용 */
+export function parseLadder(text: string): { ladder?: number[]; error?: string } {
+  const tokens = text
+    .split(/[,\s]+/)
+    .map((t) => t.trim())
+    .filter((t) => t !== '')
+  if (tokens.length === 0) return {}
+
+  const values: number[] = []
+  for (const token of tokens) {
+    const n = Number(token.replace(',', '.'))
+    if (!Number.isFinite(n) || n <= 0) return { error: `"${token}"은 무게로 읽을 수 없습니다` }
+    values.push(round2(n))
+  }
+  const ladder = [...new Set(values)].sort((a, b) => a - b)
+  if (ladder.length < 2) return { error: '핀 값이 2개 이상 필요합니다' }
+  return { ladder }
+}
+
+export function formatLadder(ladder: number[]): string {
+  return ladder.map((n) => String(n)).join(', ')
+}
+
+/**
+ * 스테퍼 + 이동.
+ *
+ * 사다리에서는 **현재 값보다 큰 첫 핀**으로 간다. 계획서는 "가장 가까운 값으로 스냅 후
+ * 이동"이었지만, 그러면 사다리 밖 값에서 유효한 핀을 뛰어넘는다 — [35, 41]에서 36에
+ * 있을 때 스냅(35) 후 하강은 30으로 가버려 35를 건너뛴다. 이웃 핀으로 직행하면
+ * 어느 값에서 시작해도 유효한 핀을 잃지 않는다. 사다리 안의 값에서는 두 방식이 같다.
+ */
+export function stepUp(current: number, scale: WeightScale): number {
+  if (scale.ladder?.length) {
+    return scale.ladder.find((v) => v > current) ?? current
+  }
+  return round2(current + scale.step)
+}
+
+export function stepDown(current: number, scale: WeightScale): number {
+  if (scale.ladder?.length) {
+    const below = scale.ladder.filter((v) => v < current)
+    return below.length > 0 ? below[below.length - 1] : current
+  }
+  return round2(current - scale.step)
+}
+
+/**
+ * 증량 제안 무게. **사다리 최상단이면 `null`** — 스택을 다 쓴 것이므로
+ * "존재하지 않는 다음 무게"를 제안하는 대신 그 사실을 알린다 (루틴 문서 10장의
+ * "스택이 부족하면 템포·정지 시간으로" 판단은 사용자 몫).
+ */
+export function nextWeightForProgression(current: number, scale: WeightScale): number | null {
+  if (scale.ladder?.length) {
+    return scale.ladder.find((v) => v > current) ?? null
+  }
+  return round2(current + scale.step)
+}
+
+/** 설정 시트·카드에 표시할 한 줄 요약 */
+export function describeScale(scale: WeightScale): string {
+  if (scale.ladder?.length) return `핀 목록 ${scale.ladder.length}개 (${scale.ladder[0]}~${scale.ladder[scale.ladder.length - 1]}kg)`
+  return `${scale.step}kg 단위`
+}
+
+/**
+ * 증량 제안 표시. 사다리 최상단(`to === null`)이면 무게 대신 그 사실을 말한다 —
+ * "40 → nullkg" 같은 문자열이 새어나오지 않게 표시를 한 곳에 모은다.
+ */
+export function formatProgression(from: number, to: number | null): string {
+  return to === null ? `${from}kg · 스택 최대` : `${from} → ${to}kg`
+}
