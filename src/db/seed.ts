@@ -13,6 +13,8 @@ export interface SeedResult {
   exerciseCount: number
   /** 이번 실행에서 시드를 새로 넣었는가 */
   didSeed: boolean
+  /** 저장된 루틴이 깨져 있어서 번들로 되돌렸는가 */
+  repaired: boolean
   /** 정합성 문제 (있으면 화면에 노출한다 — 조용히 넘기면 숫자가 틀어진 걸 못 잡는다) */
   problems: string[]
 }
@@ -31,8 +33,26 @@ export async function ensureSeed(): Promise<SeedResult> {
   }
 
   const seededVersion = await getSetting<string | null>('seededRoutineVersion', null)
-  const routineExists = (await db.routines.get(BUNDLED_ROUTINE.id)) !== undefined
-  const needsSeed = !routineExists || seededVersion !== BUNDLED_ROUTINE.version
+  const stored = await db.routines.get(BUNDLED_ROUTINE.id)
+  const routineExists = stored !== undefined
+
+  /*
+   * 저장된 복사본이 정합성 검사를 통과하지 못하면 번들로 되돌린다.
+   *
+   * version만 보고 판단하면, 번들 루틴의 **내용**이 바뀌었는데 version을 올리지 않은
+   * 경우에 낡은 복사본이 영구히 남는다. 실제로 그랬다 — recordDayId를 마일스톤 2에서
+   * fallbackDays에 추가하면서 version 2.4를 유지했고, 마일스톤 1 때 처음 실행한
+   * 설치본은 그 필드가 없는 루틴을 계속 들고 있었다. 결과가 조용해서 더 나빴다:
+   *   - fallback 세션의 recordKey가 정규 Day(@d1)가 아니라 @fallback-push로 쌓인다
+   *     (recordDayIdOf의 폴백) → 프리필·증량·PR·부위 집계가 전부 끊긴다 (§8 위반)
+   *   - 백업이 자기 검증을 통과하지 못해 **복원 자체가 막힌다**
+   *
+   * version 상승만으로 고치면 사용자가 가져온 정상 루틴까지 덮어쓴다. 그래서
+   * "번들과 같은 id인데 깨져 있을 때"로 좁혔다. 되돌린 사실은 problems로 노출한다.
+   */
+  const storedProblems = stored ? validateRoutine(stored, BUNDLED_EXERCISES) : []
+  const repaired = storedProblems.length > 0
+  const needsSeed = !routineExists || seededVersion !== BUNDLED_ROUTINE.version || repaired
 
   // 카탈로그는 **시드 여부와 무관하게** 매 실행 최신으로 맞춘다.
   // needsSeed 안에 두면 보상작용 체크리스트 문구를 고쳐도 루틴 version을 올리지 않는 한
@@ -66,6 +86,12 @@ export async function ensureSeed(): Promise<SeedResult> {
     routineVersion: BUNDLED_ROUTINE.version,
     exerciseCount: BUNDLED_EXERCISES.length,
     didSeed: needsSeed,
-    problems,
+    repaired,
+    problems: repaired
+      ? [
+          ...problems,
+          `저장된 루틴이 번들과 어긋나 되돌렸습니다: ${storedProblems.join(' / ')}`,
+        ]
+      : problems,
   }
 }
