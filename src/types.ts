@@ -40,7 +40,20 @@ export interface RoutineDay {
    * exercises[].muscle × sets의 합과 일치해야 한다 (validateRoutine이 검사).
    */
   muscleSets: Record<MuscleKey, number>
+  /**
+   * 하한 모드(fallback) 전용. 이 Day의 기록을 어느 정규 Day의 라인으로 남길지.
+   *
+   * DESIGN.md §8: "fallback 세션의 recordKey는 정규 Day를 따른다 — fallback은 같은
+   * 운동의 축소 수행이지 다른 운동이 아님". 문서는 이 규칙만 있고 어느 Day인지 지정하는
+   * 필드가 없어서 추가했다. 정규 Day는 자기 자신을 가리키므로 비워둔다.
+   */
+  recordDayId?: string
   exercises: RoutineExercise[]
+}
+
+/** 기록을 남길 Day id. fallback이면 대응하는 정규 Day. */
+export function recordDayIdOf(day: RoutineDay): string {
+  return day.recordDayId ?? day.id
 }
 
 export interface RoutineExercise {

@@ -3,11 +3,17 @@ import TabBar, { type TabId } from './components/TabBar'
 import UpdatePrompt from './components/UpdatePrompt'
 import { ensureSeed, type SeedResult } from './db/seed'
 import { usePwaUpdate } from './lib/usePwaUpdate'
+import { useRoutine } from './lib/useRoutine'
 import HomeScreen from './screens/HomeScreen'
 import Onboarding from './screens/Onboarding'
 import PlaceholderScreen from './screens/PlaceholderScreen'
+import SessionScreen from './screens/SessionScreen'
 import SettingsScreen from './screens/SettingsScreen'
+import SummaryScreen from './screens/SummaryScreen'
+import { useSessionStore } from './store/session'
 import { useSettings } from './store/settings'
+
+type View = 'tabs' | 'session' | 'summary'
 
 export default function App() {
   // 최상위에서 호출해야 온보딩 전에도 서비스워커가 등록된다 (usePwaUpdate 주석 참조)
@@ -15,20 +21,24 @@ export default function App() {
   const [seed, setSeed] = useState<SeedResult | null>(null)
   const [bootError, setBootError] = useState<string | null>(null)
   const [tab, setTab] = useState<TabId>('home')
+  const [view, setView] = useState<View>('tabs')
   const { loaded, onboardingDone, load } = useSettings()
+  const restoreSession = useSessionStore((s) => s.restore)
+  const bundle = useRoutine()
 
   useEffect(() => {
-    // 시드 주입 → 설정 로드 순서를 지킨다 (시드가 activeRoutineId를 쓴다)
+    // 시드 주입 → 설정 로드 → 진행 중 세션 복구 순서를 지킨다 (시드가 activeRoutineId를 쓴다)
     void (async () => {
       try {
         const result = await ensureSeed()
         setSeed(result)
         await load()
+        await restoreSession()
       } catch (err) {
         setBootError(err instanceof Error ? err.message : String(err))
       }
     })()
-  }, [load])
+  }, [load, restoreSession])
 
   const banner = <UpdatePrompt {...pwa} />
 
@@ -67,10 +77,24 @@ export default function App() {
     )
   }
 
+  // 세션·요약 화면은 탭바를 숨긴다 (§5.2 전체화면 입력)
+  if (view === 'session' && bundle) {
+    return (
+      <SessionScreen
+        bundle={bundle}
+        onFinished={() => setView('summary')}
+      />
+    )
+  }
+
+  if (view === 'summary' && bundle) {
+    return <SummaryScreen bundle={bundle} onDone={() => setView('tabs')} />
+  }
+
   return (
     <div className="app">
       {banner}
-      {tab === 'home' && <HomeScreen onOpenSettings={() => setTab('settings')} />}
+      {tab === 'home' && <HomeScreen onEnterSession={() => setView('session')} />}
       {tab === 'history' && (
         <PlaceholderScreen
           title="기록"

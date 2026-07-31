@@ -417,3 +417,385 @@ select {
   font-size: 13px;
   padding: 40px 0;
 }
+
+/* ─── 바텀시트 ─────────────────────────────────────────── */
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: flex-end;
+  animation: fade-in 0.15s ease-out;
+}
+
+.sheet {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  max-height: 88dvh;
+  overflow-y: auto;
+  background: var(--surface);
+  border-top-left-radius: var(--r-lg);
+  border-top-right-radius: var(--r-lg);
+  padding: 8px 16px calc(var(--safe-b) + 20px);
+  animation: slide-up 0.2s ease-out;
+}
+
+.sheet-grip {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+  margin: 4px auto 14px;
+}
+
+.sheet-row {
+  width: 100%;
+  text-align: left;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(12px); }
+}
+
+/* ─── 홈 오늘 카드 ─────────────────────────────────────── */
+
+.today-card-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  min-height: 0;
+}
+
+.today-reason {
+  margin-top: 8px;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.today-change {
+  margin-top: 12px;
+  color: var(--text-faint);
+  font-size: 13px;
+}
+
+/* ─── 세션 화면 ────────────────────────────────────────── */
+
+.session {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.session-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: calc(var(--safe-t) + 10px) 16px 10px;
+  background: rgba(11, 11, 13, 0.9);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid var(--line);
+}
+
+.session-day {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.session-meta {
+  font-size: 13px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  margin-top: 1px;
+}
+
+.session-end {
+  flex-shrink: 0;
+  padding: 8px 16px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.session-body {
+  flex: 1;
+  padding: 12px 12px calc(var(--safe-b) + 24px);
+  max-width: 640px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* ─── 운동 카드 ────────────────────────────────────────── */
+
+.ex-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.ex-card-done {
+  border-color: rgba(52, 199, 89, 0.35);
+}
+
+.ex-card-skipped {
+  opacity: 0.5;
+}
+
+.ex-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  text-align: left;
+}
+
+.ex-order {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ex-head-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.ex-name {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.ex-sub {
+  display: block;
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ex-count {
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.ex-count-done {
+  color: var(--ok);
+}
+
+.ex-body {
+  padding: 12px 12px 14px;
+  border-top: 1px solid var(--line);
+}
+
+.ex-note {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.ex-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+/* ─── 세트 입력 행 ─────────────────────────────────────── */
+
+.set-row {
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  gap: 2px 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+
+.set-no {
+  grid-row: span 2;
+  align-self: center;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.set-ghost {
+  font-size: 12px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.set-inputs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  background: var(--surface-2);
+  border-radius: var(--r-sm);
+}
+
+.stepper button {
+  width: 34px;
+  height: 44px;
+  flex-shrink: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.stepper-value {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: center;
+  /* 헬스장에서 팔 뻗은 거리에서 읽히도록 크게 (§9) */
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 0;
+}
+
+.stepper-value:focus {
+  outline: none;
+  color: var(--accent);
+}
+
+
+.set-check {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--text-faint);
+  font-size: 20px;
+  font-weight: 700;
+  transition: background 0.12s ease-out, color 0.12s ease-out;
+}
+
+.set-check-on {
+  background: var(--ok);
+  color: #06210d;
+}
+
+
+/* ─── 필드 · 필 ────────────────────────────────────────── */
+
+.field {
+  width: 100%;
+  padding: 12px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  font-family: inherit;
+  resize: vertical;
+}
+
+.field:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pill {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-size: 14px;
+  font-weight: 600;
+  min-height: 40px;
+}
+
+.pill-on {
+  background: var(--accent);
+  color: #16100a;
+}
+
+/* ─── 요약 통계 ────────────────────────────────────────── */
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+/* 세트 컬럼 헤더 — 단위를 스테퍼 안에 넣으면 375px에서 숫자가 잘린다 */
+.set-head {
+  display: grid;
+  grid-template-columns: 26px 1fr 1fr 44px;
+  gap: 8px 6px;
+  padding-bottom: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  text-align: center;
+}
+
+.set-head span:first-child {
+  text-align: center;
+}
+
+.btn-sm {
+  padding: 10px 12px;
+  font-size: 14px;
+}

@@ -82,7 +82,7 @@
 
   "fallbackDays": [
     {
-      "id": "fallback-push",
+      "id": "fallback-push", "recordDayId": "d1",
       "name": "Push 축소",
       "subtitle": "하한 모드 · 30분",
       "isBuffer": false,
@@ -94,7 +94,7 @@
       ]
     },
     {
-      "id": "fallback-pull",
+      "id": "fallback-pull", "recordDayId": "d2",
       "name": "Pull 축소",
       "subtitle": "하한 모드 · 30분",
       "isBuffer": false,

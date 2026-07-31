@@ -1,0 +1,73 @@
+/**
+ * 날짜는 전부 로컬 기준 "YYYY-MM-DD" 문자열로 다룬다 (Session.date와 동일 포맷).
+ *
+ * `new Date("2026-08-04")`는 **UTC 자정**으로 파싱된다. 한국(UTC+9)에서 이걸
+ * `getDate()`로 읽으면 8월 4일 09:00이라 우연히 맞지만, UTC보다 뒤진 타임존이나
+ * 날짜 산술에서는 하루가 밀린다. 그래서 파싱을 직접 한다.
+ */
+
+function pad2(n: number): string {
+  return String(n).padStart(2, '0')
+}
+
+export function toDateStr(d: Date): string {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+}
+
+export function todayLocal(now: Date = new Date()): string {
+  return toDateStr(now)
+}
+
+/** "YYYY-MM-DD" → 로컬 자정 Date */
+export function parseDateStr(s: string): Date {
+  const [y, m, d] = s.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
+/** to − from, 일 단위. DST로 23/25시간이 되는 날이 있어 반올림한다. */
+export function daysBetween(from: string, to: string): number {
+  const ms = parseDateStr(to).getTime() - parseDateStr(from).getTime()
+  return Math.round(ms / 86_400_000)
+}
+
+/** 주의 시작(월요일). DESIGN.md §7 "주간 수행 횟수: 월~일 기준" */
+export function weekStart(dateStr: string): string {
+  const d = parseDateStr(dateStr)
+  const mondayBased = (d.getDay() + 6) % 7 // 일=6, 월=0
+  d.setDate(d.getDate() - mondayBased)
+  return toDateStr(d)
+}
+
+/** 해당 날짜가 속한 주의 월~일 7일 */
+export function weekDates(dateStr: string): string[] {
+  const start = parseDateStr(weekStart(dateStr))
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(start)
+    d.setDate(start.getDate() + i)
+    return toDateStr(d)
+  })
+}
+
+const WEEKDAY_KO = ['일', '월', '화', '수', '목', '금', '토']
+
+export function weekdayKo(dateStr: string): string {
+  return WEEKDAY_KO[parseDateStr(dateStr).getDay()]
+}
+
+export function hoursBetweenIso(a: string, b: string): number {
+  return (new Date(b).getTime() - new Date(a).getTime()) / 3_600_000
+}
+
+/** 경과 시간 "1:23:45" / "23:45" */
+export function formatElapsed(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000))
+  const h = Math.floor(total / 3600)
+  const m = Math.floor((total % 3600) / 60)
+  const s = total % 60
+  return h > 0 ? `${h}:${pad2(m)}:${pad2(s)}` : `${m}:${pad2(s)}`
+}
+
+export function formatClock(iso: string): string {
+  const d = new Date(iso)
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+}

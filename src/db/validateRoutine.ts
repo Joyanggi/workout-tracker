@@ -58,6 +58,33 @@ export function validateRoutine(routine: RoutineTemplate, catalog: Exercise[]): 
   routine.days.forEach((d) => checkDay(d, `days/${d.id}`))
   routine.fallbackDays.forEach((d) => checkDay(d, `fallbackDays/${d.id}`))
 
+  // fallback은 recordKey를 정규 Day에 얹는다 (§8). 대응 정규 Day에 같은 종목이
+  // 없으면 프리필·증량 판단이 존재하지 않는 기록 라인을 가리키게 된다.
+  for (const fb of routine.fallbackDays) {
+    if (!fb.recordDayId) {
+      problems.push(`fallbackDays/${fb.id}: recordDayId 없음 — 기록을 얹을 정규 Day 미지정`)
+      continue
+    }
+    const target = routine.days.find((d) => d.id === fb.recordDayId)
+    if (!target) {
+      problems.push(`fallbackDays/${fb.id}: recordDayId "${fb.recordDayId}"에 해당하는 정규 Day 없음`)
+      continue
+    }
+    for (const ex of fb.exercises) {
+      const twin = target.exercises.find((e) => e.exerciseId === ex.exerciseId)
+      if (!twin) {
+        problems.push(
+          `fallbackDays/${fb.id}/${ex.exerciseId}: 정규 Day ${target.id}에 같은 종목이 없음`,
+        )
+      } else if (twin.repMax !== ex.repMax || twin.repMin !== ex.repMin) {
+        // 같은 기록 라인을 공유하는데 목표 반복수가 다르면 증량 판단 기준이 흔들린다
+        problems.push(
+          `fallbackDays/${fb.id}/${ex.exerciseId}: 반복수 범위가 정규 Day와 다름 (${ex.repMin}~${ex.repMax} vs ${twin.repMin}~${twin.repMax})`,
+        )
+      }
+    }
+  }
+
   // 5. 하체 최소 보장 규칙이 가리키는 Day가 실제로 존재하는가 (§4 규칙 2)
   if (!routine.days.some((d) => d.id === routine.rules.lowerBodyDayId)) {
     problems.push(`rules.lowerBodyDayId "${routine.rules.lowerBodyDayId}"에 해당하는 Day가 없음`)
