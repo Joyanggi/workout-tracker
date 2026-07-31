@@ -1,0 +1,178 @@
+# 운동 기록 (Workout Tracker)
+
+> 16개월간 기록이 없었던 것이 문제였다. 그래서 "기록하는 마찰"을 최소화하는 것만을 목표로 만든 1인용 운동 기록 PWA.
+
+`React 18` · `TypeScript` · `Vite` · `Dexie (IndexedDB)` · `zustand` · `vite-plugin-pwa` · `GitHub Pages`
+
+헬스장에서 세트별 반복수, 감각 점수, 보상작용, 실제 수행 순서를 실시간으로 입력하고,
+그 기록을 Markdown으로 내보내 LLM에게 바로 분석시키는 것까지를 한 흐름으로 묶은 앱입니다.
+서버도 로그인도 없고, 데이터는 전부 기기 안(IndexedDB)에 있습니다.
+
+## Why
+
+시중 운동 기록 앱은 대부분 "무게 × 반복수"만 받습니다. 하지만 제 루틴(피지크형 상체 루틴 v2.4)이
+실제로 요구하는 기록은 그것만이 아닙니다.
+
+- **감각 점수** — 머신 종목에서 목표 부위에 자극이 왔는지(0~3점). 이게 없으면 "계속 0점인 종목"을 못 잡습니다.
+- **보상작용** — 승모 개입, 반동, 엉덩이 뜸 같은 신호. 빈칸으로 두면 안 되는 필수 항목입니다.
+- **실제 수행 순서** — 헬스장은 기계가 비는 순서대로 하게 됩니다. 계획 순서와 수행 순서가 다른 것이 정상이고, 그 차이가 분석 대상입니다.
+- **(종목, Day) 분리** — 같은 인클라인 프레스라도 Day 1(무겁게, A그룹)과 Day 4(가볍게, B그룹)는 다른 운동입니다. 무게 프리필과 증량 판단이 섞이면 안 됩니다.
+
+그래서 다음 기준으로 풀었습니다.
+
+- 입력 마찰 최소화가 다른 모든 것보다 우선한다. 저장 버튼도 없다 (입력 즉시 IndexedDB 반영).
+- 앱은 판단을 대신하지 않고 **제안**만 한다. 증량, 디로드, 복귀 프로토콜 전부 사용자가 무시할 수 있다.
+- 고급 분석은 앱에서 하지 않는다. Markdown으로 내보내 LLM에게 붙여넣는 것이 설계된 분석 경로다.
+- 서버를 두지 않는다. Apple Developer 등록 없이 iOS 홈 화면 앱으로 쓸 수 있으면 충분하다.
+
+## 핵심 설계 결정
+
+구현 중에 임의로 바꾸면 안 되는 것들만 남깁니다. 전체 근거는 [docs/DESIGN.md](docs/DESIGN.md)에 있습니다.
+
+- **Day 제안을 순환이 아니라 "볼륨 예산"으로 계산한다**
+  D1→D2→D3→D4 순환은 부위 빈도를 보장하지 못합니다. 주 3회로 끝난 주에 하필 D4가 빠지면
+  측면어깨·상부가슴·광배의 주 2회차 노출이 통째로 사라집니다. 그래서 매 세션 시작 시점에
+  *이번 주 부위별 부족분 × 우선순위 가중치*로 점수를 내서 Day를 고릅니다.
+  결과적으로 주 4회 순서는 **D1 → D2 → D4 → D3**이 되고, "밀려도 되는 날"이 D4에서 D3(하체)로 이동합니다.
+  유지 목적인 하체 빈도가, 성장 목표인 상체 부위의 2회차보다 양보 가능하기 때문입니다.
+
+- **"이번 주 몇 회 할 예정인가"를 묻지 않는다**
+  사전 선언은 예측이 틀리면 양방향으로 깨집니다(3회 선언 후 4회 → 볼륨 초과, 4회 선언 후 3회 → 원래 문제).
+  예측을 제거하고 실제 수행 이력에만 반응합니다. **제안 로직에 요일 개념이 아예 없습니다.**
+
+- **무게 프리필은 직전 세션이 아니라 최근 3세션 최고 기록 기준**
+  직전 세션을 기준점으로 쓰면 컨디션 나쁜 날의 기록이 다음 세션의 기준이 되어 하향 고착이 생깁니다.
+  최고 기록을 기본값으로 넣고, 직전 기록은 비교용으로 옆에 같이 보여줍니다.
+
+- **복귀 시 무게보다 세트·RIR을 깎는다**
+  2~4주 공백에서 근력 손실은 작습니다. 무게를 크게 내리면 자극이 역치 아래로 떨어져 복귀가 더 길어집니다.
+  실제 리스크는 반복부하효과 소실로 인한 근손상·DOMS이고 그건 볼륨과 실패 근접도가 지배합니다.
+  그래서 무게는 −5~−20%만, 세트는 −30~−50%, RIR 3~4로 조절합니다.
+
+- **휴식 타이머는 남은 초를 세지 않고 종료 시각을 저장한다**
+  iOS PWA는 화면이 잠기면 JS 타이머가 정지합니다. `endTime = now + restSec`를 저장하고
+  `visibilitychange`에서 다시 계산합니다.
+
+- **서비스워커 업데이트는 자동 적용하지 않는다**
+  `registerType: 'autoUpdate'`는 새 버전 감지 시 페이지를 리로드합니다. 세션 입력 중에
+  화면이 날아가면 안 되므로 배너로 알리고 사용자가 누를 때만 적용합니다.
+
+- **`isActive`(boolean)를 IndexedDB 인덱스로 쓰지 않는다**
+  IndexedDB는 boolean을 유효한 키로 취급하지 않아 해당 레코드가 인덱스에서 조용히 누락됩니다.
+  활성 루틴은 `settings.activeRoutineId`로 찾습니다.
+
+## 데이터 모델
+
+```mermaid
+erDiagram
+  RoutineTemplate ||--|{ RoutineDay : days
+  RoutineTemplate ||--|{ RoutineDay : fallbackDays
+  RoutineDay ||--|{ RoutineExercise : exercises
+  RoutineExercise }o--|| Exercise : exerciseId
+  Session ||--|{ SessionEntry : entries
+  SessionEntry ||--|{ SetRecord : sets
+  SessionEntry }o--|| Exercise : "recordKey = exerciseId@dayId"
+```
+
+Dexie 테이블은 `routines`, `exercises`, `sessions`, `settings(key-value)` 네 개입니다.
+**streak, 디로드 카운터, Phase 0 진행률은 저장하지 않고 `sessions`에서 파생 계산합니다.**
+단일 진실 원천을 하나로 두어, 기록을 나중에 수정해도 모든 지표가 같이 맞춰지게 하기 위한 것입니다.
+
+기록 라인의 키는 `${exerciseId}@${dayId}` 입니다. (예: `incline-chest-press@d1` ≠ `incline-chest-press@d4`)
+
+## Day 자동 제안 로직
+
+```
+suggestNextDay(sessions, routine, today):
+  1. 마지막 세션과 14일+ 공백  → D1 + 복귀 배너
+  2. 하체(D3)를 10일+ 안 했음  → D3 (점수 무시, 계속 밀리는 것 방지)
+  3. 이번 주(월~일) 부위별 수행 세트 집계
+  4. score(day) = Σ 부위 ( 가중치 × min(목표 − 수행, day가 제공하는 세트) )
+     직전 세션과 24시간 이내 + 주요 부위 겹침 → score × 0.3
+  → 최고 점수 Day 제안 (탭하면 전체 Day + 하한 모드 선택 시트)
+```
+
+| 부위 | 목표 세트/주 | 가중치 |
+|---|---|---|
+| 측면어깨 | 11 | 1.00 |
+| 상부가슴 | 10 | 0.90 |
+| 광배 | 16 | 0.85 |
+| 후면어깨 | 7 | 0.70 |
+| 팔 | 6 | 0.50 |
+| 하체 | 9 | 0.45 |
+| 가슴(플랫) | 3 | 0.40 |
+| 코어 | 5 | 0.30 |
+
+## Architecture
+
+```mermaid
+flowchart TB
+  subgraph device["iOS 홈 화면 앱 (standalone)"]
+    UI["React 화면<br/>홈 · 세션 · 기록 · 분석 · 설정"]
+    Store["zustand<br/>설정만"]
+    Dexie["Dexie / IndexedDB<br/>routines · exercises · sessions · settings"]
+    SW["Service Worker<br/>오프라인 캐시"]
+    UI <--> Store
+    UI <--> Dexie
+    SW --> UI
+  end
+
+  Seed["src/data/routine-v2.4.json<br/>+ exercises.json"] -->|최초 실행 시 주입| Dexie
+  Dexie -->|Markdown 내보내기| LLM["LLM 분석"]
+  Dexie -->|JSON 백업| Gist["private Gist"]
+```
+
+## Tech Stack
+
+- 빌드: Vite, TypeScript
+- UI: React 18 (라우터 없음 — 탭 4개라 상태로 충분)
+- 상태: zustand (설정만. 루틴·세션은 `dexie-react-hooks`의 live query로 직접 읽음)
+- 저장: Dexie (IndexedDB)
+- PWA: vite-plugin-pwa (manifest + Workbox SW)
+- 배포: GitHub Actions → GitHub Pages
+
+## Getting Started
+
+```bash
+npm install
+npm run dev
+```
+
+`http://localhost:5173/workout-tracker/` 로 접속합니다. (Pages 하위 경로와 맞추기 위해 `base`가 `/workout-tracker/`입니다)
+
+```bash
+npm run build
+npm run preview
+```
+
+## 배포
+
+`main`에 push하면 GitHub Actions가 빌드 후 Pages에 올립니다
+([.github/workflows/deploy.yml](.github/workflows/deploy.yml)).
+
+**iOS에서 쓰는 방법:** Safari로 배포 주소를 열고 공유 → **홈 화면에 추가**.
+Safari 탭으로만 쓰면 iOS가 7일 미사용 시 IndexedDB를 지울 수 있습니다. 홈 화면 앱은 그 대상에서 제외됩니다.
+앱 첫 실행 온보딩이 이 안내를 강제로 보여주고, 홈 화면 앱이 아니면 상단에 경고를 계속 띄웁니다.
+
+## 구현 현황
+
+| 마일스톤 | 내용 | 상태 |
+|---|---|---|
+| 1 | 스캐폴드 — Vite/React/TS/Dexie/PWA, 시드 로딩, Pages 배포 | ✅ |
+| 2 | 세션 코어 — Day 제안, 세트 입력·프리필·체크, 즉시 저장, 종료 요약 | ⬜ |
+| 3 | 휴식 타이머, 감각 점수, 보상작용 체크리스트 | ⬜ |
+| 4 | 홈 대시보드 — 주간 도트, 부위별 볼륨 바, 복귀/디로드/증량 배너 | ⬜ |
+| 5 | 기록 탭 — 달력, 세션 상세, 편집 | ⬜ |
+| 6 | 내보내기/가져오기 — Markdown, JSON, iOS 공유 시트 | ⬜ |
+| 7 | Gist 백업 | ⬜ |
+| 8 | 분석 탭 + PWA 마감 — 차트, 오프라인 검증, 아이콘, 실기기 QA | ⬜ |
+
+마일스톤 2까지가 MVP입니다(이 시점부터 실사용 시작).
+
+## Limitations
+
+- **1인용입니다.** 다중 사용자, 로그인, 서버 동기화가 없습니다. 기기를 바꾸면 JSON 내보내기/가져오기나 Gist 백업으로 옮겨야 합니다.
+- 특정 루틴(피지크형 상체 루틴 v2.4)의 기록 방식에 맞춰 설계됐습니다. 루틴 자체는 JSON으로 교체할 수 있지만, 감각 점수·보상작용 같은 기록 항목 구조는 고정입니다.
+- 체중, 식단, 인바디는 기록하지 않습니다 (별도 앱으로 관리 중).
+- Gist 백업용 토큰은 코드에 없습니다. 사용자가 직접 입력해 `localStorage`에만 저장합니다. 이 레포는 public이므로 토큰을 커밋하면 안 됩니다.
+- 알림(Notification API)은 v1에 없습니다. 휴식 타이머 종료는 화면이 켜져 있을 때 소리·진동으로만 알립니다.

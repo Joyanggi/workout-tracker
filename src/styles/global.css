@@ -1,0 +1,419 @@
+/* 다크 테마 고정 (헬스장 환경), 액센트 1개 — 주황(불꽃 모티프). DESIGN.md §9 */
+
+:root {
+  --bg: #0b0b0d;
+  --surface: #16161a;
+  --surface-2: #1f1f26;
+  --line: #2b2b34;
+  --text: #f2f2f5;
+  --text-dim: #9a9aa8;
+  --text-faint: #64646f;
+  --accent: #ff7a1a;
+  --accent-soft: rgba(255, 122, 26, 0.14);
+  --ok: #34c759;
+  --warn: #ffcc00;
+  --danger: #ff453a;
+
+  --r-sm: 8px;
+  --r-md: 14px;
+  --r-lg: 20px;
+
+  /* 하단 탭바 높이 + 홈 인디케이터 */
+  --tabbar-h: 56px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  /* 16px 미만이면 iOS Safari가 입력 포커스 시 자동 줌한다 (§2) */
+  font-size: 16px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Pretendard',
+    system-ui, sans-serif;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  /* 홈 화면 웹앱에서 바운스 스크롤이 앱 셸을 흔드는 것 방지 */
+  overscroll-behavior-y: none;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: none;
+  background: none;
+  cursor: pointer;
+  /* 터치 타깃 최소 44pt (§9) */
+  min-height: 44px;
+}
+
+input,
+textarea,
+select {
+  font: inherit;
+  font-size: 16px;
+  color: inherit;
+}
+
+/* ─── 레이아웃 ─────────────────────────────────────────── */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.screen {
+  flex: 1;
+  padding: calc(var(--safe-t) + 12px) 16px calc(var(--tabbar-h) + var(--safe-b) + 24px);
+  max-width: 640px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.screen-title {
+  margin: 8px 0 4px;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.screen-sub {
+  margin: 0 0 20px;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+/* ─── 카드 ─────────────────────────────────────────────── */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.card-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.today-card {
+  background: linear-gradient(160deg, #1d1a18 0%, var(--surface) 60%);
+  border-color: #3a2a1c;
+}
+
+.today-day {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.today-sub {
+  color: var(--text-dim);
+  font-size: 14px;
+  margin-top: 2px;
+}
+
+/* ─── 버튼 ─────────────────────────────────────────────── */
+
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 18px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #16100a;
+}
+
+.btn-primary:disabled {
+  background: var(--surface-2);
+  color: var(--text-faint);
+  cursor: default;
+}
+
+.btn-danger {
+  color: var(--danger);
+  border: 1px solid rgba(255, 69, 58, 0.35);
+}
+
+.btn-row {
+  display: flex;
+  gap: 8px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 600;
+  min-height: 0;
+}
+
+.chip-accent {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.chip-warn {
+  background: rgba(255, 204, 0, 0.14);
+  color: var(--warn);
+}
+
+/* ─── 목록 행 ──────────────────────────────────────────── */
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.row-main {
+  min-width: 0;
+}
+
+.row-title {
+  font-size: 15px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row-sub {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 1px;
+}
+
+.row-meta {
+  font-size: 13px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* ─── 세그먼트 (Phase 전환 등) ─────────────────────────── */
+
+.segment {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--surface-2);
+  border-radius: var(--r-md);
+}
+
+.segment button {
+  flex: 1;
+  padding: 8px 0;
+  border-radius: var(--r-sm);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.segment button[aria-pressed='true'] {
+  background: var(--accent);
+  color: #16100a;
+}
+
+/* ─── 하단 탭바 ────────────────────────────────────────── */
+
+.tabbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  padding-bottom: var(--safe-b);
+  background: rgba(11, 11, 13, 0.86);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-top: 1px solid var(--line);
+}
+
+.tabbar button {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: var(--tabbar-h);
+  color: var(--text-faint);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tabbar button[aria-current='page'] {
+  color: var(--accent);
+}
+
+.tabbar .tab-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+/* ─── 배너 ─────────────────────────────────────────────── */
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.banner-info {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.banner-danger {
+  background: rgba(255, 69, 58, 0.12);
+  color: var(--danger);
+}
+
+.banner button {
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-radius: var(--r-sm);
+  background: currentColor;
+  font-size: 13px;
+  font-weight: 700;
+  min-height: 32px;
+}
+
+.banner button > span {
+  color: var(--bg);
+}
+
+/* ─── 온보딩 ───────────────────────────────────────────── */
+
+.onboarding {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding: calc(var(--safe-t) + 40px) 24px calc(var(--safe-b) + 24px);
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.onboarding h1 {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin: 0 0 8px;
+}
+
+.onboarding .lede {
+  color: var(--text-dim);
+  margin: 0 0 28px;
+}
+
+.steps {
+  counter-reset: step;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px;
+}
+
+.steps li {
+  counter-increment: step;
+  position: relative;
+  padding: 0 0 18px 40px;
+  color: var(--text);
+  font-size: 15px;
+}
+
+.steps li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.onboarding .spacer {
+  flex: 1;
+  min-height: 20px;
+}
+
+.warn-box {
+  border: 1px solid rgba(255, 204, 0, 0.3);
+  background: rgba(255, 204, 0, 0.08);
+  color: #ffe08a;
+  border-radius: var(--r-md);
+  padding: 14px;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--text-dim);
+  word-break: break-all;
+}
+
+.center-note {
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 13px;
+  padding: 40px 0;
+}

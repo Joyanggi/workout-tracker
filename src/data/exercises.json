@@ -1,0 +1,104 @@
+[
+  {
+    "id": "incline-chest-press",
+    "name": "인클라인 체스트프레스 머신",
+    "shortName": "인클라인 프레스",
+    "compensationSigns": ["엉덩이가 시트에서 뜸", "어깨가 앞으로 말림"]
+  },
+  {
+    "id": "pec-deck-fly",
+    "name": "펙덱 플라이",
+    "shortName": "펙덱 플라이",
+    "compensationSigns": ["팔꿈치를 접어서 당김(프레스가 됨)"]
+  },
+  {
+    "id": "flat-chest-press",
+    "name": "체스트프레스 머신 (플랫)",
+    "shortName": "체스트프레스",
+    "compensationSigns": []
+  },
+  {
+    "id": "shoulder-press",
+    "name": "숄더프레스 머신",
+    "shortName": "숄더프레스",
+    "compensationSigns": []
+  },
+  {
+    "id": "lateral-raise",
+    "name": "덤벨/케이블 레터럴 레이즈",
+    "shortName": "레터럴 레이즈",
+    "compensationSigns": ["어깨가 귀 쪽으로 올라감", "무릎 반동", "몸통 좌우 흔들림"]
+  },
+  {
+    "id": "lat-pulldown",
+    "name": "랫풀다운 (일반 그립)",
+    "shortName": "랫풀다운",
+    "compensationSigns": ["상체가 크게 젖혀짐", "등보다 이두가 먼저 지침"]
+  },
+  {
+    "id": "neutral-lat-pulldown",
+    "name": "뉴트럴그립 랫풀다운",
+    "shortName": "뉴트럴 랫풀",
+    "compensationSigns": []
+  },
+  {
+    "id": "seated-cable-row",
+    "name": "시티드 케이블 로우",
+    "shortName": "시티드 로우",
+    "compensationSigns": ["발판을 세게 밀고 있음", "상체 앞뒤 노 젓기"]
+  },
+  {
+    "id": "arm-pulldown",
+    "name": "암 풀다운",
+    "shortName": "암 풀다운",
+    "compensationSigns": []
+  },
+  {
+    "id": "rear-delt-fly",
+    "name": "펙덱 리어델트",
+    "shortName": "리어델트",
+    "compensationSigns": ["팔꿈치가 펴졌다 굽었다 함", "승모로 당김"]
+  },
+  {
+    "id": "curl",
+    "name": "케이블/덤벨 컬",
+    "shortName": "컬",
+    "compensationSigns": ["팔꿈치가 앞으로 나감", "어깨 같이 올라감"]
+  },
+  {
+    "id": "pushdown",
+    "name": "케이블 푸쉬다운",
+    "shortName": "푸쉬다운",
+    "compensationSigns": []
+  },
+  {
+    "id": "leg-extension",
+    "name": "레그 익스텐션",
+    "shortName": "레그 익스텐션",
+    "compensationSigns": ["반동"]
+  },
+  {
+    "id": "leg-curl",
+    "name": "시티드/라잉 레그 컬",
+    "shortName": "레그 컬",
+    "compensationSigns": []
+  },
+  {
+    "id": "hip-abduction",
+    "name": "힙 어브덕션 머신",
+    "shortName": "힙 어브덕션",
+    "compensationSigns": []
+  },
+  {
+    "id": "crunch",
+    "name": "머신/케이블 크런치",
+    "shortName": "크런치",
+    "compensationSigns": ["허리 과신전"]
+  },
+  {
+    "id": "dead-bug",
+    "name": "데드버그",
+    "shortName": "데드버그",
+    "compensationSigns": []
+  }
+]

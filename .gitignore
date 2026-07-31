@@ -1,0 +1,11 @@
+node_modules
+dist
+dist-ssr
+dev-dist
+*.local
+.DS_Store
+.vite
+*.tsbuildinfo
+
+# 개발 과정 기록 (기술블로그용 개인 노트 — 공개 레포에 올리지 않음)
+DEVLOG.md
