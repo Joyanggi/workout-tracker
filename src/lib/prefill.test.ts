@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildPrefill, defaultSetFor } from './prefill'
+import { buildPrefill, computeProgression, defaultSetFor } from './prefill'
 import { buildSession, roundToHalf } from './sessionFactory'
 import { ROUTINE, completedSession } from './testFixtures'
 import type { Session } from '../types'
@@ -287,5 +287,78 @@ describe('roundToHalf', () => {
     expect(roundToHalf(36.1)).toBe(36)
     expect(roundToHalf(36.3)).toBe(36.5)
     expect(roundToHalf(32.0000001)).toBe(32)
+  })
+})
+
+describe('리뷰 P0 회귀 — 증량 판정과 모드 상호작용', () => {
+  const four = (reps: number) => Array.from({ length: 4 }, () => ({ weight: 40, reps }))
+
+  it('계획 세트를 다 채우지 않으면 증량하지 않는다 (P0-2)', () => {
+    // 4세트 계획 중 2세트만 하고 둘 다 상단(10회) — "12/12"로 증량되면 안 된다.
+    // 루틴 문서의 더블 프로그레션 기준은 전 세트다.
+    const partial = [
+      { weight: 40, reps: 10 },
+      { weight: 40, reps: 10 },
+    ]
+    expect(
+      computeProgression({ routine: ROUTINE, routineExercise: inclineD1, phase: 0, lastSets: partial })
+    ).toBeUndefined()
+
+    // 4세트 전부 상단이면 증량
+    expect(
+      computeProgression({ routine: ROUTINE, routineExercise: inclineD1, phase: 0, lastSets: four(10) })
+    ).toEqual({ from: 40, to: 42.5 })
+  })
+
+  it('세트를 더 한 경우(5세트)는 증량 대상이다', () => {
+    const five = [...four(10), { weight: 40, reps: 10 }]
+    expect(
+      computeProgression({ routine: ROUTINE, routineExercise: inclineD1, phase: 0, lastSets: five })
+    ).toBeDefined()
+  })
+
+  it('디로드 세션은 증량 무게를 프리필하지 않는다 — 무게 유지 (P0-1)', () => {
+    // 직전 세션이 증량 조건을 충족했더라도 디로드 원칙은 "세트 −50%, 무게 유지"다
+    const history = [sessionWith({ date: '2026-08-05', recordKey: INCLINE_D1, sets: four(10) })]
+    const { session } = buildSession({
+      routine: ROUTINE,
+      day: ROUTINE.days[0],
+      mode: 'deload',
+      sessions: history,
+      phase: 0,
+      today: '2026-08-07',
+    })
+    const incline = session.entries.find((e) => e.recordKey === INCLINE_D1)!
+    expect(incline.sets[0].weight).toBe(40) // 42.5가 아니다
+    expect(incline.sets).toHaveLength(2) // 세트만 절반
+  })
+
+  it('복귀 세션은 증량분을 뺀 무게에 감량률을 적용한다 (P0-1)', () => {
+    const history = [sessionWith({ date: '2026-07-01', recordKey: INCLINE_D1, sets: four(10) })]
+    const { session } = buildSession({
+      routine: ROUTINE,
+      day: ROUTINE.days[0],
+      mode: 'return',
+      sessions: history,
+      phase: 0,
+      today: '2026-09-01',
+      returnStep: ROUTINE.rules.returnProtocol[0], // −5% 무게
+    })
+    const incline = session.entries.find((e) => e.recordKey === INCLINE_D1)!
+    // 40 × 0.95 = 38. (42.5 × 0.95 = 40.375 → 40.5가 되면 안 된다)
+    expect(incline.sets[0].weight).toBe(38)
+  })
+
+  it('normal 세션은 증량 무게를 그대로 프리필한다', () => {
+    const history = [sessionWith({ date: '2026-08-05', recordKey: INCLINE_D1, sets: four(10) })]
+    const { session } = buildSession({
+      routine: ROUTINE,
+      day: ROUTINE.days[0],
+      mode: 'normal',
+      sessions: history,
+      phase: 0,
+      today: '2026-08-07',
+    })
+    expect(session.entries.find((e) => e.recordKey === INCLINE_D1)!.sets[0].weight).toBe(42.5)
   })
 })

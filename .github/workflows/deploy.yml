@@ -11,9 +11,11 @@ permissions:
   id-token: write
 
 # 배포는 항상 최신 커밋 하나만. 이전 실행은 취소한다.
+# deploy 단계 중간에 취소되면 Pages가 어중간한 상태로 남을 수 있어 중단하지 않는다.
+# 연속 push 시 뒤 실행이 큐에서 기다린다.
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:

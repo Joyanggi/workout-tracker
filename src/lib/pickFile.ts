@@ -14,14 +14,20 @@ export function pickTextFile(accept: string): Promise<{ name: string; text: stri
     document.body.appendChild(input)
 
     let settled = false
+    let cancelTimer: number | undefined
     const finish = (value: { name: string; text: string } | null) => {
       if (settled) return
       settled = true
+      window.clearTimeout(cancelTimer)
       input.remove()
       resolve(value)
     }
 
     input.addEventListener('change', () => {
+      // 파일을 골랐으면 취소 추정 타이머를 즉시 무효화한다.
+      // iCloud에 있는 미다운로드 파일은 .text()가 500ms를 넘길 수 있어서,
+      // 타이머를 살려두면 정상 선택이 "취소"로 처리되어 조용히 아무 일도 안 일어난다.
+      window.clearTimeout(cancelTimer)
       const file = input.files?.[0]
       if (!file) {
         finish(null)
@@ -37,7 +43,9 @@ export function pickTextFile(accept: string): Promise<{ name: string; text: stri
     // 포커스 복귀로 추정해 정리한다 (남겨두면 input이 계속 쌓인다).
     window.addEventListener(
       'focus',
-      () => window.setTimeout(() => finish(null), 500),
+      () => {
+        cancelTimer = window.setTimeout(() => finish(null), 500)
+      },
       { once: true },
     )
 

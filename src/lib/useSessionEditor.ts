@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { db } from '../db'
 import type { EntryActions } from '../components/ExerciseCard'
 import { applyDayChange } from './dayChange'
@@ -51,14 +51,25 @@ export function useSessionEditor(sessionId: string | null): SessionEditor {
     }
   }, [sessionId])
 
+  /**
+   * updater 함수 안에서 저장하지 않는다. React StrictMode는 updater를 두 번 호출하므로
+   * 같은 쓰기가 두 번 나가고, 순서가 뒤바뀌면 낡은 값이 나중에 저장될 수 있다.
+   * 계산은 updater에서, 쓰기는 밖에서 한다.
+   */
   const update = useCallback((mutate: (s: Session) => Session) => {
-    setSession((current) => {
-      if (!current) return current
-      const next = mutate(current)
-      void db.sessions.put(next).catch((err) => console.error('[edit] 저장 실패', err))
-      return next
-    })
+    setSession((current) => (current ? mutate(current) : current))
   }, [])
+
+  // session이 바뀌면 저장한다 (첫 로드분은 건너뛴다 — 읽은 것을 되쓸 필요가 없다)
+  const loadedId = useRef<string | null>(null)
+  useEffect(() => {
+    if (!session) return
+    if (loadedId.current !== session.id) {
+      loadedId.current = session.id
+      return
+    }
+    void db.sessions.put(session).catch((err) => console.error('[edit] 저장 실패', err))
+  }, [session])
 
   const actions: EntryActions = {
     patchSet: (key, i, patch) => update((s) => applyPatchSet(s, key, i, patch)),

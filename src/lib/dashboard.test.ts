@@ -335,3 +335,20 @@ describe('증량 배지 — 홈과 요약이 같은 함수를 쓴다 (§5.1 · �
     expect(progressionSuggestions(atMax('d2', MON), strict, 1).length).toBeGreaterThan(0)
   })
 })
+
+describe('리뷰 P0-2 회귀 — 홈 증량 배지도 계획 세트를 요구한다', () => {
+  it('부분 수행 세션은 증량 배지를 만들지 않는다', () => {
+    // completedSession은 계획 세트를 전부 채우므로, 일부만 남긴 세션을 직접 만든다
+    const base = completedSession({ dayId: 'd2', date: MON, fullReps: true })
+    const partial = {
+      ...base,
+      entries: base.entries.map((e) =>
+        e.recordKey === 'lat-pulldown@d2' ? { ...e, sets: e.sets.slice(0, 2) } : e,
+      ),
+    }
+    const keys = progressionSuggestions(partial, ROUTINE, 0).map((p) => p.recordKey)
+    expect(keys).not.toContain('lat-pulldown@d2')
+    // 계획대로 다 한 시티드 로우는 여전히 제안된다
+    expect(keys).toContain('seated-cable-row@d2')
+  })
+})

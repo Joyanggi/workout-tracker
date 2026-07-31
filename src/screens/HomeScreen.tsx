@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import DayPickerSheet from '../components/DayPickerSheet'
 import MuscleVolumeBars from '../components/MuscleVolumeBars'
+import OpenSessionSheet from '../components/OpenSessionSheet'
 import WeekDots from '../components/WeekDots'
 import { db } from '../db'
 import {
@@ -21,6 +22,7 @@ import { suggestNextDay } from '../lib/suggestNextDay'
 import { exerciseLabel, useRoutine } from '../lib/useRoutine'
 import { useSessionStore } from '../store/session'
 import { useSettings } from '../store/settings'
+import { BANNER_BACKUP, BANNER_DELOAD, useUi } from '../store/ui'
 import type { RoutineDay, SessionMode } from '../types'
 
 export default function HomeScreen({ onEnterSession }: { onEnterSession: () => void }) {
@@ -29,10 +31,14 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
   const sessions = useLiveQuery(() => db.sessions.toArray(), [], [])
   const openSession = useSessionStore((s) => s.session)
   const begin = useSessionStore((s) => s.begin)
+  const finishSession = useSessionStore((s) => s.finish)
+  const discardSession = useSessionStore((s) => s.discard)
   const [picking, setPicking] = useState(false)
+  const [pending, setPending] = useState<{ day: RoutineDay; forceMode?: SessionMode } | null>(null)
   const [applyReturn, setApplyReturn] = useState(true)
-  const [dismissedDeload, setDismissedDeload] = useState(false)
-  const [dismissedBackup, setDismissedBackup] = useState(false)
+  // 탭을 옮겨도 dismiss가 유지되도록 스토어에 둔다 (store/ui.ts 주석 참조)
+  const dismissed = useUi((s) => s.dismissed)
+  const dismiss = useUi((s) => s.dismiss)
   const lastBackupAt = useLiveQuery(
     async () => ((await db.settings.get('lastBackupAt'))?.value as string | undefined) ?? null,
     [],
@@ -67,14 +73,12 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
   const { suggestion, dots, volume, deload, phase0, progressions } = dash
   const done = completedSessions(sessions)
 
-  const start = (day: RoutineDay, forceMode?: SessionMode) => {
-    const isReturn =
-      forceMode === undefined &&
-      Boolean(suggestion.returnStep) &&
-      applyReturn &&
-      day.id === suggestion.day.id
+  const create = (day: RoutineDay, forceMode?: SessionMode) => {
+    // 복귀는 **공백 상태**이지 Day의 속성이 아니다. 바텀시트로 다른 Day를 골라도
+    // 14일+ 공백이면 복귀 프로토콜을 적용해야 한다 (이전에는 제안 Day만 적용됐다).
+    const isReturn = forceMode === undefined && Boolean(suggestion.returnStep) && applyReturn
     const mode: SessionMode = forceMode ?? (isReturn ? 'return' : 'normal')
-    const { session } = buildSession({
+    return buildSession({
       routine,
       day,
       mode,
@@ -82,9 +86,27 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
       phase: currentPhase,
       today,
       returnStep: isReturn ? suggestion.returnStep : undefined,
-    })
-    begin(session)
+    }).session
+  }
+
+  const start = (day: RoutineDay, forceMode?: SessionMode) => {
     setPicking(false)
+    // 진행 중 세션이 있으면 덮어쓰지 않고 처리 방법을 먼저 묻는다 (store.begin이 거부한다)
+    if (openSession) {
+      setPending({ day, forceMode })
+      return
+    }
+    begin(create(day, forceMode))
+    onEnterSession()
+  }
+
+  /** OpenSessionSheet에서 기존 세션을 정리한 뒤 대기 중이던 Day로 시작 */
+  const startPending = async (resolve: 'finish' | 'discard') => {
+    if (!pending) return
+    if (resolve === 'finish') await finishSession()
+    else await discardSession()
+    begin(create(pending.day, pending.forceMode))
+    setPending(null)
     onEnterSession()
   }
 
@@ -94,7 +116,7 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
   // 복귀는 이미 볼륨을 줄인 상태이므로 디로드 권고가 중복이고, 두 배너가 서로 다른
   // 숫자를 말하면 어느 쪽을 따라야 하는지 알 수 없다.
   const showReturn = Boolean(suggestion.returnStep)
-  const showDeload = !showReturn && !dismissedDeload && (deload.due || deload.earlySignal)
+  const showDeload = !showReturn && !dismissed[BANNER_DELOAD] && (deload.due || deload.earlySignal)
 
   // §11 리스크 대응: "주 1회 백업 리마인드 배너"
   const reminder = backupReminder({
@@ -159,7 +181,7 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
             <span>디로드로 시작</span>
           </button>
           <button
-            onClick={() => setDismissedDeload(true)}
+            onClick={() => dismiss(BANNER_DELOAD)}
             style={{ background: 'transparent', marginLeft: 0 }}
           >
             <span style={{ color: 'var(--warn)' }}>나중에</span>
@@ -167,7 +189,7 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
         </div>
       )}
 
-      {reminder.show && !dismissedBackup && (
+      {reminder.show && !dismissed[BANNER_BACKUP] && (
         <div className="banner banner-warn" style={{ alignItems: 'flex-start' }}>
           <span>
             {reminder.configured
@@ -177,7 +199,7 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
             <small>설정 → Gist 백업에서 연결하면 세션 종료마다 자동으로 올라갑니다</small>
           </span>
           <button
-            onClick={() => setDismissedBackup(true)}
+            onClick={() => dismiss(BANNER_BACKUP)}
             style={{ background: 'transparent', marginLeft: 0 }}
           >
             <span style={{ color: 'var(--warn)' }}>나중에</span>
@@ -185,7 +207,8 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
         </div>
       )}
 
-      {progressions.length > 0 && (
+      {/* 복귀·디로드 배너와 동시에 띄우지 않는다 — "볼륨을 줄여라"와 "증량하라"가 나란히 뜬다 */}
+      {progressions.length > 0 && !showReturn && !showDeload && (
         <div className="banner banner-info" style={{ alignItems: 'flex-start' }}>
           <span>
             증량 제안
@@ -306,6 +329,20 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
             </p>
           </div>
         </details>
+      )}
+
+      {pending && openSession && (
+        <OpenSessionSheet
+          bundle={bundle}
+          openSession={openSession}
+          onResume={() => {
+            setPending(null)
+            onEnterSession()
+          }}
+          onFinishAndStart={() => void startPending('finish')}
+          onDiscardAndStart={() => void startPending('discard')}
+          onClose={() => setPending(null)}
+        />
       )}
 
       {picking && (

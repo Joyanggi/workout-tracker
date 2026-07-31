@@ -2,7 +2,18 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// GitHub Pages 하위 경로 배포. 레포명이 바뀌면 여기와 manifest scope/start_url을 함께 고쳐야 한다.
+/**
+ * GitHub Pages 하위 경로 배포.
+ *
+ * **레포명을 바꾸면 고쳐야 하는 곳 (빌드가 잡아주지 않는다):**
+ *   1. 이 상수 — manifest의 scope/start_url/icons가 여기서 파생된다
+ *   2. `index.html` — apple-touch-icon, favicon, apple-touch-startup-image 8개.
+ *      정적 파일이라 이 상수를 참조할 수 없어 절대 경로가 하드코딩돼 있다
+ *   3. `README.md`의 로컬 접속 주소와 배포 URL
+ *
+ * base가 틀리면 **빌드는 성공하고 배포 후 하얀 화면**이 된다. 로컬 dev에서는
+ * base가 무엇이든 동작해서 배포 전에 발견되지 않는다.
+ */
 const BASE = '/workout-tracker/'
 
 export default defineConfig({

@@ -4,7 +4,6 @@ import type { Phase } from '../types'
 
 interface SettingsState {
   loaded: boolean
-  activeRoutineId: string | null
   currentPhase: Phase
   onboardingDone: boolean
 
@@ -19,17 +18,17 @@ interface SettingsState {
  */
 export const useSettings = create<SettingsState>((set) => ({
   loaded: false,
-  activeRoutineId: null,
   currentPhase: 0,
   onboardingDone: false,
 
   load: async () => {
-    const [activeRoutineId, currentPhase, onboardingDone] = await Promise.all([
-      getSetting<string | null>('activeRoutineId', null),
+    // activeRoutineId는 여기 두지 않는다 — 루틴 교체 시 낡은 값이 남고,
+    // 실제 소비처인 getActiveRoutine()이 Dexie에서 직접 읽는다
+    const [currentPhase, onboardingDone] = await Promise.all([
       getSetting<Phase>('currentPhase', 0),
       getSetting<boolean>('onboardingDone', false),
     ])
-    set({ loaded: true, activeRoutineId, currentPhase, onboardingDone })
+    set({ loaded: true, currentPhase, onboardingDone })
   },
 
   setPhase: async (phase) => {

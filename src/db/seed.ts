@@ -34,11 +34,14 @@ export async function ensureSeed(): Promise<SeedResult> {
   const routineExists = (await db.routines.get(BUNDLED_ROUTINE.id)) !== undefined
   const needsSeed = !routineExists || seededVersion !== BUNDLED_ROUTINE.version
 
+  // 카탈로그는 **시드 여부와 무관하게** 매 실행 최신으로 맞춘다.
+  // needsSeed 안에 두면 보상작용 체크리스트 문구를 고쳐도 루틴 version을 올리지 않는 한
+  // 사용자에게 반영되지 않는다. 삭제는 하지 않는다 — 과거 세션이 참조하는 종목이
+  // 사라지면 기록 표시가 깨진다 (bulkPut은 추가/갱신만 한다).
+  await db.exercises.bulkPut(BUNDLED_EXERCISES)
+
   if (needsSeed) {
-    await db.transaction('rw', db.routines, db.exercises, db.settings, async () => {
-      // 카탈로그는 항상 최신으로 맞춘다 (보상작용 체크리스트 문구 수정이 반영돼야 함).
-      // 삭제는 하지 않는다 — 과거 세션이 참조하는 종목이 사라지면 기록 표시가 깨진다.
-      await db.exercises.bulkPut(BUNDLED_EXERCISES)
+    await db.transaction('rw', db.routines, db.settings, async () => {
       await db.routines.put(BUNDLED_ROUTINE)
       await setSettings({
         seededRoutineVersion: BUNDLED_ROUTINE.version,

@@ -27,6 +27,7 @@ export default function SessionDetailScreen({
   const [changingDay, setChangingDay] = useState(false)
   const [pendingDayId, setPendingDayId] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [minutesText, setMinutesText] = useState<string | null>(null)
 
   if (editor.loading) return <p className="center-note">불러오는 중…</p>
   if (!editor.session) {
@@ -153,16 +154,23 @@ export default function SessionDetailScreen({
         </div>
         {session.cardio && (
           <div className="btn-row" style={{ marginTop: 8 }}>
+            {/*
+              문자열 로컬 상태로 받고 blur에서 커밋한다. 값을 직접 파싱하면 지우는 순간
+              Number('') → 0이 저장되고, 그 0이 다시 value로 내려와 "0"이 지워지지 않는다.
+            */}
             <input
               className="field"
               inputMode="numeric"
-              value={String(session.cardio.minutes)}
-              onChange={(e) =>
-                editor.setCardio({
-                  ...session.cardio!,
-                  minutes: Number(e.target.value) || 0,
-                })
-              }
+              value={minutesText ?? String(session.cardio.minutes)}
+              onChange={(e) => setMinutesText(e.target.value)}
+              onBlur={() => {
+                if (minutesText === null) return
+                const parsed = Number(minutesText)
+                setMinutesText(null)
+                if (Number.isFinite(parsed) && parsed >= 0) {
+                  editor.setCardio({ ...session.cardio!, minutes: parsed })
+                }
+              }}
               aria-label="유산소 시간(분)"
             />
             <input

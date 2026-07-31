@@ -36,6 +36,10 @@ export function progressionSuggestions(
     const sets = doneSets(entry)
     if (sets.length === 0) return []
     if (entry.compensation !== NO_COMPENSATION) return []
+    // 계획 세트를 다 채워야 한다. 4세트 계획 중 2세트만 하고 둘 다 상단이면
+    // "12/12"로 증량이 제안되는데, 루틴 문서의 더블 프로그레션 기준은 전 세트(12/12/12/12)다.
+    // 기준은 루틴 정의값(routineExercise.sets) — 디로드로 줄어든 세트 수가 아니다.
+    if (sets.length < routineExercise.sets) return []
     if (!sets.every((s) => s.reps >= routineExercise.repMax)) return []
 
     const from = Math.max(...sets.map((s) => s.weight))

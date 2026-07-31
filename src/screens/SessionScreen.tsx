@@ -32,18 +32,26 @@ export default function SessionScreen({
 
   // 경과 시간은 매 틱마다 startedAt에서 다시 계산한다.
   // 화면 잠금으로 타이머가 멈춰도 복귀 시 값이 정확하다 (§5.2 타임스탬프 원칙).
+  // 의존성은 startedAt만. session 객체 전체를 넣으면 세트를 하나 누를 때마다
+  // (store가 새 객체를 만들므로) 인터벌이 해제·재생성된다.
+  const startedAt = session?.startedAt
   useEffect(() => {
-    if (!session) return
-    const tick = () => setElapsed(Date.now() - new Date(session.startedAt).getTime())
+    if (!startedAt) return
+    const tick = () => setElapsed(Date.now() - new Date(startedAt).getTime())
     tick()
     const id = window.setInterval(tick, 1000)
     return () => window.clearInterval(id)
-  }, [session?.startedAt, session])
+  }, [startedAt])
 
   const allSessions = useLiveQuery(() => db.sessions.toArray(), [], [])
 
   // 프리필은 저장하지 않고 매번 파생 계산한다 (앱 재시작 후 이어하기에서도 동일하게 나와야 함).
   // buildPrefill은 완료 세션만 보므로 진행 중인 현재 세션은 자동으로 제외된다.
+  // 프리필은 **완료 세션**에서만 파생되므로 진행 중 세션의 입력과 무관하다.
+  // 의존성에 session 전체를 넣으면 스테퍼를 누를 때마다 전 종목 프리필을 다시 계산한다.
+  const sessionId = session?.id
+  const sessionDayId = session?.dayId
+  const entryKeys = session?.entries.map((e) => e.recordKey).join(',')
   const prefills = useMemo(() => {
     const map = new Map<RecordKey, RecordPrefill>()
     if (!session) return map
@@ -66,7 +74,8 @@ export default function SessionScreen({
       )
     }
     return map
-  }, [session, allSessions, bundle.routine, phase])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- session은 id/dayId/키 목록으로 대표한다
+  }, [sessionId, sessionDayId, entryKeys, allSessions, bundle.routine, phase])
 
   // 첫 진입 시 아직 손대지 않은 첫 종목을 펼쳐둔다.
   // openKey를 조건으로 쓰면 사용자가 카드를 접을 때(openKey → null) 다른 카드가
@@ -126,6 +135,7 @@ export default function SessionScreen({
               fullName={exercise?.name ?? routineExercise.exerciseId}
               compensationSigns={exercise?.compensationSigns ?? []}
               prefill={prefills.get(entry.recordKey)}
+              showProgression={session.mode === 'normal'}
               actions={actions}
               open={openKey === entry.recordKey}
               onToggleOpen={() => setOpenKey(openKey === entry.recordKey ? null : entry.recordKey)}

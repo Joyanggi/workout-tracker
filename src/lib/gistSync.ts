@@ -84,6 +84,7 @@ export async function syncNow(): Promise<SyncState> {
     }
 
     await setSettings({ gistId: info.gistId, lastBackupAt: info.updatedAt })
+    clearSyncPending()
     const next: SyncState = { status: 'done', at: info.updatedAt }
     emit(next)
     return next
@@ -104,6 +105,7 @@ export async function syncNow(): Promise<SyncState> {
 export function requestSync(delayMs: number = SYNC_DEBOUNCE_MS): void {
   if (!isGistConfigured()) return
   window.clearTimeout(timer)
+  markSyncPending()
   emit({ status: 'pending' })
   timer = window.setTimeout(() => {
     void syncNow()
@@ -114,6 +116,72 @@ export function cancelPendingSync(): void {
   window.clearTimeout(timer)
   timer = undefined
   if (state.status === 'pending') emit({ status: 'idle' })
+}
+
+// ─── 백그라운드 전환 대비 ────────────────────────────────
+
+/**
+ * "올려야 할 변경이 남아 있다" 플래그.
+ *
+ * 세션 종료 후 8초 debounce 중에 폰을 잠그면 — **헬스장에서 가장 흔한 동작** —
+ * iOS가 타이머를 동결시키고, 앱이 그대로 종료되면 그 백업은 영구히 유실된다.
+ * 화면이 켜져 있을 때만 동작하는 debounce는 이 경로를 막지 못한다.
+ *
+ * localStorage에 플래그를 남겨 (1) 백그라운드 진입 직전에 즉시 flush하고
+ * (2) 그래도 못 올렸으면 다음 부팅에서 재시도한다.
+ */
+const PENDING_KEY = 'workout-tracker.gistSyncPending'
+
+function markSyncPending(): void {
+  try {
+    localStorage.setItem(PENDING_KEY, '1')
+  } catch {
+    /* 프라이빗 모드 */
+  }
+}
+
+function clearSyncPending(): void {
+  try {
+    localStorage.removeItem(PENDING_KEY)
+  } catch {
+    /* noop */
+  }
+}
+
+export function hasPendingSync(): boolean {
+  try {
+    return localStorage.getItem(PENDING_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 백그라운드 전환·부팅 시 밀린 백업을 올린다.
+ *
+ * `visibilitychange → hidden`에서는 비동기 작업이 끝날 보장이 없지만,
+ * fetch는 이미 발사됐으므로 브라우저가 대개 완주시킨다. 실패하면 플래그가 남아
+ * 다음 부팅에서 다시 시도한다 — 두 겹으로 두는 이유다.
+ */
+export function flushPendingSync(): void {
+  if (!isGistConfigured() || !hasPendingSync()) return
+  window.clearTimeout(timer)
+  timer = undefined
+  void syncNow()
+}
+
+/** App 부팅 시 한 번 등록한다 */
+export function installSyncLifecycle(): () => void {
+  const onHidden = () => {
+    if (document.visibilityState === 'hidden') flushPendingSync()
+  }
+  document.addEventListener('visibilitychange', onHidden)
+  // iOS Safari는 앱 종료 시 visibilitychange를 놓치는 경우가 있어 pagehide도 본다
+  window.addEventListener('pagehide', flushPendingSync)
+  return () => {
+    document.removeEventListener('visibilitychange', onHidden)
+    window.removeEventListener('pagehide', flushPendingSync)
+  }
 }
 
 // ─── 백업 리마인드 (§11) ─────────────────────────────────

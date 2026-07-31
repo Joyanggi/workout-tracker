@@ -58,6 +58,11 @@ export async function setSetting(key: string, value: unknown): Promise<void> {
   await db.settings.put(row)
 }
 
+/** 설정 키 삭제. undefined를 put하면 값이 undefined인 row가 남아 백업에 실린다 */
+export async function deleteSettings(keys: string[]): Promise<void> {
+  await db.settings.bulkDelete(keys)
+}
+
 export async function setSettings(patch: Record<string, unknown>): Promise<void> {
   const rows: SettingRow[] = Object.entries(patch).map(([key, value]) => {
     assertNotSecret(key)

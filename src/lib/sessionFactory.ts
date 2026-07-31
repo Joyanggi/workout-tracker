@@ -54,7 +54,7 @@ export function buildSession(args: {
       const setCount = Math.max(1, Math.round(routineExercise.sets * (1 + setPct / 100)))
 
       const sets = Array.from({ length: setCount }, (_, i) => {
-        const base = defaultSetFor(prefill, i, routineExercise)
+        const base = defaultSetFor(prefill, i, routineExercise, mode)
         return weightPct === 0
           ? base
           : { ...base, weight: roundToHalf(base.weight * (1 + weightPct / 100)) }

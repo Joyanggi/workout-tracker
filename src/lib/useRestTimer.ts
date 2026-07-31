@@ -73,6 +73,11 @@ export function useRestTimer(): RestTimer {
   /** 이 endTime에 대해 알림을 이미 울렸는가 (중복 방지) */
   const notified = useRef<number | null>(null)
 
+  // state → localStorage 단방향 미러링. 쓰기가 한 곳이라 중복·역전이 없다
+  useEffect(() => {
+    save(state)
+  }, [state])
+
   const remainingMs = state ? Math.max(0, state.endTime - now) : 0
   const running = state !== null && remainingMs > 0
   const finished = state !== null && remainingMs === 0
@@ -107,31 +112,29 @@ export function useRestTimer(): RestTimer {
   }, [state, remainingMs])
 
   const start = useCallback((seconds: number, label: string) => {
-    const next: Persisted = { endTime: Date.now() + seconds * 1000, totalSec: seconds, label }
     notified.current = null
-    setState(next)
+    setState({ endTime: Date.now() + seconds * 1000, totalSec: seconds, label })
     setNow(Date.now())
-    save(next)
   }, [])
 
+  // updater 안에서 save/notified를 만지면 StrictMode 이중 호출로 두 번 실행된다.
+  // 계산만 updater에서 하고 저장은 effect가 담당한다.
   const addSeconds = useCallback((seconds: number) => {
-    setState((prev) => {
-      if (!prev) return prev
-      const next: Persisted = {
-        ...prev,
-        endTime: extendEndTime(prev.endTime, Date.now(), seconds),
-        totalSec: prev.totalSec + seconds,
-      }
-      notified.current = null
-      save(next)
-      return next
-    })
+    notified.current = null
+    setState((prev) =>
+      prev
+        ? {
+            ...prev,
+            endTime: extendEndTime(prev.endTime, Date.now(), seconds),
+            totalSec: prev.totalSec + seconds,
+          }
+        : prev,
+    )
     setNow(Date.now())
   }, [])
 
   const dismiss = useCallback(() => {
     setState(null)
-    save(null)
   }, [])
 
   return {

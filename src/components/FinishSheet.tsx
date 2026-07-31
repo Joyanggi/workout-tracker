@@ -33,7 +33,8 @@ export default function FinishSheet({
   const partial = session.entries.filter(
     (e) => !e.skipped && doneSets(e).length > 0 && doneSets(e).length < e.sets.length,
   )
-  const anyDone = session.entries.some((e) => doneSets(e).length > 0)
+  const doneCount = session.entries.reduce((n, e) => n + doneSets(e).length, 0)
+  const anyDone = doneCount > 0
 
   const nameOf = (recordKey: string) => {
     const exerciseId = recordKey.slice(0, recordKey.lastIndexOf('@'))
@@ -128,22 +129,33 @@ export default function FinishSheet({
           계속하기
         </button>
 
-        {!anyDone && (
+        {/*
+          기록이 있어도 버릴 수 있어야 한다. 이전에는 !anyDone 조건이라, 세트를 하나
+          체크한 뒤 "잘못된 Day였다"고 깨달으면 버릴 수도 마칠 수도 없는 상태가 됐다.
+          (Day 변경은 기록 탭에서 가능하지만 진행 중 세션은 기록 탭에 없다)
+          기록이 있을 때는 세트 수를 보여주고 확인을 한 단계 더 받는다.
+        */}
+        <div style={{ height: 8 }} />
+        {confirmDiscard ? (
           <>
-            <div style={{ height: 8 }} />
-            {confirmDiscard ? (
-              <button
-                className="btn btn-danger"
-                onClick={() => void discard().then(onFinished)}
-              >
-                정말 버리기 (기록 없음)
+            <p className="row-sub" style={{ color: 'var(--danger)' }}>
+              {anyDone
+                ? `${doneCount}세트 기록이 삭제됩니다. 되돌릴 수 없습니다.`
+                : '이 세션을 삭제합니다.'}
+            </p>
+            <div className="btn-row">
+              <button className="btn" onClick={() => setConfirmDiscard(false)}>
+                취소
               </button>
-            ) : (
-              <button className="btn btn-danger" onClick={() => setConfirmDiscard(true)}>
-                이 세션 버리기
+              <button className="btn btn-danger" onClick={() => void discard().then(onFinished)}>
+                정말 버리기
               </button>
-            )}
+            </div>
           </>
+        ) : (
+          <button className="btn btn-danger" onClick={() => setConfirmDiscard(true)}>
+            이 세션 버리기
+          </button>
         )}
       </div>
     </div>

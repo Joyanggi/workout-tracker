@@ -1,5 +1,6 @@
 import { db } from '../db'
 import type { Exercise, RoutineTemplate, Session, SettingRow } from '../types'
+import { validateRoutine } from '../db/validateRoutine'
 import { isSecretSettingKey } from './secrets'
 
 /**
@@ -109,6 +110,17 @@ export function parseBackup(text: string): { file: BackupFile } | { problems: st
       if (typeof s?.id !== 'string' || typeof s?.date !== 'string' || !Array.isArray(s?.entries)) {
         problems.push(`sessions[${i}]의 형태가 올바르지 않습니다`)
         break
+      }
+    }
+
+    // 루틴 정합성도 검사한다. muscleSets 합이 어긋난 루틴이 복원되면 §4 제안 로직과
+    // §5.1 대시보드가 서로 다른 숫자를 말하기 시작하고 원인 추적이 매우 어렵다.
+    // (설정 → 루틴 가져오기 경로는 이미 검증하는데 복원 경로만 빠져 있었다)
+    const routines = obj.routines as RoutineTemplate[]
+    const exercises = obj.exercises as Exercise[]
+    for (const routine of routines) {
+      for (const p of validateRoutine(routine, exercises)) {
+        problems.push(`routines/${routine.id}: ${p}`)
       }
     }
   }

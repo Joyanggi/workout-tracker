@@ -57,6 +57,12 @@ export default function ExerciseCard({
   onSetChecked,
   /** 편집 모드에서는 "지난 기록" 고스트와 증량 칩을 숨긴다 (과거 세션 기준이 아니라 혼란만 준다) */
   showPrefillHints = true,
+  /**
+   * 디로드·복귀 세션에서는 증량 칩을 숨긴다.
+   * 프리필 무게가 이미 증량을 무시하는데(defaultSetFor) 칩만 "+2.5kg 제안"이라고
+   * 뜨면 화면이 서로 다른 말을 한다.
+   */
+  showProgression = true,
 }: {
   entry: SessionEntry
   routineExercise: RoutineExercise
@@ -69,6 +75,7 @@ export default function ExerciseCard({
   onToggleOpen: () => void
   onSetChecked?: (routineExercise: RoutineExercise) => void
   showPrefillHints?: boolean
+  showProgression?: boolean
 }) {
   const [editingCompensation, setEditingCompensation] = useState(false)
   const done = doneSets(entry)
@@ -136,7 +143,7 @@ export default function ExerciseCard({
             <span className="chip">{routineExercise.group}그룹</span>
             <span className="chip">휴식 {routineExercise.restSec}초</span>
             {routineExercise.optional && <span className="chip chip-warn">컨디션 좋을 때만</span>}
-            {showPrefillHints && prefill?.progression && (
+            {showPrefillHints && showProgression && prefill?.progression && (
               <span className="chip chip-accent">
                 증량 제안 {prefill.progression.from} → {prefill.progression.to}kg
               </span>
@@ -147,30 +154,26 @@ export default function ExerciseCard({
             <span>세트</span>
             <span>무게 (kg)</span>
             <span>횟수</span>
-            <span />
           </div>
 
           {entry.sets.map((set, i) => (
+            /*
+              체크 버튼을 고스트 줄로 올려 입력 행을 전폭으로 쓴다.
+              §9는 숫자 24px+와 터치 타깃 44pt를 동시에 요구하는데, 한 줄에 [스테퍼][스테퍼][체크]를
+              넣으면 375px에서 숫자 자리가 32px밖에 안 남아 24px 폰트의 "42.5"가 잘린다.
+              무게는 4자("42.5"), 횟수는 2자라 1.3:1로 배분한다.
+            */
+            /*
+              key={i}는 **세트를 끝에서만 제거**하는 현재 UI에서만 안전하다.
+              중간 제거를 추가하면 NumberStepper의 편집 중 로컬 상태가 옆 세트로 옮겨 붙는다.
+              그때는 SetRecord에 id를 추가해야 한다 (persist되는 타입이라 백업 스키마도 함께).
+            */
             <div className="set-row" key={i}>
               <div className="set-no">{i + 1}</div>
-              <div className="set-ghost">
-                {showPrefillHints ? ghostText(prefill, i) || '기준 기록 없음' : ''}
-              </div>
-              <div className="set-inputs">
-                <NumberStepper
-                  value={set.weight}
-                  step={2.5}
-                  max={500}
-                  onChange={(weight) => actions.patchSet(entry.recordKey, i, { weight })}
-                  ariaLabel={`${name} ${i + 1}세트 무게`}
-                />
-                <NumberStepper
-                  value={set.reps}
-                  step={1}
-                  max={100}
-                  onChange={(reps) => actions.patchSet(entry.recordKey, i, { reps })}
-                  ariaLabel={`${name} ${i + 1}세트 횟수`}
-                />
+              <div className="set-meta">
+                <span className="set-ghost">
+                  {showPrefillHints ? ghostText(prefill, i) || '기준 기록 없음' : ''}
+                </span>
                 <button
                   className={`set-check${set.done ? ' set-check-on' : ''}`}
                   onClick={() => onCheck(i, set.done)}
@@ -179,6 +182,26 @@ export default function ExerciseCard({
                 >
                   ✓
                 </button>
+              </div>
+              <div className="set-inputs">
+                <div className="stepper-slot stepper-slot-wide">
+                  <NumberStepper
+                    value={set.weight}
+                    step={2.5}
+                    max={500}
+                    onChange={(weight) => actions.patchSet(entry.recordKey, i, { weight })}
+                    ariaLabel={`${name} ${i + 1}세트 무게`}
+                  />
+                </div>
+                <div className="stepper-slot">
+                  <NumberStepper
+                    value={set.reps}
+                    step={1}
+                    max={100}
+                    onChange={(reps) => actions.patchSet(entry.recordKey, i, { reps })}
+                    ariaLabel={`${name} ${i + 1}세트 횟수`}
+                  />
+                </div>
               </div>
             </div>
           ))}

@@ -1,4 +1,12 @@
-import type { Phase, RecordKey, RoutineExercise, RoutineTemplate, Session, SetRecord } from '../types'
+import type {
+  Phase,
+  RecordKey,
+  RoutineExercise,
+  RoutineTemplate,
+  Session,
+  SessionMode,
+  SetRecord,
+} from '../types'
 import { NO_COMPENSATION } from '../types'
 import { completedSessions, doneSets } from './derive'
 
@@ -102,20 +110,31 @@ export function computeProgression(args: {
   if (phase === 0 && !routine.rules.allowProgressionInPhase0) return undefined
   if (lastSets.length === 0) return undefined
   if ((lastCompensation ?? NO_COMPENSATION) !== NO_COMPENSATION) return undefined
+  // 계획 세트를 다 채운 세션만 증량 대상 (progression.ts와 동일 규칙)
+  if (lastSets.length < routineExercise.sets) return undefined
   if (!lastSets.every((s) => s.reps >= routineExercise.repMax)) return undefined
 
   const from = Math.max(...lastSets.map((s) => s.weight))
   return { from, to: from + routine.rules.weightIncrementKg }
 }
 
-/** 세트 인덱스에 넣을 기본값. 기록이 전혀 없으면 0kg × repMin */
+/**
+ * 세트 인덱스에 넣을 기본값. 기록이 전혀 없으면 0kg × repMin.
+ *
+ * **디로드·복귀 모드에서는 증량 제안을 무시한다.**
+ * 디로드 원칙은 "세트 −50%, 무게 유지"(§7)인데 progression.to를 쓰면 +2.5kg가 기본값이 된다.
+ * 복귀 모드에서는 (이전 무게 +2.5) × 0.95가 되어 명세("이전 무게 −5%")와 다른 값이 나온다.
+ * 두 모드 모두 "직전 무게를 기준으로 줄이는" 것이 목적이므로 증량과 섞일 수 없다.
+ */
 export function defaultSetFor(
   prefill: RecordPrefill,
   index: number,
   routineExercise: RoutineExercise,
+  mode: SessionMode = 'normal',
 ): SetRecord {
   const ref = prefill.bestBySet[index] ?? prefill.best
-  const weight = prefill.progression?.to ?? ref?.weight ?? 0
+  const base = ref?.weight ?? 0
+  const weight = mode === 'normal' ? (prefill.progression?.to ?? base) : base
   return {
     weight,
     reps: ref?.reps ?? routineExercise.repMin,

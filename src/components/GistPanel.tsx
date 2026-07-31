@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, setSettings } from '../db'
+import { db, deleteSettings } from '../db'
 import { parseBackup, restoreBackup, summarizeBackup, type BackupSummary } from '../lib/backup'
 import { GistError, readGist, verifyToken } from '../lib/gist'
 import {
@@ -135,7 +135,7 @@ export default function GistPanel() {
   }
 
   const onForgetGist = async () => {
-    await setSettings({ gistId: undefined, lastBackupAt: undefined })
+    await deleteSettings(['gistId', 'lastBackupAt'])
     setMessage('연결된 Gist를 잊었습니다. 다음 백업에서 새로 만듭니다.')
   }
 

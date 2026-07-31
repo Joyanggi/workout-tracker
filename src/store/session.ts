@@ -38,7 +38,7 @@ interface SessionState {
   restored: boolean
 
   restore: () => Promise<void>
-  begin: (session: Session) => void
+  begin: (session: Session) => boolean
   discard: () => Promise<void>
   finish: (now?: Date) => Promise<Session | null>
 
@@ -73,9 +73,16 @@ export const useSessionStore = create<SessionState>((set, get) => {
       set({ session: open ?? null, restored: true })
     },
 
+    /**
+     * 새 세션 시작. **기존 진행 중 세션이 있으면 거부한다.**
+     * 그냥 덮어쓰면 endedAt 없는 세션이 DB에 남아 다음 실행에서 "진행 중"으로 부활한다.
+     * 호출자가 OpenSessionSheet로 처리 방법을 물은 뒤 finish/discard를 먼저 불러야 한다.
+     */
     begin: (session) => {
+      if (get().session) return false
       set({ session })
       persist(session)
+      return true
     },
 
     discard: async () => {

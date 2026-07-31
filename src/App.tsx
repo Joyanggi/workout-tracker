@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useState } from 'react'
 import TabBar, { type TabId } from './components/TabBar'
 import UpdatePrompt from './components/UpdatePrompt'
 import { ensureSeed, type SeedResult } from './db/seed'
+import { flushPendingSync, installSyncLifecycle } from './lib/gistSync'
 import { usePwaUpdate } from './lib/usePwaUpdate'
 import { useRoutine } from './lib/useRoutine'
 import HistoryScreen from './screens/HistoryScreen'
@@ -39,15 +40,24 @@ export default function App() {
     // 시드 주입 → 설정 로드 → 진행 중 세션 복구 순서를 지킨다 (시드가 activeRoutineId를 쓴다)
     void (async () => {
       try {
+        // Safari 탭 사용 기간의 추가 방어층 (§11 ITP 삭제). 거부돼도 무해하므로 무시한다
+        void navigator.storage?.persist?.().catch(() => undefined)
+
         const result = await ensureSeed()
         setSeed(result)
         await load()
         await restoreSession()
+
+        // 지난 실행에서 debounce 중 폰이 잠겨 밀린 백업이 있으면 지금 올린다
+        flushPendingSync()
       } catch (err) {
         setBootError(err instanceof Error ? err.message : String(err))
       }
     })()
   }, [load, restoreSession])
+
+  // 백그라운드 전환 직전에 밀린 백업을 flush (P1-3)
+  useEffect(() => installSyncLifecycle(), [])
 
   const banner = <UpdatePrompt {...pwa} />
 
