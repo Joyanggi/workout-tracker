@@ -1,5 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
 
+/**
+ * 입력 중 허용 패턴 (T2).
+ *
+ * 커밋(blur)·스테퍼 증감 시점에는 이미 `Math.round(×100)/100`으로 2자리 반올림하지만,
+ * **타이핑 중에는 자유 텍스트**여서 "40.123456"이 그대로 보이고 횟수 필드에도
+ * 소수점을 넣을 수 있었다. 반올림은 그대로 두고(이중 방어) 입력 자체를 막는다.
+ *
+ * 빈 문자열을 허용해야 한다 — 전체 선택 후 지우고 다시 입력하는 흐름이 막히면 안 된다.
+ */
+const PATTERNS: Record<0 | 2, RegExp> = {
+  2: /^$|^\d{0,4}([.,]\d{0,2})?$/,
+  0: /^$|^\d{0,4}$/,
+}
+
+export function isAllowedInput(text: string, decimals: 0 | 2): boolean {
+  return PATTERNS[decimals].test(text)
+}
+
 const HOLD_DELAY_MS = 400
 const REPEAT_MS = 110
 const ACCEL_AFTER = 8
@@ -16,6 +34,8 @@ export default function NumberStepper({
   max = 9999,
   onChange,
   ariaLabel,
+  /** 소수점 허용 자리수. 무게는 2, 횟수는 0 (§T2) */
+  decimals = 0,
 }: {
   value: number
   step: number
@@ -23,19 +43,21 @@ export default function NumberStepper({
   max?: number
   onChange: (next: number) => void
   ariaLabel: string
+  decimals?: 0 | 2
 }) {
   const [text, setText] = useState<string | null>(null)
   const timers = useRef<{ delay?: number; repeat?: number }>({})
   // 롱프레스 반복은 콜백을 다시 만들지 않도록 최신 값을 ref로 읽는다
-  const latest = useRef({ value, step, min, max, onChange })
-  latest.current = { value, step, min, max, onChange }
+  const latest = useRef({ value, step, min, max, onChange, decimals })
+  latest.current = { value, step, min, max, onChange, decimals }
 
   const clamp = (n: number) => Math.min(max, Math.max(min, n))
 
   const bump = (dir: 1 | -1) => {
     const { value: v, step: st, onChange: cb } = latest.current
     // 부동소수 누적 방지 (2.5 스텝에서 40.00000000000001 같은 값 방지)
-    const next = clamp(Math.round((v + dir * st) * 100) / 100)
+    const factor = latest.current.decimals === 2 ? 100 : 1
+    const next = clamp(Math.round((v + dir * st) * factor) / factor)
     if (next !== v) cb(next)
   }
 
@@ -67,7 +89,9 @@ export default function NumberStepper({
     if (text === null) return
     const parsed = Number(text.replace(',', '.'))
     setText(null)
-    if (Number.isFinite(parsed)) onChange(clamp(Math.round(parsed * 100) / 100))
+    if (!Number.isFinite(parsed)) return
+    const factor = decimals === 2 ? 100 : 1
+    onChange(clamp(Math.round(parsed * factor) / factor))
   }
 
   return (
@@ -85,12 +109,16 @@ export default function NumberStepper({
       >
         −
       </button>
+      {/* 정수 필드는 inputMode=numeric — iOS 키패드에서 소수점 키 자체가 사라진다 */}
       <input
         className="stepper-value"
-        inputMode="decimal"
+        inputMode={decimals === 2 ? 'decimal' : 'numeric'}
         aria-label={ariaLabel}
         value={text ?? String(value)}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => {
+          // 패턴을 통과하지 못하면 이전 값을 유지한다 — 타이핑 자체가 안 된다
+          if (isAllowedInput(e.target.value, decimals)) setText(e.target.value)
+        }}
         onFocus={(e) => e.currentTarget.select()}
         onBlur={commitText}
         onKeyDown={(e) => {

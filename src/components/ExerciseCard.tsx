@@ -198,6 +198,7 @@ export default function ExerciseCard({
                     max={500}
                     onChange={(weight) => actions.patchSet(entry.recordKey, i, { weight })}
                     ariaLabel={`${name} ${i + 1}세트 무게`}
+                    decimals={2}
                   />
                 </div>
                 <div className="stepper-slot">
@@ -207,6 +208,7 @@ export default function ExerciseCard({
                     max={100}
                     onChange={(reps) => actions.patchSet(entry.recordKey, i, { reps })}
                     ariaLabel={`${name} ${i + 1}세트 횟수`}
+                    decimals={0}
                   />
                 </div>
               </div>
