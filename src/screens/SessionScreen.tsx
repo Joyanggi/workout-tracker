@@ -1,15 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import NumberStepper from '../components/NumberStepper'
+import CompensationSheet from '../components/CompensationSheet'
 import FinishSheet from '../components/FinishSheet'
+import NumberStepper from '../components/NumberStepper'
+import RestTimerBar from '../components/RestTimerBar'
 import { db } from '../db'
+import { unlockAudio } from '../lib/beep'
+import { compensationSummary, hasCompensation } from '../lib/compensation'
 import { formatElapsed } from '../lib/dates'
 import { doneSets, findDay } from '../lib/derive'
 import { buildPrefill, type RecordPrefill } from '../lib/prefill'
+import { useRestTimer, type RestTimer } from '../lib/useRestTimer'
 import type { RoutineBundle } from '../lib/useRoutine'
 import { useSessionStore } from '../store/session'
 import { useSettings } from '../store/settings'
 import type { RecordKey, RoutineExercise, SessionEntry } from '../types'
+
+/** 감각 점수 라벨 (루틴 문서: 목표 부위에 자극이 왔는지) */
+const SENSORY_LABELS: Record<0 | 1 | 2 | 3, string> = {
+  0: '안 느껴짐',
+  1: '약함',
+  2: '보통',
+  3: '확실',
+}
 
 export default function SessionScreen({
   bundle,
@@ -20,6 +33,7 @@ export default function SessionScreen({
 }) {
   const session = useSessionStore((s) => s.session)
   const phase = useSettings((s) => s.currentPhase)
+  const timer = useRestTimer()
   const [openKey, setOpenKey] = useState<RecordKey | null>(null)
   const [finishing, setFinishing] = useState(false)
   const [elapsed, setElapsed] = useState(0)
@@ -110,13 +124,17 @@ export default function SessionScreen({
             entry.recordKey.startsWith(`${e.exerciseId}@`),
           )
           if (!routineExercise) return null
+          const exercise = bundle.catalog.get(routineExercise.exerciseId)
           return (
             <ExerciseCard
               key={entry.recordKey}
               entry={entry}
               routineExercise={routineExercise}
-              name={bundle.catalog.get(routineExercise.exerciseId)?.shortName ?? routineExercise.exerciseId}
+              name={exercise?.shortName ?? routineExercise.exerciseId}
+              fullName={exercise?.name ?? routineExercise.exerciseId}
+              compensationSigns={exercise?.compensationSigns ?? []}
               prefill={prefills.get(entry.recordKey)}
+              timer={timer}
               open={openKey === entry.recordKey}
               onToggleOpen={() =>
                 setOpenKey(openKey === entry.recordKey ? null : entry.recordKey)
@@ -124,16 +142,21 @@ export default function SessionScreen({
             />
           )
         })}
-        <p className="row-sub" style={{ textAlign: 'center', padding: '4px 0 8px' }}>
-          휴식 타이머 · 감각 점수 · 보상작용 체크리스트는 마일스톤 3에서 붙습니다.
-        </p>
       </div>
+
+      <RestTimerBar timer={timer} />
 
       {finishing && (
         <FinishSheet
           bundle={bundle}
           onClose={() => setFinishing(false)}
-          onFinished={onFinished}
+          onFinished={() => {
+            // 타이머는 localStorage에 남아 있으므로 세션이 끝날 때 반드시 지운다.
+            // 그냥 두면 다음 세션을 시작할 때 이전 세션의 휴식이 되살아난다
+            // (endTime이 아직 미래인 경우 — 마지막 세트 직후에 종료하면 흔하다).
+            timer.dismiss()
+            onFinished()
+          }}
         />
       )}
     </div>
@@ -156,24 +179,50 @@ function ExerciseCard({
   entry,
   routineExercise,
   name,
+  fullName,
+  compensationSigns,
   prefill,
+  timer,
   open,
   onToggleOpen,
 }: {
   entry: SessionEntry
   routineExercise: RoutineExercise
   name: string
+  fullName: string
+  compensationSigns: string[]
   prefill: RecordPrefill | undefined
+  timer: RestTimer
   open: boolean
   onToggleOpen: () => void
 }) {
-  const { patchSet, toggleDone, addSet, removeSet, setSkipped } = useSessionStore()
+  const {
+    patchSet,
+    toggleDone,
+    addSet,
+    removeSet,
+    setSkipped,
+    setSensoryScore,
+    setSensoryNote,
+    setCompensation,
+  } = useSessionStore()
+  const [editingCompensation, setEditingCompensation] = useState(false)
   const done = doneSets(entry)
   const complete = done.length >= entry.sets.length
+  const isB = routineExercise.group === 'B'
 
   const summary = prefill?.lastSets.length
     ? `지난번 ${prefill.lastSets[0].weight}kg ${prefill.lastSets.map((s) => s.reps).join('/')}`
     : '첫 기록'
+
+  const onCheck = (index: number, wasDone: boolean) => {
+    // AudioContext는 사용자 제스처 안에서만 열 수 있다. 90~150초 뒤 비프음이
+    // 제스처 없이 울리므로 여기서 미리 열어둔다 (lib/beep.ts 주석 참조).
+    unlockAudio()
+    toggleDone(entry.recordKey, index)
+    // 체크할 때만 휴식 시작. 해제는 실수 정정이므로 타이머를 건드리지 않는다.
+    if (!wasDone) timer.start(routineExercise.restSec, name)
+  }
 
   return (
     <div className={`ex-card${complete ? ' ex-card-done' : ''}${entry.skipped ? ' ex-card-skipped' : ''}`}>
@@ -193,6 +242,18 @@ function ExerciseCard({
           <span className="ex-sub">
             {entry.sets.length}세트 × {routineExercise.repMin}~{routineExercise.repMax} · {summary}
           </span>
+          {(isB && entry.sensoryScore !== undefined) || hasCompensation(entry.compensation) ? (
+            <span className="ex-sub">
+              {isB && entry.sensoryScore !== undefined && (
+                <span className="chip chip-accent">감각 {entry.sensoryScore}</span>
+              )}
+              {hasCompensation(entry.compensation) && (
+                <span className="chip chip-warn" style={{ marginLeft: 4 }}>
+                  {compensationSummary(entry.compensation)}
+                </span>
+              )}
+            </span>
+          ) : null}
         </span>
         <span className={`ex-count${complete ? ' ex-count-done' : ''}`}>
           {entry.skipped ? '스킵' : `${done.length}/${entry.sets.length}`}
@@ -244,7 +305,7 @@ function ExerciseCard({
                 />
                 <button
                   className={`set-check${set.done ? ' set-check-on' : ''}`}
-                  onClick={() => toggleDone(entry.recordKey, i)}
+                  onClick={() => onCheck(i, set.done)}
                   aria-pressed={set.done}
                   aria-label={`${i + 1}세트 완료`}
                 >
@@ -273,7 +334,60 @@ function ExerciseCard({
               {entry.skipped ? '스킵 해제' : '스킵'}
             </button>
           </div>
+
+          {/* B그룹 감각 점수 (§5.2). 목표 부위에 자극이 왔는지 — "계속 0인 종목" 탐지용 */}
+          {isB && (
+            <div className="sub-field">
+              <div className="card-label">감각 점수</div>
+              <div className="segment">
+                {([0, 1, 2, 3] as const).map((score) => (
+                  <button
+                    key={score}
+                    aria-pressed={entry.sensoryScore === score}
+                    onClick={() => setSensoryScore(entry.recordKey, score)}
+                  >
+                    {score}
+                  </button>
+                ))}
+              </div>
+              <p className="row-sub">
+                {entry.sensoryScore === undefined
+                  ? '미입력 — 목표 부위에 자극이 왔는지'
+                  : SENSORY_LABELS[entry.sensoryScore]}
+              </p>
+              <input
+                className="field"
+                value={entry.sensoryNote ?? ''}
+                onChange={(e) => setSensoryNote(entry.recordKey, e.target.value)}
+                placeholder="어디에 어떻게 느껴졌는지 (선택)"
+                aria-label={`${name} 감각 메모`}
+              />
+            </div>
+          )}
+
+          {/* 보상작용 — 기본값 "없음". 빈칸으로 둘 수 없다 (루틴 문서 규칙) */}
+          <div className="sub-field">
+            <div className="card-label">보상작용</div>
+            <button
+              className={`btn btn-sm${hasCompensation(entry.compensation) ? ' btn-warn' : ''}`}
+              onClick={() => setEditingCompensation(true)}
+              style={{ justifyContent: 'space-between' }}
+            >
+              <span style={{ textAlign: 'left' }}>{entry.compensation}</span>
+              <span aria-hidden="true">▸</span>
+            </button>
+          </div>
         </div>
+      )}
+
+      {editingCompensation && (
+        <CompensationSheet
+          exerciseName={fullName}
+          signs={compensationSigns}
+          current={entry.compensation}
+          onSave={(next) => setCompensation(entry.recordKey, next)}
+          onClose={() => setEditingCompensation(false)}
+        />
       )}
     </div>
   )

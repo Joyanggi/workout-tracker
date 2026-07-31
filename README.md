@@ -57,6 +57,15 @@
   `registerType: 'autoUpdate'`는 새 버전 감지 시 페이지를 리로드합니다. 세션 입력 중에
   화면이 날아가면 안 되므로 배너로 알리고 사용자가 누를 때만 적용합니다.
 
+- **휴식 종료음의 AudioContext는 세트 체크 시점에 미리 열어둔다**
+  iOS는 사용자 제스처 없이 AudioContext를 시작할 수 없습니다. 비프음이 울려야 하는 시점은
+  90~150초 뒤로 제스처가 없으므로, 항상 타이머 시작 직전에 오는 제스처(세트 체크 ✓)에서
+  컨텍스트를 열어둡니다. `navigator.vibrate`는 iOS 미지원이라 소리가 주 수단입니다.
+
+- **감각 점수 0점과 미입력을 구분한다**
+  0점("안 느껴짐")은 유효한 기록입니다. `sensoryScore ?? 0`처럼 합치면 "계속 0점인 종목"
+  탐지가 불가능해집니다. 미입력은 `undefined`로 남깁니다.
+
 - **`isActive`(boolean)를 IndexedDB 인덱스로 쓰지 않는다**
   IndexedDB는 boolean을 유효한 키로 취급하지 않아 해당 레코드가 인덱스에서 조용히 누락됩니다.
   활성 루틴은 `settings.activeRoutineId`로 찾습니다.
@@ -140,7 +149,7 @@ flowchart TB
 - 상태: zustand (설정만. 루틴·세션은 `dexie-react-hooks`의 live query로 직접 읽음)
 - 저장: Dexie (IndexedDB)
 - PWA: vite-plugin-pwa (manifest + Workbox SW)
-- 테스트: Vitest (알고리즘 단위 테스트 44개)
+- 테스트: Vitest (알고리즘 단위 테스트 61개)
 - 배포: GitHub Actions → GitHub Pages
 
 ## Getting Started
@@ -157,7 +166,7 @@ npm run build
 npm run preview
 ```
 
-Day 제안 알고리즘·프리필·수행 순서 규칙은 자동 테스트로 고정돼 있습니다.
+Day 제안 알고리즘·프리필·수행 순서·보상작용 직렬화·타이머 산술은 자동 테스트로 고정돼 있습니다.
 
 ```bash
 npm test
@@ -178,7 +187,7 @@ Safari 탭으로만 쓰면 iOS가 7일 미사용 시 IndexedDB를 지울 수 있
 |---|---|---|
 | 1 | 스캐폴드 — Vite/React/TS/Dexie/PWA, 시드 로딩, Pages 배포 | ✅ |
 | 2 | 세션 코어 — Day 제안, 세트 입력·프리필·체크, 즉시 저장, 종료 요약 | ✅ |
-| 3 | 휴식 타이머, 감각 점수, 보상작용 체크리스트 | ⬜ |
+| 3 | 휴식 타이머, 감각 점수, 보상작용 체크리스트 | ✅ |
 | 4 | 홈 대시보드 — 주간 도트, 부위별 볼륨 바, 복귀/디로드/증량 배너 | ⬜ |
 | 5 | 기록 탭 — 달력, 세션 상세, 편집 | ⬜ |
 | 6 | 내보내기/가져오기 — Markdown, JSON, iOS 공유 시트 | ⬜ |

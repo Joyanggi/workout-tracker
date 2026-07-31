@@ -1,4 +1,4 @@
-import type { RecordKey, Session, SessionEntry, SetRecord } from '../types'
+import { NO_COMPENSATION, type RecordKey, type Session, type SessionEntry, type SetRecord } from '../types'
 
 /**
  * 세션 변형 로직 — 순수 함수. store는 이걸 호출하고 저장만 담당한다.
@@ -91,4 +91,38 @@ export function applyRemoveSet(session: Session, recordKey: RecordKey, index: nu
 
 export function applySkipped(session: Session, recordKey: RecordKey, skipped: boolean): Session {
   return mapEntry(session, recordKey, (entry) => ({ ...entry, skipped }))
+}
+
+/** B그룹 감각 점수 (§5.2). 같은 점수를 다시 누르면 해제한다 */
+export function applySensoryScore(
+  session: Session,
+  recordKey: RecordKey,
+  score: 0 | 1 | 2 | 3,
+): Session {
+  return mapEntry(session, recordKey, (entry) => ({
+    ...entry,
+    sensoryScore: entry.sensoryScore === score ? undefined : score,
+  }))
+}
+
+export function applySensoryNote(session: Session, recordKey: RecordKey, note: string): Session {
+  return mapEntry(session, recordKey, (entry) => ({
+    ...entry,
+    sensoryNote: note.trim() === '' ? undefined : note,
+  }))
+}
+
+/**
+ * 보상작용. 빈 문자열로 만들 수 없다 — 루틴 문서가 빈칸을 금지한다.
+ * 호출자는 serializeCompensation()의 결과를 넘기고, 그 함수가 "없음"을 보장한다.
+ */
+export function applyCompensation(
+  session: Session,
+  recordKey: RecordKey,
+  compensation: string,
+): Session {
+  return mapEntry(session, recordKey, (entry) => ({
+    ...entry,
+    compensation: compensation.trim() === '' ? NO_COMPENSATION : compensation,
+  }))
 }

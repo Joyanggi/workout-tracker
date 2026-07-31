@@ -533,7 +533,8 @@ select {
 
 .session-body {
   flex: 1;
-  padding: 12px 12px calc(var(--safe-b) + 24px);
+  /* 하단 고정 휴식 타이머 바에 카드가 가리지 않도록 항상 자리를 비워둔다 */
+  padding: 12px 12px calc(var(--safe-b) + 96px);
   max-width: 640px;
   width: 100%;
   margin: 0 auto;
@@ -798,4 +799,160 @@ select {
 .btn-sm {
   padding: 10px 12px;
   font-size: 14px;
+}
+
+/* ─── 휴식 타이머 바 (하단 고정) ───────────────────────── */
+
+.rest-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  overflow: hidden;
+  padding-bottom: var(--safe-b);
+  background: rgba(22, 22, 26, 0.94);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-top: 1px solid var(--line);
+}
+
+.rest-bar-done {
+  background: rgba(52, 199, 89, 0.16);
+  border-top-color: rgba(52, 199, 89, 0.5);
+}
+
+/* 진행 바는 scaleX로만 움직인다 — 레이아웃을 건드리지 않아 250ms 틱에도 매끄럽다 */
+.rest-progress {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  background: var(--accent-soft);
+  transition: transform 0.25s linear;
+  pointer-events: none;
+}
+
+.rest-bar-done .rest-progress {
+  background: transparent;
+}
+
+.rest-content {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.rest-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.rest-time {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.rest-bar-done .rest-time {
+  color: var(--ok);
+  font-size: 20px;
+}
+
+.rest-label {
+  font-size: 12px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rest-btn {
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.rest-btn-strong {
+  background: var(--accent);
+  color: #16100a;
+}
+
+.rest-bar-done .rest-btn-strong {
+  background: var(--ok);
+  color: #06210d;
+}
+
+/* ─── 감각 점수 · 보상작용 ─────────────────────────────── */
+
+.sub-field {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.sub-field .card-label {
+  margin-bottom: 6px;
+}
+
+.sub-field .field {
+  margin-top: 8px;
+}
+
+.sub-field .row-sub {
+  margin-top: 6px;
+}
+
+.btn-warn {
+  color: var(--warn);
+  border: 1px solid rgba(255, 204, 0, 0.35);
+}
+
+.check-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.check-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  text-align: left;
+  font-size: 15px;
+  color: var(--text-dim);
+}
+
+.check-item-on {
+  background: rgba(255, 204, 0, 0.12);
+  color: #ffe08a;
+}
+
+.check-box {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  border: 1.5px solid var(--line);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.check-item-on .check-box {
+  border-color: var(--warn);
+  color: var(--warn);
 }

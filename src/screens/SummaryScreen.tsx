@@ -1,3 +1,4 @@
+import { compensationSummary, hasCompensation } from '../lib/compensation'
 import { formatClock, formatElapsed } from '../lib/dates'
 import { doneSets, e1rm, findDay, totalDoneSets, totalVolume } from '../lib/derive'
 import type { RoutineBundle } from '../lib/useRoutine'
@@ -61,6 +62,10 @@ export default function SummaryScreen({
     const from = Math.max(...sets.map((s) => s.weight))
     return [{ name: nameOf(entry.recordKey), from, to: from + bundle.routine.rules.weightIncrementKg }]
   })
+
+  const lowSensory = session.entries.filter(
+    (e) => e.sensoryScore !== undefined && e.sensoryScore <= 1 && doneSets(e).length > 0,
+  )
 
   const bestSet = session.entries
     .flatMap((e) => doneSets(e).map((s) => ({ ...s, recordKey: e.recordKey })))
@@ -134,12 +139,35 @@ export default function SummaryScreen({
               </div>
               <div className="row-sub">
                 {doneSets(entry).map((s) => s.reps).join(' / ')} · {doneSets(entry)[0]?.weight}kg
+                {entry.sensoryScore !== undefined && ` · 감각 ${entry.sensoryScore}점`}
+                {hasCompensation(entry.compensation) && ` · ${compensationSummary(entry.compensation)}`}
               </div>
             </div>
             <div className="row-meta">{entry.firstSetAt ? formatClock(entry.firstSetAt) : ''}</div>
           </div>
         ))}
       </div>
+
+      {/* 감각 0~1점이 반복되는 종목은 자극이 목표 부위에 안 가고 있다는 신호 (§5.4) */}
+      {lowSensory.length > 0 && (
+        <div className="card">
+          <div className="card-label">감각이 약했던 종목</div>
+          {lowSensory.map((entry) => (
+            <div className="row" key={entry.recordKey}>
+              <div className="row-main">
+                <div className="row-title">{nameOf(entry.recordKey)}</div>
+                <div className="row-sub">{entry.sensoryNote || '메모 없음'}</div>
+              </div>
+              <div className="row-meta" style={{ color: 'var(--warn)' }}>
+                {entry.sensoryScore}점
+              </div>
+            </div>
+          ))}
+          <p className="row-sub" style={{ marginTop: 8 }}>
+            같은 종목이 계속 낮으면 무게·자세·기계를 바꿔볼 신호입니다.
+          </p>
+        </div>
+      )}
 
       {(session.cardio || session.sessionNote) && (
         <div className="card">

@@ -2,8 +2,11 @@ import { create } from 'zustand'
 import { db, getOpenSession } from '../db'
 import {
   applyAddSet,
+  applyCompensation,
   applyPatchSet,
   applyRemoveSet,
+  applySensoryNote,
+  applySensoryScore,
   applySkipped,
   applyToggleDone,
 } from '../lib/sessionOps'
@@ -44,6 +47,9 @@ interface SessionState {
   addSet: (recordKey: RecordKey) => void
   removeSet: (recordKey: RecordKey, index: number) => void
   setSkipped: (recordKey: RecordKey, skipped: boolean) => void
+  setSensoryScore: (recordKey: RecordKey, score: 0 | 1 | 2 | 3) => void
+  setSensoryNote: (recordKey: RecordKey, note: string) => void
+  setCompensation: (recordKey: RecordKey, compensation: string) => void
   setNote: (note: string) => void
   setCardio: (cardio: CardioRecord | undefined) => void
 }
@@ -98,6 +104,13 @@ export const useSessionStore = create<SessionState>((set, get) => {
     removeSet: (recordKey, index) => update((s) => applyRemoveSet(s, recordKey, index)),
 
     setSkipped: (recordKey, skipped) => update((s) => applySkipped(s, recordKey, skipped)),
+
+    setSensoryScore: (recordKey, score) => update((s) => applySensoryScore(s, recordKey, score)),
+
+    setSensoryNote: (recordKey, note) => update((s) => applySensoryNote(s, recordKey, note)),
+
+    setCompensation: (recordKey, compensation) =>
+      update((s) => applyCompensation(s, recordKey, compensation)),
 
     setNote: (note) => update((s) => ({ ...s, sessionNote: note || undefined })),
 
