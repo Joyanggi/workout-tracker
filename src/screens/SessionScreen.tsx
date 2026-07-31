@@ -6,16 +6,18 @@ import RestTimerBar from '../components/RestTimerBar'
 import { db } from '../db'
 import { unlockAudio } from '../lib/beep'
 import { formatElapsed } from '../lib/dates'
-import { doneSets, findDay } from '../lib/derive'
+import { doneSets, findDay, routineExerciseOfEntry } from '../lib/derive'
 import { requestSync } from '../lib/gistSync'
-import { buildPrefill, type RecordPrefill } from '../lib/prefill'
+import { buildPrefill, sessionsForRecord, type RecordPrefill } from '../lib/prefill'
+import { previewSubstitutes, type SubstitutePreview } from '../lib/substitute'
+import SubstituteSheet from '../components/SubstituteSheet'
 import { buildScaleMap } from '../lib/weightScale'
 import { useExerciseSettings } from '../lib/useExerciseSettings'
 import { useRestTimer } from '../lib/useRestTimer'
 import type { RoutineBundle } from '../lib/useRoutine'
 import { useSessionStore } from '../store/session'
 import { useSettings } from '../store/settings'
-import type { RecordKey } from '../types'
+import { parseRecordKey, type RecordKey } from '../types'
 
 export default function SessionScreen({
   bundle,
@@ -49,6 +51,10 @@ export default function SessionScreen({
 
   const allSessions = useLiveQuery(() => db.sessions.toArray(), [], [])
   const exerciseSettings = useExerciseSettings()
+  // 대체운동 (T8). 후보 계산에 세션 이력·카탈로그가 필요하므로 카드가 아니라 화면이 소유한다
+  const [substituting, setSubstituting] = useState<RecordKey | null>(null)
+  const bodyWeightKg = useSettings((st) => st.bodyWeightKg)
+  const setBodyWeight = useSettings((st) => st.setBodyWeight)
 
   // 프리필은 저장하지 않고 매번 파생 계산한다 (앱 재시작 후 이어하기에서도 동일하게 나와야 함).
   // buildPrefill은 완료 세션만 보므로 진행 중인 현재 세션은 자동으로 제외된다.
@@ -94,6 +100,15 @@ export default function SessionScreen({
     if (next) setOpenKey(next.recordKey)
   }, [session])
 
+  /** 대체 종목의 직전 기록 — 있으면 환산하지 않고 그 무게를 쓴다 (계획서 규칙 1) */
+  const lastRecordOf = (recordKey: RecordKey) => {
+    const found = sessionsForRecord(allSessions, recordKey)[0]
+    const entry = found?.entries.find((e) => e.recordKey === recordKey)
+    const sets = entry ? doneSets(entry) : []
+    if (sets.length === 0) return undefined
+    return { weight: Math.max(...sets.map((x) => x.weight)), reps: sets[sets.length - 1].reps }
+  }
+
   if (!session) {
     return <p className="center-note">진행 중인 세션이 없습니다.</p>
   }
@@ -127,11 +142,15 @@ export default function SessionScreen({
 
       <div className="session-body">
         {session.entries.map((entry) => {
-          const routineExercise = day.exercises.find((e) =>
-            entry.recordKey.startsWith(`${e.exerciseId}@`),
-          )
+          // 대체 수행(T8)은 루틴에 없는 종목이므로 day.exercises에서 찾으면 카드가 사라진다.
+          // routineExerciseOfEntry가 원 종목 계획을 되짚어 준다.
+          const routineExercise = routineExerciseOfEntry(bundle.routine, entry)
           if (!routineExercise) return null
           const exercise = bundle.catalog.get(routineExercise.exerciseId)
+          const originName = entry.substituteFor
+            ? (bundle.catalog.get(parseRecordKey(entry.substituteFor).exerciseId)?.shortName ??
+              parseRecordKey(entry.substituteFor).exerciseId)
+            : undefined
           return (
             <ExerciseCard
               key={entry.recordKey}
@@ -142,6 +161,8 @@ export default function SessionScreen({
               cueTip={exercise?.cueTip}
               compensationSigns={exercise?.compensationSigns ?? []}
               defaultStep={bundle.routine.rules.weightIncrementKg}
+              substituteForName={originName}
+              onRequestSubstitute={() => setSubstituting(entry.recordKey)}
               prefill={prefills.get(entry.recordKey)}
               showProgression={session.mode === 'normal'}
               actions={actions}
@@ -159,6 +180,48 @@ export default function SessionScreen({
       </div>
 
       <RestTimerBar timer={timer} />
+
+      {substituting !== null &&
+        (() => {
+          const entry = session.entries.find((e) => e.recordKey === substituting)
+          const planned = entry ? routineExerciseOfEntry(bundle.routine, entry) : undefined
+          if (!entry || !planned) return null
+          // 후보는 **원 종목**의 것을 쓴다 — 대체를 또 대체하는 경우에도 기준은 원 종목이다
+          const originKey = entry.substituteFor ?? entry.recordKey
+          const originId = parseRecordKey(originKey).exerciseId
+          const prefill = prefills.get(entry.recordKey)
+          const previews = previewSubstitutes({
+            originalRecordKey: originKey,
+            originalBest: prefill?.best ?? lastRecordOf(originKey),
+            originalRepMax: planned.repMax,
+            options: bundle.catalog.get(originId)?.substitutes ?? [],
+            catalog: bundle.catalog,
+            lastRecordOf,
+            bodyWeightKg,
+          }).filter((p) => p.option.exerciseId !== parseRecordKey(entry.recordKey).exerciseId)
+
+          const apply = (preview: SubstitutePreview) => {
+            actions.substitute(entry.recordKey, {
+              recordKey: preview.recordKey,
+              setCount: planned.sets,
+              weight: preview.startWeight ?? 0,
+              reps: planned.repMin,
+            })
+            setSubstituting(null)
+            setOpenKey(preview.recordKey)
+          }
+
+          return (
+            <SubstituteSheet
+              originalName={bundle.catalog.get(originId)?.shortName ?? originId}
+              previews={previews}
+              bodyWeightKg={bodyWeightKg}
+              onSaveBodyWeight={(kg) => void setBodyWeight(kg)}
+              onSelect={apply}
+              onClose={() => setSubstituting(null)}
+            />
+          )
+        })()}
 
       {finishing && (
         <FinishSheet

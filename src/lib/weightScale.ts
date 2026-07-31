@@ -18,6 +18,11 @@ import type { ExerciseSetting, RecordKey } from '../types'
 export interface WeightScale {
   step: number
   ladder?: number[]
+  /**
+   * 표시 무게가 **클수록 쉬운** 종목 (어시스티드 풀업의 보조 무게, T8).
+   * ± 버튼은 그대로 물리적 방향이지만 **증량 제안만 반대로** 간다.
+   */
+  inverse?: boolean
 }
 
 export type WeightScaleMap = Map<RecordKey, WeightScale>
@@ -111,6 +116,16 @@ export function stepDown(current: number, scale: WeightScale): number {
  * "스택이 부족하면 템포·정지 시간으로" 판단은 사용자 몫).
  */
 export function nextWeightForProgression(current: number, scale: WeightScale): number | null {
+  // 어시스티드는 진전이 "보조를 줄이는 것"이다. 이 분기가 없으면 조건을 충족한 사용자에게
+  // "보조를 늘려 더 쉽게 하라"고 제안한다 (T8).
+  if (scale.inverse) {
+    if (scale.ladder?.length) {
+      const below = scale.ladder.filter((v) => v < current)
+      return below.length > 0 ? below[below.length - 1] : null
+    }
+    const next = round2(current - scale.step)
+    return next > 0 ? next : null
+  }
   if (scale.ladder?.length) {
     return scale.ladder.find((v) => v > current) ?? null
   }
@@ -127,6 +142,7 @@ export function describeScale(scale: WeightScale): string {
  * 증량 제안 표시. 사다리 최상단(`to === null`)이면 무게 대신 그 사실을 말한다 —
  * "40 → nullkg" 같은 문자열이 새어나오지 않게 표시를 한 곳에 모은다.
  */
-export function formatProgression(from: number, to: number | null): string {
-  return to === null ? `${from}kg · 스택 최대` : `${from} → ${to}kg`
+export function formatProgression(from: number, to: number | null, inverse = false): string {
+  if (to !== null) return `${from} → ${to}kg`
+  return inverse ? `${from}kg · 보조 없이 가능` : `${from}kg · 스택 최대`
 }

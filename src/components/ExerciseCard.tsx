@@ -4,6 +4,7 @@ import NumberStepper from './NumberStepper'
 import WeightScaleSheet from './WeightScaleSheet'
 import { getExerciseSetting, setExerciseNote, setExerciseWeightScale } from '../db'
 import { describeScale, type WeightScale } from '../lib/weightScale'
+import { CALIBRATION_RIR, calibratedWeight } from '../lib/substitute'
 import { compensationSummary, hasCompensation } from '../lib/compensation'
 import { doneSetsAll } from '../lib/derive'
 import type { RecordPrefill } from '../lib/prefill'
@@ -56,6 +57,8 @@ export default function ExerciseCard({
   compensationSigns,
   prefill,
   defaultStep,
+  substituteForName,
+  onRequestSubstitute,
   actions,
   open,
   onToggleOpen,
@@ -78,6 +81,10 @@ export default function ExerciseCard({
   prefill?: RecordPrefill
   /** 무게 단위 기본값 = 루틴의 weightIncrementKg. 종목별 설정(T9)이 이 값을 덮는다 */
   defaultStep: number
+  /** 대체 수행 중이면 원 종목 이름 (T8) */
+  substituteForName?: string
+  /** 대체 요청 (T8). 넘기지 않으면 버튼이 안 보인다 — 과거 세션 편집에는 의미가 없다 */
+  onRequestSubstitute?: () => void
   actions: EntryActions
   open: boolean
   onToggleOpen: () => void
@@ -116,6 +123,29 @@ export default function ExerciseCard({
   const complete = done.length >= entry.sets.length
   const isB = routineExercise.group === 'B'
 
+  /*
+    대체운동 캘리브레이션 (T8).
+    처음 하는 대체 종목(prefill.best 없음)은 시작 무게가 검증되지 않은 계수 추정이다.
+    첫 세트를 RIR 3~4로 수행한 실측에서 e1RM을 역산해 남은 세트 무게를 다시 계산한다 —
+    2세트부터는 추정이 아니라 그날의 실제 능력이 기준이 된다.
+    자동으로 바꾸지 않는다: "앱은 판단을 대신하지 않고 제안만 한다"(§1).
+  */
+  const firstExposure = Boolean(entry.substituteFor) && !prefill?.best
+  const firstWork = entry.sets.find((set) => !set.warmup)
+  const pending = entry.sets
+    .map((set, i) => ({ set, i }))
+    .filter(({ set }) => !set.done && !set.warmup)
+  const calibrated =
+    firstExposure && firstWork?.done && firstWork.reps > 0
+      ? calibratedWeight({
+          firstSetWeight: firstWork.weight,
+          firstSetReps: firstWork.reps,
+          targetReps: routineExercise.repMax,
+        })
+      : undefined
+  const showCalibration =
+    calibrated !== undefined && pending.some(({ set }) => set.weight !== calibrated)
+
   // 세트 표시 라벨: 워밍업은 'W', 작업 세트는 1부터
   let workCount = 0
   const setLabels = entry.sets.map((set) => (set.warmup ? 'W' : String((workCount += 1))))
@@ -144,6 +174,11 @@ export default function ExerciseCard({
         <span className="ex-head-main">
           <span className="ex-name">
             {name}
+            {substituteForName && (
+              <span className="chip chip-warn" style={{ marginLeft: 6 }}>
+                대체
+              </span>
+            )}
             {entry.performedOrder !== null && (
               <span className="chip" style={{ marginLeft: 6 }}>
                 {entry.performedOrder}번째 수행
@@ -153,6 +188,7 @@ export default function ExerciseCard({
           <span className="ex-sub">
             {entry.sets.length}세트 × {routineExercise.repMin}~{routineExercise.repMax} · {summary}
           </span>
+          {substituteForName && <span className="ex-sub">{substituteForName} 대신 · 자리 없음</span>}
           {(isB && entry.sensoryScore !== undefined) || hasCompensation(entry.compensation) ? (
             <span className="ex-sub">
               {isB && entry.sensoryScore !== undefined && (
@@ -238,6 +274,9 @@ export default function ExerciseCard({
             <span className="chip">{routineExercise.group}그룹</span>
             <span className="chip">휴식 {routineExercise.restSec}초</span>
             {routineExercise.optional && <span className="chip chip-warn">컨디션 좋을 때만</span>}
+            {firstExposure && !firstWork?.done && (
+              <span className="chip chip-warn">첫 세트는 {CALIBRATION_RIR}로</span>
+            )}
             {showPrefillHints && showProgression && prefill?.progression && (
               <span className="chip chip-accent">
                 증량 제안 {prefill.progression.from} → {prefill.progression.to}kg
@@ -311,6 +350,20 @@ export default function ExerciseCard({
             )
           })}
 
+          {showCalibration && (
+            <button
+              className="btn btn-sm btn-warn"
+              style={{ marginTop: 10 }}
+              onClick={() =>
+                pending.forEach(({ i }) =>
+                  actions.patchSet(entry.recordKey, i, { weight: calibrated }),
+                )
+              }
+            >
+              첫 세트 결과로 남은 세트 {calibrated}kg 적용
+            </button>
+          )}
+
           <div className="btn-row" style={{ marginTop: 10 }}>
             <button className="btn btn-sm" onClick={() => actions.addSet(entry.recordKey)}>
               + 세트
@@ -340,6 +393,15 @@ export default function ExerciseCard({
             >
               {entry.skipped ? '스킵 해제' : '스킵'}
             </button>
+            {/*
+              교체는 세트를 새로 만들므로 이미 체크한 기록이 사라진다. applySubstitute가
+              거부하지만 누를 수 있는 버튼을 두면 "왜 안 되지"가 된다 — 아예 감춘다.
+            */}
+            {onRequestSubstitute && done.length === 0 && (
+              <button className="btn btn-sm" onClick={onRequestSubstitute}>
+                자리 없음 · 대체
+              </button>
+            )}
           </div>
 
           {/* B그룹 감각 점수 (§5.2). 목표 부위에 자극이 왔는지 — "계속 0인 종목" 탐지용 */}

@@ -19,6 +19,7 @@ import {
   sensoryTrend,
   strengthRecordKeys,
   strengthTrend,
+  substituteUses,
   weeklyBars,
 } from '../lib/analysis'
 import { todayLocal } from '../lib/dates'
@@ -70,6 +71,8 @@ export default function AnalyzeScreen({ bundle }: { bundle: RoutineBundle }) {
     () => weeklyBars(sessions, today, WEEKS_SHOWN, bundle.routine.rules.deloadMinSessionsPerWeek),
     [sessions, today, bundle.routine],
   )
+
+  const substitutes = useMemo(() => substituteUses(sessions), [sessions])
 
   const nameOf = (exerciseId: string) => bundle.catalog.get(exerciseId)?.shortName ?? exerciseId
   const nameOfKey = (recordKey: string) => {
@@ -285,6 +288,28 @@ export default function AnalyzeScreen({ bundle }: { bundle: RoutineBundle }) {
           점선 = 주 {bundle.routine.rules.deloadMinSessionsPerWeek}회 목표. 초록 막대가 달성한 주입니다.
         </p>
       </div>
+
+      {/*
+        대체 수행 빈도 (T8). 자주 쓰는 대체가 있다는 사실만 보여준다 —
+        "루틴에 고정할까요?"는 제안하지 않는다. 종목 구성은 루틴 문서 개정 사안이다.
+      */}
+      {substitutes.length > 0 && (
+        <div className="card">
+          <div className="card-label">대체 수행</div>
+          {substitutes.map((use) => (
+            <div className="row" key={use.recordKey}>
+              <div className="row-main">
+                <div className="row-title">{nameOfKey(use.recordKey)}</div>
+                <div className="row-sub">{nameOfKey(use.originRecordKey)} 대신</div>
+              </div>
+              <div className="row-meta">{use.count}회</div>
+            </div>
+          ))}
+          <p className="row-sub" style={{ marginTop: 8 }}>
+            자리가 자주 없는 종목입니다. 순서를 바꾸거나 루틴 구성을 다시 볼 근거가 됩니다.
+          </p>
+        </div>
+      )}
     </div>
   )
 }

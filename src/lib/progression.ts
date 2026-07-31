@@ -1,6 +1,6 @@
 import { NO_COMPENSATION, parseRecordKey } from '../types'
-import type { Phase, RoutineTemplate, Session } from '../types'
-import { doneSets, findRoutineExercise } from './derive'
+import type { Exercise, Phase, RoutineTemplate, Session } from '../types'
+import { doneSets, routineExerciseOfEntry } from './derive'
 import { nextWeightForProgression, scaleFor, type WeightScaleMap } from './weightScale'
 
 /**
@@ -16,6 +16,7 @@ import { nextWeightForProgression, scaleFor, type WeightScaleMap } from './weigh
  * 홈 배지(§5.1)와 세션 요약(§5.2)이 같은 답을 말해야 하므로 한 곳에 둔다.
  *
  * 증량 폭은 종목별 무게 단위(T9)를 따른다. `scales`를 넘기지 않으면 루틴 전역값이다.
+ * `catalog`를 넘기면 어시스티드 머신(inverseWeight)의 증량 방향을 반대로 잡는다 (T8).
  */
 export interface ProgressionSuggestion {
   recordKey: string
@@ -26,6 +27,8 @@ export interface ProgressionSuggestion {
    * 조건 충족 자체가 사용자에게 필요한 정보이므로 목록에서 빼지 않고 이 상태로 알린다.
    */
   to: number | null
+  /** 표시 무게가 클수록 쉬운 종목 (어시스티드) — 진전은 숫자가 줄어드는 것 (T8) */
+  inverse?: boolean
 }
 
 export function progressionSuggestions(
@@ -33,12 +36,14 @@ export function progressionSuggestions(
   routine: RoutineTemplate,
   phase: Phase,
   scales?: WeightScaleMap,
+  catalog?: Map<string, Exercise>,
 ): ProgressionSuggestion[] {
   if (phase === 0 && !routine.rules.allowProgressionInPhase0) return []
 
   return session.entries.flatMap((entry) => {
-    const { exerciseId, dayId } = parseRecordKey(entry.recordKey)
-    const routineExercise = findRoutineExercise(routine, dayId, exerciseId)
+    const { exerciseId } = parseRecordKey(entry.recordKey)
+    // 대체 수행도 원 종목의 그룹·목표 반복수로 판정한다 (T8)
+    const routineExercise = routineExerciseOfEntry(routine, entry)
     if (!routineExercise || routineExercise.group !== 'A') return []
 
     const sets = doneSets(entry)
@@ -52,6 +57,15 @@ export function progressionSuggestions(
 
     const from = Math.max(...sets.map((s) => s.weight))
     const scale = scaleFor(scales, entry.recordKey, routine.rules.weightIncrementKg)
-    return [{ recordKey: entry.recordKey, exerciseId, from, to: nextWeightForProgression(from, scale) }]
+    const inverse = catalog?.get(exerciseId)?.inverseWeight === true
+    return [
+      {
+        recordKey: entry.recordKey,
+        exerciseId,
+        from,
+        to: nextWeightForProgression(from, { ...scale, inverse }),
+        inverse,
+      },
+    ]
   })
 }

@@ -8,6 +8,7 @@ import {
   applySensoryNote,
   applySensoryScore,
   applySkipped,
+  applySubstitute,
   applyToggleDone,
 } from '../lib/sessionOps'
 import type { CardioRecord, RecordKey, Session, SetRecord } from '../types'
@@ -47,6 +48,10 @@ interface SessionState {
   addSet: (recordKey: RecordKey, opts?: { warmup?: boolean }) => void
   removeSet: (recordKey: RecordKey, index: number) => void
   setSkipped: (recordKey: RecordKey, skipped: boolean) => void
+  substitute: (
+    recordKey: RecordKey,
+    next: { recordKey: RecordKey; setCount: number; weight: number; reps: number },
+  ) => void
   setSensoryScore: (recordKey: RecordKey, score: 0 | 1 | 2 | 3) => void
   setSensoryNote: (recordKey: RecordKey, note: string) => void
   setCompensation: (recordKey: RecordKey, compensation: string) => void
@@ -111,6 +116,8 @@ export const useSessionStore = create<SessionState>((set, get) => {
     removeSet: (recordKey, index) => update((s) => applyRemoveSet(s, recordKey, index)),
 
     setSkipped: (recordKey, skipped) => update((s) => applySkipped(s, recordKey, skipped)),
+
+    substitute: (recordKey, next) => update((s) => applySubstitute(s, recordKey, next)),
 
     setSensoryScore: (recordKey, score) => update((s) => applySensoryScore(s, recordKey, score)),
 

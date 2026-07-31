@@ -68,6 +68,7 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
             routine,
             currentPhase,
             buildScaleMap(exerciseSettings, routine.rules.weightIncrementKg),
+            bundle.catalog,
           )
         : [],
       phase: phaseReadiness(sessions, routine, currentPhase, today),
@@ -252,7 +253,8 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
             <small>
               {progressions
                 .map(
-                  (p) => `${exerciseLabel(catalog, p.exerciseId)} ${formatProgression(p.from, p.to)}`,
+                  (p) =>
+                    `${exerciseLabel(catalog, p.exerciseId)} ${formatProgression(p.from, p.to, p.inverse)}`,
                 )
                 .join(' · ')}
             </small>

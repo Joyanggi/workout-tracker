@@ -6,10 +6,17 @@ interface SettingsState {
   loaded: boolean
   currentPhase: Phase
   onboardingDone: boolean
+  /**
+   * 체중 (T8). 어시스티드 풀업의 보조 무게를 역산하는 데만 쓴다.
+   * 체중 **추이**는 저장하지 않는다 — 체성분 기록은 설계상 비목적(§1)이고
+   * 인바디 앱과 중복이다. 여기 있는 것은 계산에 필요한 현재 값 하나다.
+   */
+  bodyWeightKg?: number
 
   load: () => Promise<void>
   setPhase: (phase: Phase) => Promise<void>
   setOnboardingDone: (done: boolean) => Promise<void>
+  setBodyWeight: (kg: number) => Promise<void>
 }
 
 /**
@@ -24,11 +31,12 @@ export const useSettings = create<SettingsState>((set) => ({
   load: async () => {
     // activeRoutineId는 여기 두지 않는다 — 루틴 교체 시 낡은 값이 남고,
     // 실제 소비처인 getActiveRoutine()이 Dexie에서 직접 읽는다
-    const [currentPhase, onboardingDone] = await Promise.all([
+    const [currentPhase, onboardingDone, bodyWeightKg] = await Promise.all([
       getSetting<Phase>('currentPhase', 0),
       getSetting<boolean>('onboardingDone', false),
+      getSetting<number | undefined>('bodyWeightKg', undefined),
     ])
-    set({ loaded: true, currentPhase, onboardingDone })
+    set({ loaded: true, currentPhase, onboardingDone, bodyWeightKg })
   },
 
   setPhase: async (phase) => {
@@ -43,5 +51,10 @@ export const useSettings = create<SettingsState>((set) => ({
   setOnboardingDone: async (done) => {
     await setSetting('onboardingDone', done)
     set({ onboardingDone: done })
+  },
+
+  setBodyWeight: async (kg) => {
+    await setSetting('bodyWeightKg', kg)
+    set({ bodyWeightKg: kg })
   },
 }))

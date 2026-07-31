@@ -3,7 +3,7 @@ import { parseRecordKey } from '../types'
 import { hasCompensation } from './compensation'
 import { formatClock, weekdayKo } from './dates'
 import { withObjectParticle } from './korean'
-import { completedSessions, doneSets, findRoutineExercise, orderDeviations } from './derive'
+import { completedSessions, doneSets, routineExerciseOfEntry, orderDeviations } from './derive'
 import { progressionSuggestions } from './progression'
 import { buildScaleMap, type WeightScaleMap } from './weightScale'
 import type { ExerciseSetting } from '../types'
@@ -42,14 +42,24 @@ function entryLine(
   nextWeights: Map<string, number | null>,
 ): string[] {
   const { exerciseId, dayId } = parseRecordKey(entry.recordKey)
-  const routineExercise = findRoutineExercise(routine, dayId, exerciseId)
+  const routineExercise = routineExerciseOfEntry(routine, entry)
   const name = catalog.get(exerciseId)?.shortName ?? exerciseId
   const sets = doneSets(entry)
   const group = routineExercise?.group ?? '?'
   const weight = sets.length > 0 ? Math.max(...sets.map((s) => s.weight)) : 0
 
+  // 대체 수행(T8)은 원 종목을 함께 적는다. 이게 없으면 LLM 분석이 "새 종목이 갑자기
+  // 나타나고 원 종목이 사라진" 것으로 읽어서 루틴 이탈로 오해한다
+  const origin = entry.substituteFor
+    ? (catalog.get(parseRecordKey(entry.substituteFor).exerciseId)?.shortName ??
+      parseRecordKey(entry.substituteFor).exerciseId)
+    : undefined
+
   const lines: string[] = []
-  lines.push(`### ${name} (${dayId.toUpperCase()}/${group}) ${fmtWeight(weight)}kg`)
+  lines.push(
+    `### ${name} (${dayId.toUpperCase()}/${group}) ${fmtWeight(weight)}kg` +
+      (origin ? ` (대체: ${origin} — 자리 없음)` : ''),
+  )
   lines.push(sets.map((s) => s.reps).join(' / '))
 
   if (entry.sensoryScore !== undefined) {
@@ -138,7 +148,7 @@ export function sessionToMarkdown(
   out.push('')
 
   const nextWeights = new Map(
-    progressionSuggestions(session, routine, phase, scales).map((p) => [p.recordKey, p.to]),
+    progressionSuggestions(session, routine, phase, scales, catalog).map((p) => [p.recordKey, p.to]),
   )
   // 워밍업만 체크한 종목은 작업 세트가 없어 반복수 줄이 비어버린다 — 본문에서 제외한다
   const performed = timeline.map((t) => t.entry).filter((e) => doneSets(e).length > 0)

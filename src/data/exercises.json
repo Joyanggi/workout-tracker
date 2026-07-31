@@ -7,6 +7,17 @@
     "compensationSigns": [
       "엉덩이가 시트에서 뜸",
       "어깨가 앞으로 말림"
+    ],
+    "substitutes": [
+      {
+        "exerciseId": "smith-incline-press",
+        "startFactor": 0.7
+      },
+      {
+        "exerciseId": "db-incline-press",
+        "startFactor": 0.16,
+        "perSide": true
+      }
     ]
   },
   {
@@ -16,6 +27,18 @@
     "cueTip": "손이 아니라 팔꿈치 안쪽으로 민다는 느낌. 벌릴 때 3초, 가슴 바깥이 늘어나는 지점에서 1초 멈춤 — 자극은 거기서 난다",
     "compensationSigns": [
       "팔꿈치를 접어서 당김(프레스가 됨)"
+    ],
+    "substitutes": [
+      {
+        "exerciseId": "cable-fly",
+        "startFactor": 0.35,
+        "perSide": true
+      },
+      {
+        "exerciseId": "db-fly",
+        "startFactor": 0.14,
+        "perSide": true
+      }
     ]
   },
   {
@@ -23,14 +46,32 @@
     "name": "체스트프레스 머신 (플랫)",
     "shortName": "체스트프레스",
     "cueTip": "어깨를 아래로 누른 채(으쓱 금지) 가슴 중앙으로 모은다는 느낌으로 민다",
-    "compensationSigns": []
+    "compensationSigns": [],
+    "substitutes": [
+      {
+        "exerciseId": "smith-bench-press",
+        "startFactor": 0.7
+      },
+      {
+        "exerciseId": "db-bench-press",
+        "startFactor": 0.16,
+        "perSide": true
+      }
+    ]
   },
   {
     "id": "shoulder-press",
     "name": "숄더프레스 머신",
     "shortName": "숄더프레스",
     "cueTip": "허리를 젖히지 말고 팔꿈치를 살짝 앞에 둔다 — 등받이에서 등이 뜨면 무게가 과한 것",
-    "compensationSigns": []
+    "compensationSigns": [],
+    "substitutes": [
+      {
+        "exerciseId": "db-shoulder-press",
+        "startFactor": 0.15,
+        "perSide": true
+      }
+    ]
   },
   {
     "id": "lateral-raise",
@@ -51,6 +92,12 @@
     "compensationSigns": [
       "상체가 크게 젖혀짐",
       "등보다 이두가 먼저 지침"
+    ],
+    "substitutes": [
+      {
+        "exerciseId": "assisted-pullup",
+        "assisted": true
+      }
     ]
   },
   {
@@ -68,6 +115,17 @@
     "compensationSigns": [
       "발판을 세게 밀고 있음",
       "상체 앞뒤 노 젓기"
+    ],
+    "substitutes": [
+      {
+        "exerciseId": "chest-supported-row",
+        "startFactor": 0.8
+      },
+      {
+        "exerciseId": "one-arm-db-row",
+        "startFactor": 0.3,
+        "perSide": true
+      }
     ]
   },
   {
@@ -85,6 +143,13 @@
     "compensationSigns": [
       "팔꿈치가 펴졌다 굽었다 함",
       "승모로 당김"
+    ],
+    "substitutes": [
+      {
+        "exerciseId": "cable-rear-delt-fly",
+        "startFactor": 0.25,
+        "perSide": true
+      }
     ]
   },
   {
@@ -142,5 +207,125 @@
     "shortName": "데드버그",
     "cueTip": "허리로 바닥을 누른 상태를 유지 — 허리가 뜨면 팔다리 가동범위를 줄인다",
     "compensationSigns": []
+  },
+  {
+    "id": "smith-incline-press",
+    "name": "스미스머신 인클라인 프레스",
+    "shortName": "스미스 인클라인",
+    "cueTip": "벤치 각도로 상부가슴을 맞춘다 — 바를 유두 위쪽에 닿게 내리고, 어깨가 앞으로 말리기 전까지만",
+    "compensationSigns": [
+      "엉덩이가 벤치에서 뜸",
+      "어깨가 앞으로 말림",
+      "반동으로 튕겨 올림"
+    ]
+  },
+  {
+    "id": "db-incline-press",
+    "name": "덤벨 인클라인 프레스",
+    "shortName": "덤벨 인클라인",
+    "cueTip": "팔꿈치를 몸통에서 45도쯤 유지 — 덤벨을 부딪히지 말고 가슴 위에서 멈춘다. 기록은 한쪽 무게",
+    "compensationSigns": [
+      "엉덩이가 벤치에서 뜸",
+      "어깨가 앞으로 말림",
+      "팔꿈치가 몸통 옆으로 벌어짐"
+    ]
+  },
+  {
+    "id": "smith-bench-press",
+    "name": "스미스머신 벤치프레스",
+    "shortName": "스미스 벤치",
+    "cueTip": "견갑을 모아 아래로 내린 채 고정 — 가슴 중앙 아래쪽에 닿게 내린다",
+    "compensationSigns": [
+      "어깨가 으쓱 올라감",
+      "엉덩이가 벤치에서 뜸",
+      "반동으로 튕겨 올림"
+    ]
+  },
+  {
+    "id": "db-bench-press",
+    "name": "덤벨 벤치프레스",
+    "shortName": "덤벨 벤치",
+    "cueTip": "견갑을 모은 채 가슴을 열고, 내릴 때 가슴 바깥이 늘어나는 지점까지. 기록은 한쪽 무게",
+    "compensationSigns": [
+      "어깨가 앞으로 말림",
+      "엉덩이가 벤치에서 뜸"
+    ]
+  },
+  {
+    "id": "cable-fly",
+    "name": "시티드 케이블 플라이 (크로스오버)",
+    "shortName": "케이블 플라이",
+    "cueTip": "팔꿈치 각도를 고정하고 팔꿈치 안쪽으로 모은다 — 손으로 당기면 이두가 먼저 지친다. 기록은 한쪽 스택",
+    "compensationSigns": [
+      "팔꿈치가 펴지며 당김",
+      "상체가 앞으로 숙여짐",
+      "어깨가 앞으로 말림"
+    ]
+  },
+  {
+    "id": "db-fly",
+    "name": "덤벨 플라이 (플랫벤치)",
+    "shortName": "덤벨 플라이",
+    "cueTip": "팔꿈치를 살짝 굽힌 채 고정 — 벌릴 때 3초, 가슴 바깥이 늘어나는 지점에서 1초. 기록은 한쪽 무게",
+    "compensationSigns": [
+      "팔꿈치가 굽혀지며 프레스가 됨",
+      "어깨가 앞으로 말림"
+    ]
+  },
+  {
+    "id": "db-shoulder-press",
+    "name": "덤벨 숄더프레스",
+    "shortName": "덤벨 숄더프레스",
+    "cueTip": "허리를 젖히지 말고 갈비뼈를 닫은 채 — 팔꿈치를 살짝 앞에 두고 귀 옆으로 밀어 올린다. 기록은 한쪽 무게",
+    "compensationSigns": [
+      "허리가 젖혀짐",
+      "어깨가 귀 쪽으로 으쓱",
+      "반동으로 튕겨 올림"
+    ]
+  },
+  {
+    "id": "assisted-pullup",
+    "name": "어시스티드 풀업 머신",
+    "shortName": "어시스티드 풀업",
+    "cueTip": "견갑을 먼저 아래로 내리고 팔꿈치를 옆구리로 당긴다 — 보조 무게가 클수록 쉬우므로 숫자가 줄어드는 것이 진전이다",
+    "compensationSigns": [
+      "어깨가 귀 쪽으로 으쓱",
+      "반동으로 몸을 흔듦",
+      "팔로만 당김"
+    ],
+    "inverseWeight": true
+  },
+  {
+    "id": "chest-supported-row",
+    "name": "체스트서포티드 로우 머신",
+    "shortName": "체스트서포티드 로우",
+    "cueTip": "가슴을 패드에 붙인 채 팔꿈치로 뒤를 찌른다 — 상체가 패드에서 뜨면 광배가 아니라 허리로 넘어간다",
+    "compensationSigns": [
+      "상체가 패드에서 뜸",
+      "어깨가 으쓱 올라감",
+      "반동으로 당김"
+    ]
+  },
+  {
+    "id": "one-arm-db-row",
+    "name": "원암 덤벨 로우",
+    "shortName": "원암 덤벨 로우",
+    "cueTip": "몸통이 돌아가지 않게 고정하고 팔꿈치를 골반 쪽으로 당긴다 — 어깨가 먼저 올라가면 무게가 과하다. 기록은 한쪽 무게",
+    "compensationSigns": [
+      "몸통이 회전함",
+      "어깨가 으쓱 올라감",
+      "반동으로 당김"
+    ]
+  },
+  {
+    "id": "cable-rear-delt-fly",
+    "name": "케이블 리어델트 플라이",
+    "shortName": "케이블 리어델트",
+    "cueTip": "팔꿈치 각도를 고정하고 손이 아니라 팔꿈치를 뒤로 벌린다 — 승모가 먼저 조이면 무게를 내린다. 기록은 한쪽 스택",
+    "compensationSigns": [
+      "목·승모 긴장",
+      "팔꿈치가 펴지며 당김",
+      "상체 반동"
+    ]
   }
 ]

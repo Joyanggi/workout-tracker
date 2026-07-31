@@ -125,8 +125,10 @@ describe('카탈로그 체크리스트', () => {
 })
 
 describe('T1 자극 팁 (cueTip)', () => {
-  it('17종목 전부 cueTip이 있다', () => {
-    expect(EXERCISES).toHaveLength(17)
+  it('카탈로그 전 종목에 cueTip이 있다', () => {
+    // 개수를 고정하지 않는다 — T8이 대체 종목을 추가하듯 카탈로그는 늘어난다.
+    // 지켜야 하는 성질은 "빠진 종목이 없다"이고, 개수는 그 성질이 아니다.
+    expect(EXERCISES.length).toBeGreaterThanOrEqual(17)
     for (const e of EXERCISES) {
       expect(e.cueTip, e.id).toBeTruthy()
       expect(e.cueTip.trim(), e.id).toBe(e.cueTip)

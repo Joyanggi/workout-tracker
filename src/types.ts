@@ -112,6 +112,32 @@ export interface Exercise {
    */
   cueTip: string
   compensationSigns: string[] // 루틴 문서 12장 보상작용 체크리스트
+  /** 자리가 없을 때 쓸 대체 종목 (T8). 없으면 대체 불가 (하체·암 풀다운) */
+  substitutes?: SubstituteOption[]
+  /**
+   * 표시 무게가 **클수록 쉬운** 종목 (어시스티드 풀업의 보조 무게).
+   *
+   * 증량 방향이 반대다 — 진전은 숫자가 **줄어드는** 것이다. 이 플래그가 없으면
+   * 더블 프로그레션이 "+한 단위"를 제안해서 더 쉽게 만들라고 조언한다.
+   * 판정은 weightScale.nextWeightForProgression 한 곳에서 갈린다.
+   */
+  inverseWeight?: boolean
+}
+
+/** 대체 종목 후보 (T8) */
+export interface SubstituteOption {
+  exerciseId: string
+  /**
+   * 시작 무게 추정 계수. **검증된 공식이 아니라 코칭 관행 휴리스틱이다.**
+   * 머신 표시 무게는 브랜드·지렛대 구조에 따라 실제 부하가 달라, 종목 간 하중 전이에
+   * 검증된 공식은 원리적으로 존재하지 않는다. 이 값은 첫 세트 시작점일 뿐이고
+   * RIR 3~4 캘리브레이션(lib/substitute.ts)이 본체다.
+   */
+  startFactor?: number
+  /** 어시스티드 머신 — 보조 무게는 체중에서 역산한다 (startFactor를 쓰지 않는다) */
+  assisted?: boolean
+  /** 한쪽 무게로 기록 (덤벨 한 개 / 케이블 한쪽 스택) */
+  perSide?: boolean
 }
 
 /**
@@ -159,6 +185,15 @@ export interface SessionEntry {
   sensoryNote?: string // "가슴 바깥쪽 — 벌릴 때 느낌 옴"
   compensation: string // 기본값 "없음". 비우기 불가(루틴 문서 규칙)
   skipped: boolean
+  /**
+   * 대체 수행 (T8). **원 종목의 recordKey.**
+   *
+   * `recordKey`는 대체 종목 자신의 것이라 프리필·증량 판정·PR이 원 종목 라인을
+   * 오염시키지 않는다. 반대로 부위 집계·목표 반복수·그룹은 원 종목의 계획을 따라야
+   * 하므로 이 값으로 되짚는다 — 해석은 `derive.routineExerciseOfEntry` 한 곳에서 한다.
+   * 각 호출부에서 풀면 한 군데만 빠뜨려도 대체한 세트의 볼륨이 조용히 사라진다.
+   */
+  substituteFor?: RecordKey
 }
 
 export interface CardioRecord {
@@ -199,6 +234,8 @@ export interface Settings {
   seededRoutineVersion?: string
   /** Phase별 전환 시각 (T3). Phase가 바뀌면 목표 반복수·볼륨 기준도 바뀌므로 추이 해석에 필요 */
   phaseChangedAt?: Partial<Record<Phase, string>>
+  /** 체중 (T8) — 어시스티드 풀업 보조 무게 역산 전용. 추이는 저장하지 않는다 */
+  bodyWeightKg?: number
 }
 
 /**

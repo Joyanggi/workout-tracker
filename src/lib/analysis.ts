@@ -216,3 +216,40 @@ export function weeklyBars(
     return { weekStart: ws, label: ws.slice(5).replace('-', '/'), count, met: count >= minPerWeek }
   })
 }
+
+// ─── 대체 수행 빈도 (T8) ─────────────────────────────────
+
+export interface SubstituteUse {
+  /** 대체로 수행한 종목의 recordKey */
+  recordKey: RecordKey
+  /** 원 종목의 recordKey */
+  originRecordKey: RecordKey
+  count: number
+}
+
+/**
+ * 대체 수행 빈도.
+ *
+ * 계획서 판단: 같은 대체를 반복해서 쓴다고 앱이 "루틴에 고정할까요?"를 제안하지는
+ * 않는다 — 종목 고정은 루틴 문서 개정 사안이지 앱이 결정할 일이 아니다.
+ * 대신 빈도만 보여줘서 사용자가 직접 판단하게 한다.
+ */
+export function substituteUses(sessions: Session[]): SubstituteUse[] {
+  const counts = new Map<string, SubstituteUse>()
+  for (const session of completedSessions(sessions)) {
+    for (const entry of session.entries) {
+      if (!entry.substituteFor) continue
+      if (doneSets(entry).length === 0) continue
+      const id = `${entry.recordKey}<-${entry.substituteFor}`
+      const found = counts.get(id)
+      if (found) found.count += 1
+      else
+        counts.set(id, {
+          recordKey: entry.recordKey,
+          originRecordKey: entry.substituteFor,
+          count: 1,
+        })
+    }
+  }
+  return [...counts.values()].sort((a, b) => b.count - a.count)
+}

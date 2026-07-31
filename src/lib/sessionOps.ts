@@ -101,6 +101,46 @@ export function applySkipped(session: Session, recordKey: RecordKey, skipped: bo
   return mapEntry(session, recordKey, (entry) => ({ ...entry, skipped }))
 }
 
+/**
+ * 대체 종목으로 교체 (T8).
+ *
+ * recordKey를 대체 종목 자신의 것으로 바꾸고 `substituteFor`에 원 라인을 남긴다 —
+ * 프리필·증량 판정·PR은 분리되고, 부위 집계·목표 반복수는
+ * `derive.routineExerciseOfEntry`가 원 종목을 되짚는다.
+ *
+ * **이미 체크된 세트가 있으면 거부한다.** 교체는 세트를 새로 만들므로 기록이 사라지고,
+ * 루틴 문서 규칙("대체한 날은 그걸로 끝 — 원 종목 세트를 나중에 추가하지 않는다")과도
+ * 어긋난다. 자리가 없어서 바꾸는 상황이므로 아직 아무것도 수행하지 않은 것이 정상이다.
+ * 세트 수·반복수는 원 종목 계획을 그대로 쓴다 (같은 운동의 다른 수행이므로).
+ */
+export function applySubstitute(
+  session: Session,
+  recordKey: RecordKey,
+  next: { recordKey: RecordKey; setCount: number; weight: number; reps: number },
+): Session {
+  const target = session.entries.find((e) => e.recordKey === recordKey)
+  if (!target || target.sets.some((s) => s.done)) return session
+  if (session.entries.some((e) => e.recordKey === next.recordKey)) return session
+
+  return mapEntry(session, recordKey, (entry) => ({
+    ...entry,
+    recordKey: next.recordKey,
+    substituteFor: entry.substituteFor ?? entry.recordKey,
+    sets: Array.from({ length: next.setCount }, () => ({
+      weight: next.weight,
+      reps: next.reps,
+      done: false,
+    })),
+    // 교체 시점에는 아직 수행하지 않았다. 감각·보상작용도 원 종목 것을 물려받지 않는다
+    performedOrder: null,
+    firstSetAt: undefined,
+    sensoryScore: undefined,
+    sensoryNote: undefined,
+    compensation: NO_COMPENSATION,
+    skipped: false,
+  }))
+}
+
 /** B그룹 감각 점수 (§5.2). 같은 점수를 다시 누르면 해제한다 */
 export function applySensoryScore(
   session: Session,

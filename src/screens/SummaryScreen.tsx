@@ -64,6 +64,7 @@ export default function SummaryScreen({
     bundle.routine,
     phase,
     buildScaleMap(exerciseSettings, bundle.routine.rules.weightIncrementKg),
+    bundle.catalog,
   ).map((p) => ({ ...p, name: nameOf(p.recordKey) }))
 
   // PR (T5). 감량기에는 증량 조건이 잘 안 뜨므로 e1RM·반복 PR이 진전을 보여주는 주 채널이다
@@ -140,7 +141,7 @@ export default function SummaryScreen({
                 <div className="row-sub">모든 세트 상단 도달 · 보상작용 없음</div>
               </div>
               <div className="row-meta" style={{ color: 'var(--accent)' }}>
-                {formatProgression(p.from, p.to)}
+                {formatProgression(p.from, p.to, p.inverse)}
               </div>
             </div>
           ))}

@@ -88,6 +88,39 @@ export function muscleOfRecordKey(
   return findRoutineExercise(routine, dayId, exerciseId)?.muscle
 }
 
+/**
+ * entry → 그 entry가 따르는 루틴 계획 (T8 대체운동 대응).
+ *
+ * **분석·표시 경로 전부가 이 함수를 통과한다** — 부위 집계, 목표 반복수, 그룹(A/B),
+ * 증량 판정, 내보내기, 카드 렌더링. 대체 종목은 루틴에 없으므로 각 호출부에서
+ * `findRoutineExercise(routine, dayId, exerciseId)`를 직접 부르면 `undefined`가 되고,
+ * 그 결과 **대체 수행한 세트의 볼륨이 조용히 0으로 사라진다.**
+ *
+ * 대체 수행이면 원 종목의 계획을 그대로 쓰고 exerciseId만 바꿔 돌려준다 —
+ * "대체는 같은 운동의 다른 수행"이므로 부위·세트 수·목표 반복수·그룹이 원 종목을 따른다.
+ * (recordKey는 대체 종목 자신의 것을 유지해서 프리필·증량·PR만 분리한다)
+ */
+export function routineExerciseOfEntry(
+  routine: RoutineTemplate,
+  entry: SessionEntry,
+): RoutineExercise | undefined {
+  const own = parseRecordKey(entry.recordKey)
+  if (!entry.substituteFor) {
+    return findRoutineExercise(routine, own.dayId, own.exerciseId)
+  }
+  const origin = parseRecordKey(entry.substituteFor)
+  const planned = findRoutineExercise(routine, origin.dayId, origin.exerciseId)
+  return planned ? { ...planned, exerciseId: own.exerciseId } : undefined
+}
+
+/** entry → 부위. 대체 수행이면 원 종목의 부위 (T8) */
+export function muscleOfEntry(
+  routine: RoutineTemplate,
+  entry: SessionEntry,
+): MuscleKey | undefined {
+  return routineExerciseOfEntry(routine, entry)?.muscle
+}
+
 // ─── 주간 집계 (§4 볼륨 예산 · §5.1 대시보드 공용) ──────
 
 export interface WeeklyVolume {
@@ -115,7 +148,9 @@ export function weeklyVolume(
     for (const entry of session.entries) {
       const n = doneSets(entry).length
       if (n === 0) continue
-      const muscle = muscleOfRecordKey(routine, entry.recordKey)
+      // 대체 수행(T8)은 원 종목의 부위로 집계한다 — 자리가 없어 기계를 바꾼 것이
+      // 그 부위를 하지 않은 것이 되면 §4 볼륨 예산이 같은 부위를 또 배정한다
+      const muscle = muscleOfEntry(routine, entry)
       if (!muscle) continue // v2.5+ 루틴이 부위를 바꿔도 집계만 건너뛴다 (§3)
       sets[muscle] = (sets[muscle] ?? 0) + n
       touched.add(muscle)
