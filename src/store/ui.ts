@@ -22,3 +22,4 @@ export const useUi = create<UiState>((set, get) => ({
 
 export const BANNER_DELOAD = 'deload'
 export const BANNER_BACKUP = 'backup'
+export const BANNER_PHASE = 'phase'

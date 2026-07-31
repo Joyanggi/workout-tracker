@@ -6,6 +6,8 @@ import ImportPanel from '../components/ImportPanel'
 import RoutineIoPanel from '../components/RoutineIoPanel'
 import { db } from '../db'
 import type { SeedResult } from '../db/seed'
+import { phaseReadiness } from '../lib/phaseReadiness'
+import { todayLocal } from '../lib/dates'
 import { dayTotalSets, exerciseLabel, useRoutine } from '../lib/useRoutine'
 import { isStandalone } from '../lib/platform'
 import { useSettings } from '../store/settings'
@@ -23,6 +25,9 @@ export default function SettingsScreen({ seed }: { seed: SeedResult }) {
   const { currentPhase, setPhase, setOnboardingDone } = useSettings()
   const sessionCount = useLiveQuery(() => db.sessions.count(), [], 0)
   const sessions = useLiveQuery(() => db.sessions.toArray(), [], [])
+  const readiness = bundle
+    ? phaseReadiness(sessions, bundle.routine, currentPhase, todayLocal())
+    : null
   const [openDayId, setOpenDayId] = useState<string | null>(null)
   const [resetStep, setResetStep] = useState(0)
   const [quota, setQuota] = useState<string | null>(null)
@@ -43,7 +48,7 @@ export default function SettingsScreen({ seed }: { seed: SeedResult }) {
   return (
     <div className="screen">
       <h1 className="screen-title">설정</h1>
-      <p className="screen-sub">v1 · 마일스톤 7</p>
+      <p className="screen-sub">v1.1</p>
 
       {seed.problems.length > 0 && (
         <div className="banner banner-danger">
@@ -69,8 +74,45 @@ export default function SettingsScreen({ seed }: { seed: SeedResult }) {
         <p className="row-sub" style={{ marginTop: 10 }}>
           {PHASES.find((p) => p.value === currentPhase)?.desc}
         </p>
-        <p className="row-sub">
-          Phase 0에서도 더블 프로그레션 증량을 허용합니다 (v2.4 규칙).
+
+        {/* DESIGN.md §5.5 "각 Phase 조건 요약 표시" — 뭐가 남았는지 보이게 (T3) */}
+        {readiness && readiness.to !== null && (
+          <>
+            <div className="card-label" style={{ marginTop: 14 }}>
+              Phase {readiness.to} 전환 조건
+            </div>
+            {readiness.checks.map((c) => (
+              <div className="row" key={c.label}>
+                <div className="row-main">
+                  <div className="row-title" style={{ whiteSpace: 'normal' }}>
+                    <span
+                      aria-hidden="true"
+                      style={{ color: c.met ? 'var(--ok)' : 'var(--text-faint)', marginRight: 6 }}
+                    >
+                      {c.met ? '✓' : '○'}
+                    </span>
+                    {c.label}
+                  </div>
+                  <div className="row-sub">{c.detail}</div>
+                </div>
+                {c.insufficient && <div className="row-meta">기록 부족</div>}
+              </div>
+            ))}
+            {readiness.allMet && (
+              <button
+                className="btn btn-sm btn-primary"
+                style={{ marginTop: 10 }}
+                onClick={() => void setPhase(readiness.to as Phase)}
+              >
+                Phase {readiness.to}로 전환
+              </button>
+            )}
+          </>
+        )}
+
+        <p className="row-sub" style={{ marginTop: 10 }}>
+          Phase 0에서도 더블 프로그레션 증량을 허용합니다 (v2.4 규칙). 전환은 조건이 충족돼도
+          사용자가 직접 결정합니다 — 루틴 문서의 조건에 주관 판단이 섞여 있습니다.
         </p>
       </div>
 

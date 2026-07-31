@@ -13,6 +13,7 @@ import {
   weekDots,
 } from '../lib/dashboard'
 import { todayLocal } from '../lib/dates'
+import { phaseReadiness } from '../lib/phaseReadiness'
 import { backupReminder, isGistConfigured } from '../lib/gistSync'
 import { completedSessions, findDay } from '../lib/derive'
 import { storageAtRisk } from '../lib/platform'
@@ -22,12 +23,13 @@ import { suggestNextDay } from '../lib/suggestNextDay'
 import { exerciseLabel, useRoutine } from '../lib/useRoutine'
 import { useSessionStore } from '../store/session'
 import { useSettings } from '../store/settings'
-import { BANNER_BACKUP, BANNER_DELOAD, useUi } from '../store/ui'
-import type { RoutineDay, SessionMode } from '../types'
+import { BANNER_BACKUP, BANNER_DELOAD, BANNER_PHASE, useUi } from '../store/ui'
+import type { Phase, RoutineDay, SessionMode } from '../types'
 
 export default function HomeScreen({ onEnterSession }: { onEnterSession: () => void }) {
   const bundle = useRoutine()
   const currentPhase = useSettings((s) => s.currentPhase)
+  const setPhase = useSettings((s) => s.setPhase)
   const sessions = useLiveQuery(() => db.sessions.toArray(), [], [])
   const openSession = useSessionStore((s) => s.session)
   const begin = useSessionStore((s) => s.begin)
@@ -58,6 +60,7 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
       deload: deloadState(sessions, routine, today),
       phase0: phase0Progress(sessions, routine, today),
       progressions: last ? progressionSuggestions(last, routine, currentPhase) : [],
+      phase: phaseReadiness(sessions, routine, currentPhase, today),
     }
   }, [bundle, sessions, today, currentPhase])
 
@@ -70,7 +73,7 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
   }
 
   const { routine, catalog } = bundle
-  const { suggestion, dots, volume, deload, phase0, progressions } = dash
+  const { suggestion, dots, volume, deload, phase0, progressions, phase } = dash
   const done = completedSessions(sessions)
 
   const create = (day: RoutineDay, forceMode?: SessionMode) => {
@@ -117,6 +120,10 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
   // 숫자를 말하면 어느 쪽을 따라야 하는지 알 수 없다.
   const showReturn = Boolean(suggestion.returnStep)
   const showDeload = !showReturn && !dismissed[BANNER_DELOAD] && (deload.due || deload.earlySignal)
+
+  // T3 배너 우선순위: 복귀 > 디로드 > Phase 전환 제안 > 증량 배지
+  const showPhase =
+    !showReturn && !showDeload && !dismissed[BANNER_PHASE] && phase.allMet && phase.to !== null
 
   // §11 리스크 대응: "주 1회 백업 리마인드 배너"
   const reminder = backupReminder({
@@ -207,8 +214,27 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
         </div>
       )}
 
-      {/* 복귀·디로드 배너와 동시에 띄우지 않는다 — "볼륨을 줄여라"와 "증량하라"가 나란히 뜬다 */}
-      {progressions.length > 0 && !showReturn && !showDeload && (
+      {showPhase && phase.to !== null && (
+        <div className="banner banner-ok" style={{ alignItems: 'flex-start' }}>
+          <span>
+            Phase {phase.from} 조건을 모두 충족했어요
+            <br />
+            <small>{phase.checks.map((c) => c.detail).join(' · ')}</small>
+          </span>
+          <button onClick={() => void setPhase(phase.to as Phase)}>
+            <span>Phase {phase.to}로 전환</span>
+          </button>
+          <button
+            onClick={() => dismiss(BANNER_PHASE)}
+            style={{ background: 'transparent', marginLeft: 0 }}
+          >
+            <span style={{ color: 'var(--ok)' }}>나중에</span>
+          </button>
+        </div>
+      )}
+
+      {/* 복귀·디로드·Phase 배너와 동시에 띄우지 않는다 — "볼륨을 줄여라"와 "증량하라"가 나란히 뜬다 */}
+      {progressions.length > 0 && !showReturn && !showDeload && !showPhase && (
         <div className="banner banner-info" style={{ alignItems: 'flex-start' }}>
           <span>
             증량 제안

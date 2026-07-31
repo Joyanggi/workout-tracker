@@ -189,6 +189,8 @@ export interface Settings {
   onboardingDone: boolean
   /** 시드 마이그레이션 판단용 — 마지막으로 주입한 시드 버전 */
   seededRoutineVersion?: string
+  /** Phase별 전환 시각 (T3). Phase가 바뀌면 목표 반복수·볼륨 기준도 바뀌므로 추이 해석에 필요 */
+  phaseChangedAt?: Partial<Record<Phase, string>>
 }
 
 /** settings 테이블은 key-value (§3) */

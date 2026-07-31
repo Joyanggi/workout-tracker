@@ -1370,3 +1370,8 @@ button.chip {
   font-size: 13px;
   line-height: 1.5;
 }
+
+.banner-ok {
+  background: rgba(52, 199, 89, 0.12);
+  color: var(--ok);
+}
