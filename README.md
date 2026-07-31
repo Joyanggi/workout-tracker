@@ -175,8 +175,8 @@
 
   | | raw | gzip |
   |---|---|---|
-  | 메인 번들 | 347KB | 112KB |
-  | 분석 탭 청크 (recharts) | 384KB | 112KB |
+  | 메인 번들 | 384KB | 122KB |
+  | 분석 탭 청크 (recharts) | 386KB | 113KB |
 
 ### 백업 · 비밀값
 
@@ -189,7 +189,8 @@
 - **Gist API가 1MB에서 응답을 자르므로 `truncated`면 `raw_url`로 다시 받는다**
   잘린 `content`를 그대로 파싱하면, 운 나쁘게 배열 경계에서 잘렸을 때 **파싱은 성공하고
   최근 세션만 사라집니다.** 복원 후 앱은 정상으로 보이고 몇 주 뒤에 알아차립니다.
-  백업은 세션당 약 4.3KB라 240세션(주 3회로 약 18개월)에서 1MB에 도달합니다.
+  백업은 고정분(루틴 + 종목 카탈로그) 약 16.5KB에 **세션당 약 3KB**가 붙습니다.
+  1MB에 닿는 것은 약 340세션 — 주 3회로 26개월쯤입니다.
   raw까지 실패하면 불완전한 복원 대신 에러를 던집니다.
 
 - **403을 rateLimit와 scope로 구분한다**
@@ -283,7 +284,7 @@ flowchart TB
 
 - 빌드: Vite, TypeScript
 - UI: React 18 (라우터 없음 — 탭 4개라 상태로 충분)
-- 상태: zustand (설정과 진행 중 세션만. 나머지는 `dexie-react-hooks` live query로 직접 읽음)
+- 상태: zustand (설정 · 진행 중 세션 · 휘발성 UI 상태만. 나머지는 `dexie-react-hooks` live query로 직접 읽음)
 - 저장: Dexie (IndexedDB, 스키마 v2) + localStorage (비밀값·휴식 타이머·백업 대기 플래그)
 - 차트: recharts (분석 탭만 `React.lazy`로 지연 로딩)
 - PWA: vite-plugin-pwa (manifest + Workbox SW), iOS 스플래시 8종
@@ -297,8 +298,10 @@ src/
   lib/          파생 계산과 순수 로직 — 테스트가 붙는 곳
                 suggestNextDay · prefill · sessionOps · dashboard · analysis
                 exportMarkdown · backup · gist · dayChange · dates
+                phaseReadiness · pr · weightScale · substitute
+                compensationWatch · bGroupGuide
   db/           Dexie 스키마 · 시드 주입 · 루틴 정합성 검증
-  store/        zustand (settings · 진행 중 세션)
+  store/        zustand (settings · 진행 중 세션 · 배너 dismiss)
   screens/      탭 화면 + 세션/상세/요약
   components/   운동 카드 · 스테퍼 · 바텀시트 · 차트 위젯
   data/         routine-v2.4.json · exercises.json (교체 가능한 시드)
@@ -413,7 +416,8 @@ JSON 백업은 파일 앱에 보관하는 것이 목적이므로 `navigator.shar
 - 특정 루틴(피지크형 상체 루틴 v2.4)의 기록 방식에 맞춰 설계됐습니다. 루틴 자체는 JSON으로 교체할 수 있지만, 감각 점수·보상작용 같은 기록 항목 구조는 고정입니다.
 - 체중, 식단, 인바디는 기록하지 않습니다 (별도 앱으로 관리 중).
 - **iOS 실기기 QA는 아직 남아 있습니다.** 공유 시트, 홈 화면 추가 후 standalone 판정, safe-area, 스플래시 매칭은 개발 브라우저에서 검증할 수 없습니다.
-- 휴식 종료 알림은 **화면이 켜져 있을 때만** 울립니다. iOS 무음 스위치가 켜져 있으면 Web Audio 소리도 나지 않고, `navigator.vibrate`는 iOS가 지원하지 않습니다. Notification API는 v1.1로 미뤘습니다(§5.2).
+- 휴식 종료 알림은 **화면이 켜져 있을 때만** 울립니다. iOS 무음 스위치가 켜져 있으면 Web Audio 소리도 나지 않고, `navigator.vibrate`는 iOS가 지원하지 않습니다. 화면이 꺼진 상태의 알림은 **조사 후 구현하지 않기로 확정**했습니다 — 서버 없는 PWA에서는 경로가 전부 막혀 있습니다 (v1.1 T6 참조).
 - Gist 백업용 토큰은 코드에 없습니다. 사용자가 직접 입력해 `localStorage`에만 저장하고, 마스킹해서만 표시합니다. 백업 파일·에러 메시지·URL·요청 본문 어디에도 들어가지 않습니다(테스트로 고정). 이 레포는 public이므로 토큰을 커밋하면 안 됩니다.
 - Gist는 secret gist입니다 — **URL을 아는 사람은 볼 수 있습니다.** GitHub에 완전 비공개 gist는 없습니다.
+- 대체운동의 **첫 세트 시작 무게는 추정값**입니다. 종목 간 하중 전이에 검증된 공식은 없습니다(머신 표시 무게가 브랜드·지렛대 구조에 따라 다름). 그래서 첫 세트를 RIR 3~4로 수행하고 그 실측으로 2세트부터 무게를 다시 계산합니다.
 - 홈·기록·분석 화면이 세션 테이블을 전체 조회합니다. 세션 수백 건까지는 문제없지만, 더 쌓이면 `date` 인덱스 범위 쿼리로 좁혀야 합니다.
