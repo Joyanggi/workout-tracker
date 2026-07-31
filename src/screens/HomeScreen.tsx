@@ -12,6 +12,7 @@ import {
   weekDots,
 } from '../lib/dashboard'
 import { todayLocal } from '../lib/dates'
+import { backupReminder, isGistConfigured } from '../lib/gistSync'
 import { completedSessions, findDay } from '../lib/derive'
 import { storageAtRisk } from '../lib/platform'
 import { progressionSuggestions } from '../lib/progression'
@@ -31,6 +32,12 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
   const [picking, setPicking] = useState(false)
   const [applyReturn, setApplyReturn] = useState(true)
   const [dismissedDeload, setDismissedDeload] = useState(false)
+  const [dismissedBackup, setDismissedBackup] = useState(false)
+  const lastBackupAt = useLiveQuery(
+    async () => ((await db.settings.get('lastBackupAt'))?.value as string | undefined) ?? null,
+    [],
+    null,
+  )
 
   const today = todayLocal()
 
@@ -89,6 +96,13 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
   const showReturn = Boolean(suggestion.returnStep)
   const showDeload = !showReturn && !dismissedDeload && (deload.due || deload.earlySignal)
 
+  // §11 리스크 대응: "주 1회 백업 리마인드 배너"
+  const reminder = backupReminder({
+    sessionCount: done.length,
+    lastBackupAt,
+    configured: isGistConfigured(),
+  })
+
   return (
     <div className="screen">
       {storageAtRisk() && (
@@ -146,6 +160,24 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
           </button>
           <button
             onClick={() => setDismissedDeload(true)}
+            style={{ background: 'transparent', marginLeft: 0 }}
+          >
+            <span style={{ color: 'var(--warn)' }}>나중에</span>
+          </button>
+        </div>
+      )}
+
+      {reminder.show && !dismissedBackup && (
+        <div className="banner banner-warn" style={{ alignItems: 'flex-start' }}>
+          <span>
+            {reminder.configured
+              ? `마지막 백업이 ${reminder.daysSince ?? '—'}일 전이에요`
+              : '백업이 설정되지 않았어요'}
+            <br />
+            <small>설정 → Gist 백업에서 연결하면 세션 종료마다 자동으로 올라갑니다</small>
+          </span>
+          <button
+            onClick={() => setDismissedBackup(true)}
             style={{ background: 'transparent', marginLeft: 0 }}
           >
             <span style={{ color: 'var(--warn)' }}>나중에</span>

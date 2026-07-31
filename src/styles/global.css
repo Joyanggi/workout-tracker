@@ -1257,3 +1257,12 @@ button.row {
   word-break: break-word;
   -webkit-overflow-scrolling: touch;
 }
+
+.ext-link {
+  display: inline-block;
+  padding: 6px 0;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}

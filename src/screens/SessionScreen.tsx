@@ -7,6 +7,7 @@ import { db } from '../db'
 import { unlockAudio } from '../lib/beep'
 import { formatElapsed } from '../lib/dates'
 import { doneSets, findDay } from '../lib/derive'
+import { requestSync } from '../lib/gistSync'
 import { buildPrefill, type RecordPrefill } from '../lib/prefill'
 import { useRestTimer } from '../lib/useRestTimer'
 import type { RoutineBundle } from '../lib/useRoutine'
@@ -150,6 +151,8 @@ export default function SessionScreen({
             // 그냥 두면 다음 세션을 시작할 때 이전 세션의 휴식이 되살아난다
             // (endTime이 아직 미래인 경우 — 마지막 세트 직후에 종료하면 흔하다).
             timer.dismiss()
+            // §5.5 "세션 종료마다 debounce 동기화". 토큰이 없으면 아무것도 하지 않는다
+            requestSync()
             onFinished()
           }}
         />

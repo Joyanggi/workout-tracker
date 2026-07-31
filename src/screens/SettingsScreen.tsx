@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import ExportPanel from '../components/ExportPanel'
+import GistPanel from '../components/GistPanel'
 import ImportPanel from '../components/ImportPanel'
 import RoutineIoPanel from '../components/RoutineIoPanel'
 import { db } from '../db'
@@ -42,7 +43,7 @@ export default function SettingsScreen({ seed }: { seed: SeedResult }) {
   return (
     <div className="screen">
       <h1 className="screen-title">설정</h1>
-      <p className="screen-sub">v1 · 마일스톤 6</p>
+      <p className="screen-sub">v1 · 마일스톤 7</p>
 
       {seed.problems.length > 0 && (
         <div className="banner banner-danger">
@@ -141,6 +142,8 @@ export default function SettingsScreen({ seed }: { seed: SeedResult }) {
       {bundle && (
         <ExportPanel bundle={bundle} sessions={sessions} phase={currentPhase} />
       )}
+
+      <GistPanel />
 
       <ImportPanel />
 
