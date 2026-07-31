@@ -68,6 +68,50 @@ export function addDays(dateStr: string, days: number): string {
   return toDateStr(d)
 }
 
+/** 그 달의 1일 */
+export function monthStart(dateStr: string): string {
+  const d = parseDateStr(dateStr)
+  return toDateStr(new Date(d.getFullYear(), d.getMonth(), 1))
+}
+
+export function addMonths(dateStr: string, months: number): string {
+  const d = parseDateStr(dateStr)
+  // 1일로 정규화한 뒤 이동한다. 3월 31일에서 −1개월 하면 2월 31일 → 3월 3일로 넘어간다
+  return toDateStr(new Date(d.getFullYear(), d.getMonth() + months, 1))
+}
+
+export function monthLabel(dateStr: string): string {
+  const d = parseDateStr(dateStr)
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월`
+}
+
+export function isSameMonth(a: string, b: string): boolean {
+  return a.slice(0, 7) === b.slice(0, 7)
+}
+
+/**
+ * 달력 격자. 그 달을 포함하는 월요일 시작 주들을 채운다.
+ * 주 수는 달마다 4~6주로 다르므로 고정하지 않는다 (2월이 월요일 시작이면 4주).
+ */
+export function monthGrid(anyDateInMonth: string): string[] {
+  const first = monthStart(anyDateInMonth)
+  const lastDay = parseDateStr(addMonths(first, 1))
+  lastDay.setDate(lastDay.getDate() - 1)
+  const last = toDateStr(lastDay)
+
+  const out: string[] = []
+  let cursor = parseDateStr(weekStart(first))
+  const end = parseDateStr(weekStart(last))
+  end.setDate(end.getDate() + 6)
+  while (cursor.getTime() <= end.getTime()) {
+    out.push(toDateStr(cursor))
+    const next = new Date(cursor)
+    next.setDate(next.getDate() + 1)
+    cursor = next
+  }
+  return out
+}
+
 const WEEKDAY_KO = ['일', '월', '화', '수', '목', '금', '토']
 
 export function weekdayKo(dateStr: string): string {

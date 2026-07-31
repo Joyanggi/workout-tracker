@@ -4,6 +4,7 @@ import UpdatePrompt from './components/UpdatePrompt'
 import { ensureSeed, type SeedResult } from './db/seed'
 import { usePwaUpdate } from './lib/usePwaUpdate'
 import { useRoutine } from './lib/useRoutine'
+import HistoryScreen from './screens/HistoryScreen'
 import HomeScreen from './screens/HomeScreen'
 import Onboarding from './screens/Onboarding'
 import PlaceholderScreen from './screens/PlaceholderScreen'
@@ -95,18 +96,8 @@ export default function App() {
     <div className="app">
       {banner}
       {tab === 'home' && <HomeScreen onEnterSession={() => setView('session')} />}
-      {tab === 'history' && (
-        <PlaceholderScreen
-          title="기록"
-          milestone="마일스톤 5"
-          items={[
-            '월 달력 · 세션 있는 날 불꽃 표시',
-            '세션 상세 (수행 순서 · 세트 · 감각 · 보상작용)',
-            '기록 편집 (당일 입력 실수 보정)',
-            '종목별 히스토리 (recordKey 기준)',
-          ]}
-        />
-      )}
+      {tab === 'history' &&
+        (bundle ? <HistoryScreen bundle={bundle} /> : <p className="center-note">불러오는 중…</p>)}
       {tab === 'analyze' && (
         <PlaceholderScreen
           title="분석"
