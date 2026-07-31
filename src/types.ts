@@ -172,7 +172,11 @@ export type Phase = 0 | 1 | 2 | 3
 export interface Settings {
   activeRoutineId: string
   currentPhase: Phase // 수동 전환 (조건 충족은 앱이 표시만)
-  gistToken?: string // PAT (gist scope) — localStorage에만 저장, Dexie에는 넣지 않는다
+  /**
+   * gistToken은 **이 인터페이스에 없다.** localStorage(lib/secrets.ts)에만 저장한다.
+   * Dexie settings에 두면 JSON 백업 덤프(§5.5)에 GitHub PAT가 섞여 나간다.
+   * db.setSetting이 런타임에서도 거부한다.
+   */
   gistId?: string
   lastBackupAt?: string
   onboardingDone: boolean

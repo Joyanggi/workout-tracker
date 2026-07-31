@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie'
+import { isSecretSettingKey } from '../lib/secrets'
 import type { Exercise, RoutineTemplate, Session, SettingRow } from '../types'
 
 export class WorkoutDB extends Dexie {
@@ -35,13 +36,33 @@ export async function getSetting<T>(key: string, fallback: T): Promise<T> {
   return row === undefined ? fallback : (row.value as T)
 }
 
+/**
+ * 비밀값이 Dexie로 새는 것을 막는다.
+ *
+ * JSON 백업(§5.5)이 settings 테이블을 통째로 덤프하고, 그 파일은 공유 시트로 나가고
+ * Gist에 올라간다. GitHub PAT가 여기 들어가면 그대로 유출된다.
+ * localStorage 경로(lib/secrets.ts)를 쓰도록 개발 시점에 즉시 터뜨린다.
+ */
+function assertNotSecret(key: string): void {
+  if (isSecretSettingKey(key)) {
+    throw new Error(
+      `[db] "${key}"는 Dexie settings에 저장할 수 없습니다. lib/secrets.ts를 사용하세요 ` +
+        '(JSON 백업에 비밀값이 섞여 나갑니다).',
+    )
+  }
+}
+
 export async function setSetting(key: string, value: unknown): Promise<void> {
+  assertNotSecret(key)
   const row: SettingRow = { key, value }
   await db.settings.put(row)
 }
 
 export async function setSettings(patch: Record<string, unknown>): Promise<void> {
-  const rows: SettingRow[] = Object.entries(patch).map(([key, value]) => ({ key, value }))
+  const rows: SettingRow[] = Object.entries(patch).map(([key, value]) => {
+    assertNotSecret(key)
+    return { key, value }
+  })
   await db.settings.bulkPut(rows)
 }
 

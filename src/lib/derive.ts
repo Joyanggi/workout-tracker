@@ -125,6 +125,21 @@ export function daysSinceDay(
   return last ? daysBetween(last.date, today) : null
 }
 
+/**
+ * 계획 순서 대비 수행 순서 이탈 (§5.2 타임라인 · §6 내보내기 공용).
+ * 수행한 종목들만 놓고, 계획 순서로 정렬했을 때의 자리와 실제 자리를 비교한다.
+ */
+export function orderDeviations(session: Session): { entry: SessionEntry; shift: number }[] {
+  const performed = session.entries
+    .filter((e) => e.performedOrder !== null)
+    .sort((a, b) => a.performedOrder! - b.performedOrder!)
+  const byPlan = [...performed].sort((a, b) => a.plannedOrder - b.plannedOrder)
+  return performed.map((entry) => ({
+    entry,
+    shift: entry.performedOrder! - (byPlan.indexOf(entry) + 1),
+  }))
+}
+
 /** fallback 세션도 대응 정규 Day를 수행한 것으로 본다 */
 function findDayIdOfRecord(session: Session): string | undefined {
   const first = session.entries[0]

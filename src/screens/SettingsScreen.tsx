@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
+import ExportPanel from '../components/ExportPanel'
+import ImportPanel from '../components/ImportPanel'
+import RoutineIoPanel from '../components/RoutineIoPanel'
 import { db } from '../db'
 import type { SeedResult } from '../db/seed'
 import { dayTotalSets, exerciseLabel, useRoutine } from '../lib/useRoutine'
@@ -18,6 +21,7 @@ export default function SettingsScreen({ seed }: { seed: SeedResult }) {
   const bundle = useRoutine()
   const { currentPhase, setPhase, setOnboardingDone } = useSettings()
   const sessionCount = useLiveQuery(() => db.sessions.count(), [], 0)
+  const sessions = useLiveQuery(() => db.sessions.toArray(), [], [])
   const [openDayId, setOpenDayId] = useState<string | null>(null)
   const [resetStep, setResetStep] = useState(0)
   const [quota, setQuota] = useState<string | null>(null)
@@ -38,7 +42,7 @@ export default function SettingsScreen({ seed }: { seed: SeedResult }) {
   return (
     <div className="screen">
       <h1 className="screen-title">설정</h1>
-      <p className="screen-sub">v1 · 마일스톤 1 (스캐폴드)</p>
+      <p className="screen-sub">v1 · 마일스톤 6</p>
 
       {seed.problems.length > 0 && (
         <div className="banner banner-danger">
@@ -127,14 +131,20 @@ export default function SettingsScreen({ seed }: { seed: SeedResult }) {
                 )}
               </div>
             ))}
-            <p className="row-sub" style={{ marginTop: 12 }}>
-              루틴 JSON 가져오기/내보내기는 마일스톤 6에서 붙습니다.
-            </p>
+
           </>
         ) : (
           <p className="row-sub">루틴 없음</p>
         )}
       </div>
+
+      {bundle && (
+        <ExportPanel bundle={bundle} sessions={sessions} phase={currentPhase} />
+      )}
+
+      <ImportPanel />
+
+      {bundle && <RoutineIoPanel routine={bundle.routine} catalog={bundle.catalog} />}
 
       <div className="card">
         <div className="card-label">진단</div>
