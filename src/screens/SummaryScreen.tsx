@@ -1,5 +1,8 @@
+import { useLiveQuery } from 'dexie-react-hooks'
+import { db } from '../db'
 import { compensationSummary, hasCompensation } from '../lib/compensation'
 import { progressionSuggestions } from '../lib/progression'
+import { PR_LABEL, detectPrs, topPrPerRecord } from '../lib/pr'
 import { formatClock, formatElapsed } from '../lib/dates'
 import { doneSets, e1rm, findDay, totalDoneSets, totalVolume } from '../lib/derive'
 import type { RoutineBundle } from '../lib/useRoutine'
@@ -28,6 +31,7 @@ export default function SummaryScreen({
 }) {
   const session = useSessionStore((s) => s.lastFinished)
   const phase = useSettings((s) => s.currentPhase)
+  const allSessions = useLiveQuery(() => db.sessions.toArray(), [], [])
 
   if (!session) {
     return (
@@ -56,6 +60,9 @@ export default function SummaryScreen({
     ...p,
     name: nameOf(p.recordKey),
   }))
+
+  // PR (T5). 감량기에는 증량 조건이 잘 안 뜨므로 e1RM·반복 PR이 진전을 보여주는 주 채널이다
+  const prs = topPrPerRecord(detectPrs(allSessions, session))
 
   const lowSensory = session.entries.filter(
     (e) => e.sensoryScore !== undefined && e.sensoryScore <= 1 && doneSets(e).length > 0,
@@ -94,6 +101,29 @@ export default function SummaryScreen({
           </p>
         )}
       </div>
+
+      {prs.length > 0 && (
+        <div className="card">
+          <div className="card-label">개인 기록 🎉</div>
+          {prs.map((pr) => (
+            <div className="row" key={`${pr.recordKey}-${pr.kind}`}>
+              <div className="row-main">
+                <div className="row-title">
+                  {nameOf(pr.recordKey)}
+                  <span className="chip chip-accent" style={{ marginLeft: 6 }}>
+                    {PR_LABEL[pr.kind]}
+                  </span>
+                </div>
+                <div className="row-sub">
+                  {pr.kind === 'reps'
+                    ? `${pr.atWeight}kg에서 ${pr.previous}회 → ${pr.value}회`
+                    : `${pr.previous} → ${pr.value}${pr.kind === 'weight' ? 'kg' : 'kg (추정)'}`}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {progressed.length > 0 && (
         <div className="card">
