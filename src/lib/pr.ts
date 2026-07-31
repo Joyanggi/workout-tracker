@@ -76,8 +76,17 @@ const EPS = 0.01
  *
  * **첫 기록은 PR로 보지 않는다.** 모든 종목이 첫 세션에 PR 뱃지를 달면 뱃지가
  * 아무 의미도 갖지 못한다 (§ 경고·뱃지는 흔해지면 무시된다).
+ *
+ * `isInverse` 종목(T8 어시스티드)은 **무게·e1RM PR을 판정하지 않는다** — 표시 무게가
+ * 클수록 쉬우므로 보조를 늘린 것이 "최고 무게 PR"로 뜬다. 거짓 PR은 뱃지 신뢰를
+ * 가장 빠르게 깎는다. **반복수 PR은 그대로 둔다** — 같은 보조 무게에서 반복이 늘어난
+ * 것은 어시스티드에서도 실제 진전이고 방향이 이미 맞다.
  */
-export function detectPrs(sessions: Session[], target: Session): PrHit[] {
+export function detectPrs(
+  sessions: Session[],
+  target: Session,
+  isInverse?: (recordKey: RecordKey) => boolean,
+): PrHit[] {
   if (!isPrEligible(target)) return []
 
   const hits: PrHit[] = []
@@ -90,11 +99,12 @@ export function detectPrs(sessions: Session[], target: Session): PrHit[] {
 
     const topWeight = Math.max(...sets.map((s) => s.weight))
     const topE1rm = Math.max(...sets.map((s) => e1rm(s.weight, s.reps)))
+    const inverse = isInverse?.(entry.recordKey) ?? false
 
-    if (topWeight > prev.weight + EPS) {
+    if (!inverse && topWeight > prev.weight + EPS) {
       hits.push({ recordKey: entry.recordKey, kind: 'weight', value: topWeight, previous: prev.weight })
     }
-    if (topE1rm > prev.e1rm + EPS) {
+    if (!inverse && topE1rm > prev.e1rm + EPS) {
       hits.push({
         recordKey: entry.recordKey,
         kind: 'e1rm',

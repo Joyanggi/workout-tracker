@@ -23,6 +23,7 @@ import {
   weeklyBars,
 } from '../lib/analysis'
 import { todayLocal } from '../lib/dates'
+import { isInverseKey } from '../lib/weightScale'
 import type { RoutineBundle } from '../lib/useRoutine'
 import { useSettings } from '../store/settings'
 
@@ -66,8 +67,13 @@ export default function AnalyzeScreen({ bundle }: { bundle: RoutineBundle }) {
   const phase = useSettings((st) => st.currentPhase)
   const includeB = phase >= 2
   const aKeys = useMemo(
-    () => strengthRecordKeys(sessions, bundle.routine, { includeB }),
-    [sessions, bundle.routine, includeB],
+    () =>
+      strengthRecordKeys(sessions, bundle.routine, {
+        includeB,
+        // 어시스티드는 무게가 클수록 쉬워서 추이가 뒤집힌다 — 차트에서 뺀다 (T8)
+        isInverse: (rk) => isInverseKey(bundle.catalog, rk),
+      }),
+    [sessions, bundle.routine, bundle.catalog, includeB],
   )
   const activeKey = selected ?? aKeys[0]?.recordKey ?? null
   const activeGroup = aKeys.find((k) => k.recordKey === activeKey)?.group ?? 'A'

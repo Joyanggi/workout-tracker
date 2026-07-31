@@ -19,7 +19,7 @@ import { completedSessions, findDay } from '../lib/derive'
 import { storageAtRisk } from '../lib/platform'
 import { progressionSuggestions } from '../lib/progression'
 import { bannerWatches, compensationWatches } from '../lib/compensationWatch'
-import { buildScaleMap, formatProgression } from '../lib/weightScale'
+import { buildScaleMap, formatProgression, isInverseKey } from '../lib/weightScale'
 import { useExerciseSettings } from '../lib/useExerciseSettings'
 import { buildSession } from '../lib/sessionFactory'
 import { suggestNextDay } from '../lib/suggestNextDay'
@@ -103,6 +103,7 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
       phase: currentPhase,
       today,
       returnStep: isReturn ? suggestion.returnStep : undefined,
+      isInverse: (rk) => isInverseKey(catalog, rk),
     }).session
   }
 

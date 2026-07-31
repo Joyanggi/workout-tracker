@@ -10,7 +10,7 @@ import type {
 import { NO_COMPENSATION } from '../types'
 import { completedSessions, doneSets } from './derive'
 import { bGroupGuide, type BGroupGuide } from './bGroupGuide'
-import { nextWeightForProgression, scaleFor, type WeightScaleMap } from './weightScale'
+import { nextWeightForProgression, scaleFor, type WeightScale, type WeightScaleMap } from './weightScale'
 
 /**
  * 무게·횟수 프리필 (DESIGN.md §5.2).
@@ -48,10 +48,18 @@ export interface RecordPrefill {
   bGroup?: BGroupGuide
 }
 
-/** 무게 우선, 동무게면 반복수 */
-function better(a: SetRef | undefined, b: SetRef): SetRef {
+/**
+ * 더 나은 기록: 무게 우선, 동무게면 반복수.
+ *
+ * `inverse`(T8 어시스티드)에서는 **작은 보조가 더 나은 기록**이다. 이 반전이 없으면
+ * 최근 3세션 중 가장 많이 보조받은(= 가장 쉬웠던) 세션이 프리필 기준이 되어
+ * 회차마다 쉬워지는 방향으로 고착된다 — 하향 나선을 막으려고 "최고 기록 기준"을
+ * 택한 §5.2 설계가 어시스티드에서는 정확히 반대로 작동한다.
+ */
+function better(a: SetRef | undefined, b: SetRef, inverse = false): SetRef {
   if (!a) return b
-  if (b.weight > a.weight) return b
+  const bIsBetter = inverse ? b.weight < a.weight : b.weight > a.weight
+  if (bIsBetter) return b
   if (b.weight === a.weight && b.reps > a.reps) return b
   return a
 }
@@ -70,8 +78,10 @@ export function buildPrefill(args: {
   routineExercise: RoutineExercise
   phase: Phase
   scales?: WeightScaleMap
+  /** 표시 무게가 클수록 쉬운 종목 (T8 어시스티드) — 기준 기록 비교 방향이 반대다 */
+  inverse?: boolean
 }): RecordPrefill {
-  const { sessions, routine, recordKey, routineExercise, phase, scales } = args
+  const { sessions, routine, recordKey, routineExercise, phase, scales, inverse = false } = args
   const history = sessionsForRecord(sessions, recordKey)
   const recent = history.slice(0, RECENT_SESSIONS_FOR_PREFILL)
 
@@ -83,8 +93,8 @@ export function buildPrefill(args: {
     if (!entry) continue
     doneSets(entry).forEach((set, i) => {
       const ref = { weight: set.weight, reps: set.reps }
-      bestBySet[i] = better(bestBySet[i], ref)
-      best = better(best, ref)
+      bestBySet[i] = better(bestBySet[i], ref, inverse)
+      best = better(best, ref, inverse)
     })
   }
 
@@ -105,7 +115,7 @@ export function buildPrefill(args: {
       phase,
       lastSets,
       lastCompensation: lastEntry?.compensation,
-      scale: scaleFor(scales, recordKey, routine.rules.weightIncrementKg),
+      scale: { ...scaleFor(scales, recordKey, routine.rules.weightIncrementKg), inverse },
     }),
   }
 }
@@ -125,8 +135,8 @@ export function computeProgression(args: {
   phase: Phase
   lastSets: SetRef[]
   lastCompensation?: string
-  /** 종목별 무게 단위 (T9). 미지정 시 루틴 전역값 */
-  scale?: { step: number; ladder?: number[] }
+  /** 종목별 무게 단위 (T9) + inverse 여부 (T8). 미지정 시 루틴 전역값 */
+  scale?: WeightScale
 }): { from: number; to: number | null } | undefined {
   const { routine, routineExercise, phase, lastSets, lastCompensation } = args
   if (routineExercise.group !== 'A') return undefined

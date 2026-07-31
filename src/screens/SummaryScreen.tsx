@@ -5,7 +5,7 @@ import { progressionSuggestions } from '../lib/progression'
 import { revertWarning } from '../lib/bGroupGuide'
 import { sessionsForRecord } from '../lib/prefill'
 import { routineExerciseOfEntry } from '../lib/derive'
-import { buildScaleMap, formatProgression } from '../lib/weightScale'
+import { buildScaleMap, formatProgression, isInverseKey } from '../lib/weightScale'
 import { useExerciseSettings } from '../lib/useExerciseSettings'
 import { PR_LABEL, detectPrs, topPrPerRecord } from '../lib/pr'
 import { formatClock, formatElapsed } from '../lib/dates'
@@ -53,7 +53,15 @@ export default function SummaryScreen({
   const day = findDay(bundle.routine, session.dayId)
   const elapsed =
     session.endedAt ? new Date(session.endedAt).getTime() - new Date(session.startedAt).getTime() : 0
-  const volume = totalVolume(session)
+  /*
+    어시스티드(T8)는 볼륨에서 뺀다 — 보조 무게 × 반복은 볼륨이 아니고, 보조를 많이
+    받을수록 숫자가 커져 방향이 반대가 된다. 뺐다는 사실을 캡션으로 알린다.
+  */
+  const isInverse = (rk: string) => isInverseKey(bundle.catalog, rk)
+  const volume = totalVolume(session, isInverse)
+  const volumeExcluded = session.entries.some(
+    (e) => isInverse(e.recordKey) && doneSets(e).length > 0,
+  )
   const timeline = orderDeviations(session)
 
   const nameOf = (recordKey: string) =>
@@ -89,13 +97,19 @@ export default function SummaryScreen({
   })
 
   // PR (T5). 감량기에는 증량 조건이 잘 안 뜨므로 e1RM·반복 PR이 진전을 보여주는 주 채널이다
-  const prs = topPrPerRecord(detectPrs(allSessions, session))
+  const prs = topPrPerRecord(detectPrs(allSessions, session, isInverse))
 
   const lowSensory = session.entries.filter(
     (e) => e.sensoryScore !== undefined && e.sensoryScore <= 1 && doneSets(e).length > 0,
   )
 
+  /*
+    "최고 세트"는 e1RM 기준이라 어시스티드(T8)에서는 **가장 많이 보조받은 세트**를
+    최고로 고른다. 설계 문서 F2 목록에 없던 경로지만 거짓 신호라는 성질이 같고,
+    수용 기준("보조를 늘려도 거짓 신호가 없다")에 걸리므로 함께 제외한다.
+  */
   const bestSet = session.entries
+    .filter((e) => !isInverse(e.recordKey))
     .flatMap((e) => doneSets(e).map((s) => ({ ...s, recordKey: e.recordKey })))
     .sort((a, b) => e1rm(b.weight, b.reps) - e1rm(a.weight, a.reps))[0]
 
@@ -114,7 +128,10 @@ export default function SummaryScreen({
           </div>
           <div>
             <div className="stat-value">{Math.round(volume).toLocaleString()}</div>
-            <div className="stat-label">총 볼륨 (kg·회)</div>
+            <div className="stat-label">
+              총 볼륨 (kg·회)
+              {volumeExcluded && <span className="row-sub"> · 어시스트 종목 제외</span>}
+            </div>
           </div>
           <div>
             <div className="stat-value">{formatElapsed(elapsed)}</div>

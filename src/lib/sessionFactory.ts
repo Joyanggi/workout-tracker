@@ -35,6 +35,8 @@ export function buildSession(args: {
   today: string
   now?: Date
   returnStep?: ReturnProtocolStep
+  /** 표시 무게가 클수록 쉬운 종목 (T8 어시스티드) — 프리필 기준 기록 비교 방향이 반대다 */
+  isInverse?: (recordKey: string) => boolean
 }): BuiltSession {
   const { routine, day, mode, sessions, phase, today, now = new Date(), returnStep } = args
 
@@ -47,7 +49,14 @@ export function buildSession(args: {
     .sort((a, b) => a.plannedOrder - b.plannedOrder)
     .map((routineExercise) => {
       const recordKey = makeRecordKey(routineExercise.exerciseId, recordDayIdOf(day))
-      const prefill = buildPrefill({ sessions, routine, recordKey, routineExercise, phase })
+      const prefill = buildPrefill({
+        sessions,
+        routine,
+        recordKey,
+        routineExercise,
+        phase,
+        inverse: args.isInverse?.(recordKey) ?? false,
+      })
       prefills.set(recordKey, prefill)
 
       // 세트 수 조절. 최소 1세트는 남긴다

@@ -4,6 +4,7 @@ import MonthCalendar from '../components/MonthCalendar'
 import { db } from '../db'
 import { addMonths, monthStart, todayLocal, weekdayKo } from '../lib/dates'
 import { calendarCells, sessionsInMonth, summarize } from '../lib/history'
+import { isInverseKey } from '../lib/weightScale'
 import type { RoutineBundle } from '../lib/useRoutine'
 import ExerciseHistoryScreen from './ExerciseHistoryScreen'
 import SessionDetailScreen from './SessionDetailScreen'
@@ -106,7 +107,7 @@ export default function HistoryScreen({ bundle }: { bundle: RoutineBundle }) {
               </p>
             )}
             {listed.map((session) => {
-              const s = summarize(session, bundle.routine)
+              const s = summarize(session, bundle.routine, (rk) => isInverseKey(bundle.catalog, rk))
               return (
                 <button className="row" key={session.id} onClick={() => setDetailId(session.id)}>
                   <div className="row-main">

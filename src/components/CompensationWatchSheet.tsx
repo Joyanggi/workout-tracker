@@ -1,6 +1,6 @@
 import type { CompensationWatch } from '../lib/compensationWatch'
 import { WATCH_WINDOW } from '../lib/compensationWatch'
-import { describeScale, stepDown, type WeightScale } from '../lib/weightScale'
+import { describeScale, easierWeight, type WeightScale } from '../lib/weightScale'
 
 /**
  * 반복 보상작용 → 무게 하향 제안 (T11).
@@ -26,8 +26,12 @@ export default function CompensationWatchSheet({
   onApply: (weight: number) => void
   onClose: () => void
 }) {
-  const lowered = stepDown(currentWeight, scale)
-  const canLower = lowered < currentWeight
+  /*
+    "하향"의 의미는 **더 쉽게**다. 어시스티드(T8)에서는 보조를 올려야 쉬워지므로
+    숫자가 반대로 움직인다 — stepDown을 직접 부르면 더 어렵게 만든다.
+  */
+  const lowered = easierWeight(currentWeight, scale)
+  const canLower = lowered !== currentWeight
 
   return (
     <div className="sheet-backdrop" onClick={onClose}>
@@ -59,12 +63,17 @@ export default function CompensationWatchSheet({
         <p className="row-sub" style={{ marginTop: 12 }}>
           {canLower ? (
             <>
-              한 단위 하향: <strong>{currentWeight}kg → {lowered}kg</strong> ({describeScale(scale)})
+              {scale.inverse ? '보조 +' : '한 단위 하향: '}
+              <strong>
+                {currentWeight}kg → {lowered}kg
+              </strong>{' '}
+              ({describeScale(scale)})
+              {scale.inverse && ' — 보조를 늘리면 더 쉬워집니다'}
               <br />
               체크하지 않은 세트에만 적용됩니다. 이미 기록한 세트는 그대로입니다.
             </>
           ) : (
-            <>더 낮출 단위가 없습니다 ({describeScale(scale)}).</>
+            <>더 조절할 단위가 없습니다 ({describeScale(scale)}).</>
           )}
         </p>
 
@@ -77,7 +86,7 @@ export default function CompensationWatchSheet({
             onClose()
           }}
         >
-          {lowered}kg로 낮추기
+          {lowered}kg로 {scale.inverse ? '보조 늘리기' : '낮추기'}
         </button>
         <div style={{ height: 8 }} />
         <button className="btn" onClick={onClose}>

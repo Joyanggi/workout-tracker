@@ -1,7 +1,7 @@
 import type { RecordKey, RoutineTemplate, Session } from '../types'
 import { parseRecordKey, recordDayIdOf } from '../types'
 import { addDays, weekStart, weekStartsBetween } from './dates'
-import { completedSessions, doneSets, e1rm, findRoutineExercise } from './derive'
+import { completedSessions, doneSets, e1rm, routineExerciseOfEntry } from './derive'
 
 /**
  * 분석 탭 파생 계산 (DESIGN.md §5.4 — v1 최소).
@@ -66,11 +66,15 @@ export function strengthTrend(sessions: Session[], recordKey: RecordKey): Streng
  * `includeB`는 Phase 2부터만 켠다 (T12). 그 시점부터 루틴 문서 9장이 B그룹
  * "무게 회복"을 규정하므로, 무게 추이가 회복 진행을 판단하는 정보가 된다.
  * 조건부 노출이면 원래 의도(Phase 0~1 무게 집착 방지)와 충돌하지 않는다.
+ *
+ * `isInverse`가 참인 종목은 제외한다 (T8 어시스티드) — 표시 무게가 클수록 쉬우므로
+ * 무게·볼륨·e1RM 추이가 전부 방향이 반대로 그려진다. 진전은 종목 히스토리 화면에서
+ * 반복수로 본다.
  */
 export function strengthRecordKeys(
   sessions: Session[],
   routine: RoutineTemplate,
-  opts: { includeB?: boolean } = {},
+  opts: { includeB?: boolean; isInverse?: (recordKey: RecordKey) => boolean } = {},
 ): {
   recordKey: RecordKey
   exerciseId: string
@@ -80,14 +84,19 @@ export function strengthRecordKeys(
 }[] {
   const counts = new Map<RecordKey, number>()
   const groups = new Map<RecordKey, 'A' | 'B'>()
+  /** 대체 recordKey → 원 종목 recordKey (정렬용) */
+  const originOf = new Map<RecordKey, RecordKey>()
   for (const session of completedSessions(sessions)) {
     for (const entry of session.entries) {
       if (doneSets(entry).length === 0) continue
-      const { exerciseId, dayId } = parseRecordKey(entry.recordKey)
-      const group = findRoutineExercise(routine, dayId, exerciseId)?.group
+      // 대체 수행은 루틴에 없는 종목이므로 recordKey로 조회하면 그룹 판정에 실패하고
+      // 차트에서 통째로 사라진다 (A그룹 대체가 안 뜨던 원인)
+      const group = routineExerciseOfEntry(routine, entry)?.group
       if (group !== 'A' && !(opts.includeB && group === 'B')) continue
+      if (opts.isInverse?.(entry.recordKey)) continue
       counts.set(entry.recordKey, (counts.get(entry.recordKey) ?? 0) + 1)
       groups.set(entry.recordKey, group === 'B' ? 'B' : 'A')
+      if (entry.substituteFor) originOf.set(entry.recordKey, entry.substituteFor)
     }
   }
 
@@ -100,6 +109,18 @@ export function strengthRecordKeys(
     }
   }
 
+  /**
+   * 대체 recordKey는 루틴 순서 map에 없어서 그냥 두면 맨 뒤로 밀린다.
+   * 원 종목 바로 뒤(+0.5)에 놓아 "무엇의 대체인지"가 순서로 보이게 한다.
+   */
+  const rank = (recordKey: RecordKey): number => {
+    const own = order.get(recordKey)
+    if (own !== undefined) return own
+    const origin = originOf.get(recordKey)
+    const originRank = origin === undefined ? undefined : order.get(origin)
+    return originRank === undefined ? Number.MAX_SAFE_INTEGER : originRank + 0.5
+  }
+
   return [...counts.entries()]
     .map(([recordKey, sessionCount]) => ({
       recordKey,
@@ -107,11 +128,7 @@ export function strengthRecordKeys(
       sessionCount,
       group: groups.get(recordKey) ?? 'A',
     }))
-    .sort(
-      (a, b) =>
-        (order.get(a.recordKey) ?? Number.MAX_SAFE_INTEGER) -
-        (order.get(b.recordKey) ?? Number.MAX_SAFE_INTEGER),
-    )
+    .sort((a, b) => rank(a.recordKey) - rank(b.recordKey))
 }
 
 // ─── B그룹 감각 점수 추이 (§5.4) ─────────────────────────
@@ -150,8 +167,9 @@ export function sensoryTrend(
   for (const session of done) {
     for (const entry of session.entries) {
       if (entry.sensoryScore === undefined) continue
-      const { exerciseId, dayId } = parseRecordKey(entry.recordKey)
-      if (findRoutineExercise(routine, dayId, exerciseId)?.group !== 'B') continue
+      // 대체 수행도 원 종목의 그룹을 따른다 — 안 그러면 B그룹 대체의 감각 기록이
+      // 추이와 "계속 약한 종목" 탐지에서 누락된다. inverse는 무관하다(감각에 방향이 없다)
+      if (routineExerciseOfEntry(routine, entry)?.group !== 'B') continue
       keys.add(entry.recordKey)
     }
   }

@@ -1,7 +1,7 @@
 import { NO_COMPENSATION, parseRecordKey } from '../types'
 import type { Exercise, Phase, RoutineTemplate, Session } from '../types'
 import { doneSets, routineExerciseOfEntry } from './derive'
-import { nextWeightForProgression, scaleFor, type WeightScaleMap } from './weightScale'
+import { isInverseKey, nextWeightForProgression, scaleFor, type WeightScaleMap } from './weightScale'
 
 /**
  * 더블 프로그레션 증량 판정 (DESIGN.md §7).
@@ -57,7 +57,8 @@ export function progressionSuggestions(
 
     const from = Math.max(...sets.map((s) => s.weight))
     const scale = scaleFor(scales, entry.recordKey, routine.rules.weightIncrementKg)
-    const inverse = catalog?.get(exerciseId)?.inverseWeight === true
+    // 해석은 weightScale.isInverseKey 한 곳에 모여 있다 (T8 §2a)
+    const inverse = catalog ? isInverseKey(catalog, entry.recordKey) : false
     return [
       {
         recordKey: entry.recordKey,

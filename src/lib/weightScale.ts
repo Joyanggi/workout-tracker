@@ -1,4 +1,5 @@
-import type { ExerciseSetting, RecordKey } from '../types'
+import type { Exercise, ExerciseSetting, RecordKey } from '../types'
+import { parseRecordKey } from '../types'
 
 /**
  * 종목별 무게 단위 (T9).
@@ -130,6 +131,31 @@ export function nextWeightForProgression(current: number, scale: WeightScale): n
     return scale.ladder.find((v) => v > current) ?? null
   }
   return round2(current + scale.step)
+}
+
+/**
+ * 이 기록 라인이 **표시 무게가 클수록 쉬운** 종목인지 (T8 어시스티드).
+ *
+ * 판정 기준은 **entry 자신의 exerciseId**다 — `substituteFor`가 아니다.
+ * inverse는 실제로 쓴 기계의 속성이지 원 종목의 속성이 아니다.
+ *
+ * 순수 lib 함수들은 카탈로그를 직접 받지 않고 `isInverse?: (rk) => boolean` 술어를
+ * 받는다. 화면 호출부는 전부 `bundle.catalog`를 갖고 있으므로 여기서 술어를 만든다.
+ * 해석을 이 한 곳에 모아 두면 "어디는 반영되고 어디는 안 되는" 상태가 생기지 않는다.
+ */
+export function isInverseKey(catalog: Map<string, Exercise>, recordKey: RecordKey): boolean {
+  return catalog.get(parseRecordKey(recordKey).exerciseId)?.inverseWeight === true
+}
+
+/**
+ * 한 단위 **더 쉽게**. 일반 종목은 무게를 내리고, 어시스티드는 보조를 올린다.
+ *
+ * "하향"이라는 말이 어시스티드에서는 반대 동작이 되므로, 호출부가 stepDown을
+ * 직접 부르지 않고 의도(더 쉽게)로 부르게 한다 — T11 보상작용 하향 제안이
+ * 어시스티드에서 더 어렵게 만드는 버그가 이 구분이 없어서 생겼다.
+ */
+export function easierWeight(current: number, scale: WeightScale): number {
+  return scale.inverse ? stepUp(current, scale) : stepDown(current, scale)
 }
 
 /** 설정 시트·카드에 표시할 한 줄 요약 */

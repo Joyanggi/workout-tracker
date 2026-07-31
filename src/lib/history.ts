@@ -37,7 +37,12 @@ export interface SessionSummary {
   durationMin: number | null
 }
 
-export function summarize(session: Session, routine: RoutineTemplate): SessionSummary {
+export function summarize(
+  session: Session,
+  routine: RoutineTemplate,
+  /** 볼륨에서 제외할 기록 라인 (T8 어시스티드 — 보조 무게는 볼륨이 아니다) */
+  excludeFromVolume?: (recordKey: RecordKey) => boolean,
+): SessionSummary {
   const day = findDay(routine, session.dayId)
   const durationMin =
     session.endedAt
@@ -49,7 +54,7 @@ export function summarize(session: Session, routine: RoutineTemplate): SessionSu
     session,
     dayName: day?.name ?? session.dayId,
     setCount: totalDoneSets(session),
-    volume: totalVolume(session),
+    volume: totalVolume(session, excludeFromVolume),
     durationMin,
   }
 }

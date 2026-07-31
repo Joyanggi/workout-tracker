@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { hasCompensation } from '../lib/compensation'
 import { weekdayKo } from '../lib/dates'
 import { allRecordKeys, exerciseHistory } from '../lib/history'
+import { isInverseKey } from '../lib/weightScale'
 import type { RoutineBundle } from '../lib/useRoutine'
 import type { Session } from '../types'
 
@@ -73,6 +74,11 @@ export default function ExerciseHistoryScreen({
 
   const info = keys.find((k) => k.recordKey === selected)
   const best = history.reduce<number>((m, p) => Math.max(m, p.bestE1rm), 0)
+  /*
+    어시스티드(T8)는 표시 무게가 클수록 쉽다. e1RM·볼륨·"최고" 뱃지는 전부 방향이
+    반대가 되므로 숨기고 안내로 바꾼다. 무게·반복수·감각은 사실이라 그대로 보여준다.
+  */
+  const inverse = isInverseKey(bundle.catalog, selected)
 
   return (
     <>
@@ -86,8 +92,14 @@ export default function ExerciseHistoryScreen({
             <div className="row-title mono">{selected}</div>
             <div className="row-sub">{history.length}개 세션</div>
           </div>
-          <div className="row-meta">최고 e1RM {best.toFixed(1)}kg</div>
+          {!inverse && <div className="row-meta">최고 e1RM {best.toFixed(1)}kg</div>}
         </div>
+        {inverse && (
+          <p className="row-sub" style={{ color: 'var(--warn)' }}>
+            보조 무게 종목 — 숫자가 <strong>줄어드는 것이 진전</strong>입니다. e1RM·볼륨은
+            방향이 반대라 표시하지 않습니다.
+          </p>
+        )}
       </div>
 
       <div className="card">
@@ -102,7 +114,7 @@ export default function ExerciseHistoryScreen({
                     {point.mode === 'return' ? '복귀' : '디로드'}
                   </span>
                 )}
-                {point.bestE1rm >= best && history.length > 1 && (
+                {!inverse && point.bestE1rm >= best && history.length > 1 && (
                   <span className="chip chip-accent" style={{ marginLeft: 4 }}>
                     최고
                   </span>
@@ -114,11 +126,13 @@ export default function ExerciseHistoryScreen({
                 {hasCompensation(point.compensation) && ' · 보상작용'}
               </div>
             </div>
-            <div className="row-meta">
-              {Math.round(point.volume).toLocaleString()}
-              <br />
-              <span style={{ fontSize: 11 }}>kg·회</span>
-            </div>
+            {!inverse && (
+              <div className="row-meta">
+                {Math.round(point.volume).toLocaleString()}
+                <br />
+                <span style={{ fontSize: 11 }}>kg·회</span>
+              </div>
+            )}
           </button>
         ))}
       </div>

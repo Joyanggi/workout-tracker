@@ -12,7 +12,7 @@ import { buildPrefill, sessionsForRecord, type RecordPrefill } from '../lib/pref
 import { previewSubstitutes, type SubstitutePreview } from '../lib/substitute'
 import { compensationWatches, watchFor } from '../lib/compensationWatch'
 import SubstituteSheet from '../components/SubstituteSheet'
-import { buildScaleMap } from '../lib/weightScale'
+import { buildScaleMap, isInverseKey } from '../lib/weightScale'
 import { useExerciseSettings } from '../lib/useExerciseSettings'
 import { useRestTimer } from '../lib/useRestTimer'
 import type { RoutineBundle } from '../lib/useRoutine'
@@ -85,6 +85,7 @@ export default function SessionScreen({
           routineExercise,
           phase,
           scales: buildScaleMap(exerciseSettings, bundle.routine.rules.weightIncrementKg),
+          inverse: isInverseKey(bundle.catalog, entry.recordKey),
         }),
       )
     }
@@ -165,6 +166,7 @@ export default function SessionScreen({
               compensationSigns={exercise?.compensationSigns ?? []}
               defaultStep={bundle.routine.rules.weightIncrementKg}
               substituteForName={originName}
+              inverseWeight={isInverseKey(bundle.catalog, entry.recordKey)}
               onRequestSubstitute={() => setSubstituting(entry.recordKey)}
               compensationWatch={watchFor(watches, entry.recordKey)}
               prefill={prefills.get(entry.recordKey)}

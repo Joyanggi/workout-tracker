@@ -1,7 +1,7 @@
 import type { MuscleKey, RoutineTemplate, Session } from '../types'
 import { parseRecordKey } from '../types'
 import { daysBetween, weekDates, weekStart, weekStartsBetween } from './dates'
-import { completedSessions, doneSets, findRoutineExercise, weeklyVolume } from './derive'
+import { completedSessions, doneSets, weeklyVolume } from './derive'
 
 /**
  * 홈 대시보드용 파생 계산 (DESIGN.md §5.1 · §7).
@@ -356,8 +356,3 @@ export function exerciseIdOfRecordKey(recordKey: string): string {
   return parseRecordKey(recordKey).exerciseId
 }
 
-/** 루틴 정의에 있는 종목인지 (v2.5+ 교체 후 과거 기록을 안전히 다루기 위해) */
-export function isKnownRecord(routine: RoutineTemplate, recordKey: string): boolean {
-  const { exerciseId, dayId } = parseRecordKey(recordKey)
-  return findRoutineExercise(routine, dayId, exerciseId) !== undefined
-}

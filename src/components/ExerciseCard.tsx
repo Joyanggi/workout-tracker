@@ -60,6 +60,7 @@ export default function ExerciseCard({
   prefill,
   defaultStep,
   substituteForName,
+  inverseWeight = false,
   onRequestSubstitute,
   compensationWatch,
   actions,
@@ -86,6 +87,8 @@ export default function ExerciseCard({
   defaultStep: number
   /** 대체 수행 중이면 원 종목 이름 (T8) */
   substituteForName?: string
+  /** 표시 무게가 클수록 쉬운 종목 (T8 어시스티드). 하향 제안 방향이 반대다 */
+  inverseWeight?: boolean
   /** 대체 요청 (T8). 넘기지 않으면 버튼이 안 보인다 — 과거 세션 편집에는 의미가 없다 */
   onRequestSubstitute?: () => void
   /** 반복 보상작용 경고 (T11). 과거 세션 편집에서는 넘기지 않는다 */
@@ -123,6 +126,8 @@ export default function ExerciseCard({
   const weightScale: WeightScale = {
     step: scaleRow.weightStepKg ?? defaultStep,
     ...(scaleRow.weightLadderKg?.length ? { ladder: scaleRow.weightLadderKg } : {}),
+    // 설정 행이 없는 종목도 inverse를 잃지 않도록 카탈로그 값을 여기서 합친다
+    ...(inverseWeight ? { inverse: true } : {}),
   }
   const scaleIsCustom = scaleRow.weightStepKg !== undefined || !!scaleRow.weightLadderKg?.length
   const done = doneSetsAll(entry)

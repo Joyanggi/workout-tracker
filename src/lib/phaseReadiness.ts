@@ -2,7 +2,7 @@ import type { Phase, RecordKey, RoutineTemplate, Session } from '../types'
 import { NO_COMPENSATION, parseRecordKey } from '../types'
 import { keyARecordKeys, phase0Progress } from './dashboard'
 import { addDays, daysBetween, todayLocal } from './dates'
-import { completedSessions, doneSets, findRoutineExercise } from './derive'
+import { completedSessions, doneSets, routineExerciseOfEntry } from './derive'
 
 /**
  * Phase 전환 조건 감지 (PLAN-v1.1 T3).
@@ -60,8 +60,8 @@ function recentBKeys(
     if (session.date < from) continue
     for (const entry of session.entries) {
       if (doneSets(entry).length === 0) continue
-      const { exerciseId, dayId } = parseRecordKey(entry.recordKey)
-      if (findRoutineExercise(routine, dayId, exerciseId)?.group !== 'B') continue
+      // 대체 수행이 빠지면 Phase 1→2·2→3 조건이 과소평가된다 (분모에서 사라짐)
+      if (routineExerciseOfEntry(routine, entry)?.group !== 'B') continue
       keys.add(entry.recordKey)
     }
   }

@@ -4,6 +4,7 @@ import { planDayChange } from '../lib/dayChange'
 import { formatClock, weekdayKo } from '../lib/dates'
 import { doneSets, findDay, totalDoneSets, totalVolume } from '../lib/derive'
 import { useSessionEditor } from '../lib/useSessionEditor'
+import { isInverseKey } from '../lib/weightScale'
 import type { RoutineBundle } from '../lib/useRoutine'
 import { parseRecordKey, type RecordKey } from '../types'
 
@@ -83,7 +84,11 @@ export default function SessionDetailScreen({
             <div className="stat-label">완료 세트</div>
           </div>
           <div>
-            <div className="stat-value">{Math.round(totalVolume(session)).toLocaleString()}</div>
+            <div className="stat-value">
+              {Math.round(
+                totalVolume(session, (rk) => isInverseKey(bundle.catalog, rk)),
+              ).toLocaleString()}
+            </div>
             <div className="stat-label">총 볼륨</div>
           </div>
           <div>
@@ -127,6 +132,7 @@ export default function SessionDetailScreen({
             cueTip={exercise?.cueTip}
             compensationSigns={exercise?.compensationSigns ?? []}
             defaultStep={bundle.routine.rules.weightIncrementKg}
+            inverseWeight={isInverseKey(bundle.catalog, entry.recordKey)}
             actions={editor.actions}
             open={openKey === entry.recordKey}
             onToggleOpen={() => setOpenKey(openKey === entry.recordKey ? null : entry.recordKey)}

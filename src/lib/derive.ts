@@ -49,10 +49,21 @@ export function totalDoneSets(session: Session): number {
   return session.entries.reduce((n, e) => n + doneSetsAll(e).length, 0)
 }
 
-/** 총 볼륨 = Σ(무게 × 반복수). 체크된 세트만. (§7 진전 지표) */
-export function totalVolume(session: Session): number {
+/**
+ * 총 볼륨 = Σ(무게 × 반복수). 체크된 세트만. (§7 진전 지표)
+ *
+ * `exclude`는 어시스티드 종목(T8)을 빼기 위한 것이다 — 보조 무게 × 반복은 볼륨이 아니고,
+ * 보조를 많이 받을수록 숫자가 커져서 방향이 반대가 된다.
+ */
+export function totalVolume(
+  session: Session,
+  exclude?: (recordKey: RecordKey) => boolean,
+): number {
   return session.entries.reduce(
-    (sum, e) => sum + doneSets(e).reduce((v, s) => v + s.weight * s.reps, 0),
+    (sum, e) =>
+      exclude?.(e.recordKey)
+        ? sum
+        : sum + doneSets(e).reduce((v, s) => v + s.weight * s.reps, 0),
     0,
   )
 }
@@ -68,24 +79,18 @@ export function findDay(routine: RoutineTemplate, dayId: string): RoutineDay | u
   return routine.days.find((d) => d.id === dayId) ?? routine.fallbackDays.find((d) => d.id === dayId)
 }
 
-export function findRoutineExercise(
+/**
+ * **derive 내부 전용.** entry를 다루는 코드는 반드시 `routineExerciseOfEntry`를 쓴다 —
+ * 이 함수를 recordKey로 직접 부르면 대체 수행(T8)이 조용히 누락된다.
+ * 실제로 그렇게 세 곳이 뚫렸다 (analysis 2곳, phaseReadiness 1곳).
+ * export하지 않는 것이 그 재발을 막는 가장 확실한 장치다.
+ */
+function findRoutineExercise(
   routine: RoutineTemplate,
   dayId: string,
   exerciseId: string,
 ): RoutineExercise | undefined {
   return findDay(routine, dayId)?.exercises.find((e) => e.exerciseId === exerciseId)
-}
-
-/**
- * recordKey → 부위. recordKey의 dayId는 항상 정규 Day를 가리킨다
- * (fallback 세션도 정규 Day의 라인으로 기록하므로 — §8).
- */
-export function muscleOfRecordKey(
-  routine: RoutineTemplate,
-  recordKey: RecordKey,
-): MuscleKey | undefined {
-  const { exerciseId, dayId } = parseRecordKey(recordKey)
-  return findRoutineExercise(routine, dayId, exerciseId)?.muscle
 }
 
 /**
