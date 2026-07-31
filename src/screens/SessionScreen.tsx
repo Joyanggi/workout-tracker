@@ -10,6 +10,7 @@ import { doneSets, findDay, routineExerciseOfEntry } from '../lib/derive'
 import { requestSync } from '../lib/gistSync'
 import { buildPrefill, sessionsForRecord, type RecordPrefill } from '../lib/prefill'
 import { previewSubstitutes, type SubstitutePreview } from '../lib/substitute'
+import { compensationWatches, watchFor } from '../lib/compensationWatch'
 import SubstituteSheet from '../components/SubstituteSheet'
 import { buildScaleMap } from '../lib/weightScale'
 import { useExerciseSettings } from '../lib/useExerciseSettings'
@@ -53,6 +54,8 @@ export default function SessionScreen({
   const exerciseSettings = useExerciseSettings()
   // 대체운동 (T8). 후보 계산에 세션 이력·카탈로그가 필요하므로 카드가 아니라 화면이 소유한다
   const [substituting, setSubstituting] = useState<RecordKey | null>(null)
+  // 반복 보상작용 (T11). 이번 세션은 아직 완료가 아니므로 과거 기록만 본다
+  const watches = useMemo(() => compensationWatches(allSessions), [allSessions])
   const bodyWeightKg = useSettings((st) => st.bodyWeightKg)
   const setBodyWeight = useSettings((st) => st.setBodyWeight)
 
@@ -163,6 +166,7 @@ export default function SessionScreen({
               defaultStep={bundle.routine.rules.weightIncrementKg}
               substituteForName={originName}
               onRequestSubstitute={() => setSubstituting(entry.recordKey)}
+              compensationWatch={watchFor(watches, entry.recordKey)}
               prefill={prefills.get(entry.recordKey)}
               showProgression={session.mode === 'normal'}
               actions={actions}

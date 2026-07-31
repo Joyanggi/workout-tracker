@@ -18,6 +18,7 @@ import { backupReminder, isGistConfigured } from '../lib/gistSync'
 import { completedSessions, findDay } from '../lib/derive'
 import { storageAtRisk } from '../lib/platform'
 import { progressionSuggestions } from '../lib/progression'
+import { bannerWatches, compensationWatches } from '../lib/compensationWatch'
 import { buildScaleMap, formatProgression } from '../lib/weightScale'
 import { useExerciseSettings } from '../lib/useExerciseSettings'
 import { buildSession } from '../lib/sessionFactory'
@@ -25,8 +26,8 @@ import { suggestNextDay } from '../lib/suggestNextDay'
 import { exerciseLabel, useRoutine } from '../lib/useRoutine'
 import { useSessionStore } from '../store/session'
 import { useSettings } from '../store/settings'
-import { BANNER_BACKUP, BANNER_DELOAD, BANNER_PHASE, useUi } from '../store/ui'
-import type { Phase, RoutineDay, SessionMode } from '../types'
+import { BANNER_BACKUP, BANNER_COMPENSATION, BANNER_DELOAD, BANNER_PHASE, useUi } from '../store/ui'
+import { parseRecordKey, type Phase, type RoutineDay, type SessionMode } from '../types'
 
 export default function HomeScreen({ onEnterSession }: { onEnterSession: () => void }) {
   const bundle = useRoutine()
@@ -72,6 +73,8 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
           )
         : [],
       phase: phaseReadiness(sessions, routine, currentPhase, today),
+      // 반복 보상작용 (T11) — 연속으로 계속 나오는 것만 배너로
+      watches: bannerWatches(compensationWatches(sessions)),
     }
   }, [bundle, sessions, today, currentPhase, exerciseSettings])
 
@@ -84,7 +87,7 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
   }
 
   const { routine, catalog } = bundle
-  const { suggestion, dots, volume, deload, phase0, progressions, phase } = dash
+  const { suggestion, dots, volume, deload, phase0, progressions, phase, watches } = dash
   const done = completedSessions(sessions)
 
   const create = (day: RoutineDay, forceMode?: SessionMode) => {
@@ -259,6 +262,30 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
                 .join(' · ')}
             </small>
           </span>
+        </div>
+      )}
+
+      {/*
+        반복 보상작용 (T11). 모드 배너(복귀·디로드·Phase)보다 아래에 둔다.
+        증량 배너와는 함께 떠도 된다 — 둘 다 종목별 목록이고 대상이 다르다.
+      */}
+      {watches.length > 0 && !showReturn && !showDeload && !dismissed[BANNER_COMPENSATION] && (
+        <div className="banner banner-warn" style={{ alignItems: 'flex-start' }}>
+          <span>
+            보상작용 반복 — 무게 하향 검토
+            <br />
+            <small>
+              {watches
+                .map((w) => `${exerciseLabel(catalog, parseRecordKey(w.recordKey).exerciseId)} ${w.streak}회 연속`)
+                .join(' · ')}
+            </small>
+          </span>
+          <button
+            onClick={() => dismiss(BANNER_COMPENSATION)}
+            style={{ background: 'transparent', marginLeft: 'auto' }}
+          >
+            <span style={{ color: 'var(--warn)' }}>나중에</span>
+          </button>
         </div>
       )}
 

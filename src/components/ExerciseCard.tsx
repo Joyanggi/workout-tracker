@@ -5,6 +5,8 @@ import WeightScaleSheet from './WeightScaleSheet'
 import { getExerciseSetting, setExerciseNote, setExerciseWeightScale } from '../db'
 import { describeScale, type WeightScale } from '../lib/weightScale'
 import { CALIBRATION_RIR, calibratedWeight } from '../lib/substitute'
+import CompensationWatchSheet from './CompensationWatchSheet'
+import type { CompensationWatch } from '../lib/compensationWatch'
 import { compensationSummary, hasCompensation } from '../lib/compensation'
 import { doneSetsAll } from '../lib/derive'
 import type { RecordPrefill } from '../lib/prefill'
@@ -59,6 +61,7 @@ export default function ExerciseCard({
   defaultStep,
   substituteForName,
   onRequestSubstitute,
+  compensationWatch,
   actions,
   open,
   onToggleOpen,
@@ -85,6 +88,8 @@ export default function ExerciseCard({
   substituteForName?: string
   /** 대체 요청 (T8). 넘기지 않으면 버튼이 안 보인다 — 과거 세션 편집에는 의미가 없다 */
   onRequestSubstitute?: () => void
+  /** 반복 보상작용 경고 (T11). 과거 세션 편집에서는 넘기지 않는다 */
+  compensationWatch?: CompensationWatch
   actions: EntryActions
   open: boolean
   onToggleOpen: () => void
@@ -102,6 +107,7 @@ export default function ExerciseCard({
     weightLadderKg?: number[]
   }>({})
   const [editingScale, setEditingScale] = useState(false)
+  const [showingWatch, setShowingWatch] = useState(false)
   useEffect(() => {
     let cancelled = false
     void getExerciseSetting(entry.recordKey).then((row) => {
@@ -274,6 +280,11 @@ export default function ExerciseCard({
             <span className="chip">{routineExercise.group}그룹</span>
             <span className="chip">휴식 {routineExercise.restSec}초</span>
             {routineExercise.optional && <span className="chip chip-warn">컨디션 좋을 때만</span>}
+            {compensationWatch && (
+              <button className="chip chip-warn chip-tap" onClick={() => setShowingWatch(true)}>
+                보상작용 {compensationWatch.count}/{3}회 — 무게 하향 검토 ▸
+              </button>
+            )}
             {firstExposure && !firstWork?.done && (
               <span className="chip chip-warn">첫 세트는 {CALIBRATION_RIR}로</span>
             )}
@@ -447,6 +458,19 @@ export default function ExerciseCard({
             </button>
           </div>
         </div>
+      )}
+
+      {showingWatch && compensationWatch && (
+        <CompensationWatchSheet
+          exerciseName={fullName}
+          watch={compensationWatch}
+          scale={weightScale}
+          currentWeight={pending[0]?.set.weight ?? entry.sets[0]?.weight ?? 0}
+          onApply={(weight) =>
+            pending.forEach(({ i }) => actions.patchSet(entry.recordKey, i, { weight }))
+          }
+          onClose={() => setShowingWatch(false)}
+        />
       )}
 
       {editingScale && (

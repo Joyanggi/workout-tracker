@@ -1465,3 +1465,11 @@ textarea.field {
   font-family: inherit;
   line-height: 1.5;
 }
+
+/* 탭 가능한 칩 (T11 보상작용 경고). 칩 크기를 유지하되 누를 수 있음을 밑줄로 알린다 */
+.chip-tap {
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

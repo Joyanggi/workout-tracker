@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { doneSets } from '../lib/derive'
+import { compensationEntriesOf } from '../lib/compensationWatch'
 import type { RoutineBundle } from '../lib/useRoutine'
 import { useSessionStore } from '../store/session'
 
@@ -41,6 +42,9 @@ export default function FinishSheet({
   const partial = session.entries.filter(
     (e) => !e.skipped && doneSets(e).length > 0 && doneSets(e).length < e.sets.length,
   )
+  // 기록 직후에 인지시킨다 (T11) — 다음 세션에 카드를 열 때까지 기다리면
+  // "무게가 과했다"는 신호를 판단할 시점이 이미 지나 있다
+  const compensated = compensationEntriesOf(session)
   const doneCount = session.entries.reduce((n, e) => n + doneSets(e).length, 0)
   const anyDone = doneCount > 0
 
@@ -81,6 +85,13 @@ export default function FinishSheet({
         {partial.length > 0 && (
           <p className="row-sub">
             세트가 남은 종목: {partial.map((e) => `${nameOf(e.recordKey)} ${doneSets(e).length}/${e.sets.length}`).join(' · ')}
+          </p>
+        )}
+        {/* 이번 세션 보상작용 (T11). 루틴 문서 13장 — 보이면 무게가 과한 것 */}
+        {compensated.length > 0 && (
+          <p className="row-sub">
+            보상작용 기록:{' '}
+            {compensated.map((c) => `${nameOf(c.recordKey)} — ${c.note}`).join(' · ')}
           </p>
         )}
 
