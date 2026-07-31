@@ -2,7 +2,7 @@
 
 > 16개월간 기록이 없었던 것이 문제였다. 그래서 "기록하는 마찰"을 최소화하는 것만을 목표로 만든 1인용 운동 기록 PWA.
 
-`React 18` · `TypeScript` · `Vite` · `Dexie (IndexedDB)` · `zustand` · `vite-plugin-pwa` · `GitHub Pages`
+`React 18` · `TypeScript` · `Vite` · `Dexie (IndexedDB)` · `zustand` · `recharts` · `vite-plugin-pwa` · `GitHub Pages`
 
 헬스장에서 세트별 반복수, 감각 점수, 보상작용, 실제 수행 순서를 실시간으로 입력하고,
 그 기록을 Markdown으로 내보내 LLM에게 바로 분석시키는 것까지를 한 흐름으로 묶은 앱입니다.
@@ -61,6 +61,17 @@
   iOS는 사용자 제스처 없이 AudioContext를 시작할 수 없습니다. 비프음이 울려야 하는 시점은
   90~150초 뒤로 제스처가 없으므로, 항상 타이머 시작 직전에 오는 제스처(세트 체크 ✓)에서
   컨텍스트를 열어둡니다. `navigator.vibrate`는 iOS 미지원이라 소리가 주 수단입니다.
+
+- **recharts는 분석 탭만 지연 로딩한다**
+  차트 3개를 위해 gzip 130KB가 붙어 앱 전체가 두 배가 됩니다. §2가 지정한 스택이므로
+  바꾸지 않되, `React.lazy`로 분리해 **헬스장에서 쓰는 경로(홈 → 세션)가 차트 코드를
+  파싱하지 않게** 했습니다. 서비스워커가 두 청크를 모두 precache하므로 오프라인에서
+  분석 탭도 그대로 열립니다.
+
+- **차트의 "최고 세트"는 무게가 아니라 e1RM 기준으로 뽑는다**
+  무게 기준이면 `45kg × 3회`가 `40kg × 12회`를 항상 이겨서, **40kg에서 8회 → 12회로 늘린
+  진전이 차트에서 사라집니다.** 더블 프로그레션 루틴에서는 진전의 대부분이 반복수 증가
+  구간에 있으므로 치명적입니다.
 
 - **Gist API가 1MB에서 응답을 자르므로 `truncated`면 `raw_url`로 다시 받는다**
   잘린 `content`를 그대로 파싱하면, 운 나쁘게 배열 경계에서 잘렸을 때 **파싱은 성공하고
@@ -196,7 +207,7 @@ flowchart TB
 - 상태: zustand (설정만. 루틴·세션은 `dexie-react-hooks`의 live query로 직접 읽음)
 - 저장: Dexie (IndexedDB)
 - PWA: vite-plugin-pwa (manifest + Workbox SW)
-- 테스트: Vitest (알고리즘 단위 테스트 154개)
+- 테스트: Vitest (알고리즘 단위 테스트 169개)
 - 배포: GitHub Actions → GitHub Pages
 
 ## Getting Started
@@ -269,9 +280,13 @@ JSON 백업은 파일 앱에 보관하는 것이 목적이므로 `navigator.shar
 | 5 | 기록 탭 — 달력, 세션 상세, 편집, 종목별 히스토리 | ✅ |
 | 6 | 내보내기/가져오기 — Markdown, JSON, 루틴 교체, iOS 공유 시트 | ✅ |
 | 7 | Gist 백업 — secret gist 자동 동기화, 복원, 리마인드 | ✅ |
-| 8 | 분석 탭 + PWA 마감 — 차트, 오프라인 검증, 아이콘, 실기기 QA | ⬜ |
+| 8 | 분석 탭 + PWA 마감 — 차트, 오프라인 검증, 스플래시 | ✅ |
 
-마일스톤 2까지가 MVP입니다(이 시점부터 실사용 시작).
+마일스톤 2까지가 MVP였고, **v1 전 마일스톤이 완료됐습니다.**
+
+오프라인 동작은 프로덕션 빌드를 띄운 뒤 **서버 프로세스를 죽이고** 확인했습니다 —
+앱 셸 로드, 세션 기록(타이머·저장), 분석 탭의 지연 로딩 청크까지 네트워크 없이 동작하며,
+서비스워커 업데이트도 오프라인에서 적용됩니다(새 SW가 미리 precache되므로).
 
 ## Limitations
 

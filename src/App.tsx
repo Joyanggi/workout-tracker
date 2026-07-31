@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import TabBar, { type TabId } from './components/TabBar'
 import UpdatePrompt from './components/UpdatePrompt'
 import { ensureSeed, type SeedResult } from './db/seed'
@@ -7,12 +7,20 @@ import { useRoutine } from './lib/useRoutine'
 import HistoryScreen from './screens/HistoryScreen'
 import HomeScreen from './screens/HomeScreen'
 import Onboarding from './screens/Onboarding'
-import PlaceholderScreen from './screens/PlaceholderScreen'
 import SessionScreen from './screens/SessionScreen'
 import SettingsScreen from './screens/SettingsScreen'
 import SummaryScreen from './screens/SummaryScreen'
 import { useSessionStore } from './store/session'
 import { useSettings } from './store/settings'
+
+/**
+ * 분석 탭만 지연 로딩한다.
+ *
+ * recharts가 gzip 130KB로 앱 나머지(98KB)보다 크다. §2가 지정한 스택이므로 바꾸지 않되,
+ * **헬스장에서 쓰는 경로(홈 → 세션)가 차트 코드를 파싱하지 않게** 분리한다.
+ * SW는 이 청크도 precache하므로 오프라인에서 분석 탭도 그대로 열린다.
+ */
+const AnalyzeScreen = lazy(() => import('./screens/AnalyzeScreen'))
 
 type View = 'tabs' | 'session' | 'summary'
 
@@ -98,18 +106,14 @@ export default function App() {
       {tab === 'home' && <HomeScreen onEnterSession={() => setView('session')} />}
       {tab === 'history' &&
         (bundle ? <HistoryScreen bundle={bundle} /> : <p className="center-note">불러오는 중…</p>)}
-      {tab === 'analyze' && (
-        <PlaceholderScreen
-          title="분석"
-          milestone="마일스톤 8"
-          items={[
-            'A그룹 종목별 무게 × 반복수 라인차트',
-            '총 볼륨 · e1RM 추이',
-            'B그룹 감각 점수 추이 (4주 평균)',
-            '주간 수행 횟수 바 차트',
-          ]}
-        />
-      )}
+      {tab === 'analyze' &&
+        (bundle ? (
+          <Suspense fallback={<p className="center-note">차트를 불러오는 중…</p>}>
+            <AnalyzeScreen bundle={bundle} />
+          </Suspense>
+        ) : (
+          <p className="center-note">불러오는 중…</p>
+        ))}
       {tab === 'settings' && <SettingsScreen seed={seed} />}
       <TabBar active={tab} onChange={setTab} />
     </div>

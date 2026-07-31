@@ -18,6 +18,30 @@
     <link rel="apple-touch-icon" href="/workout-tracker/icons/apple-touch-icon.png" />
     <link rel="icon" type="image/svg+xml" href="/workout-tracker/icons/icon.svg" />
 
+    <!--
+      iOS 홈 화면 앱 스플래시.
+      startup-image는 기기 해상도와 **정확히** 일치하는 것만 쓰인다. 하나도 안 맞으면
+      실행 시 흰 화면이 번쩍이는데, 다크 테마 앱에서 특히 거슬린다.
+      device-width/height는 CSS px이고 dpr로 @2x·@3x를 구분한다
+      (375×812는 @3x=X 계열, 375×667은 @2x=SE 계열).
+    -->
+    <link rel="apple-touch-startup-image" href="/workout-tracker/splash/1290x2796.png"
+      media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)" />
+    <link rel="apple-touch-startup-image" href="/workout-tracker/splash/1284x2778.png"
+      media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3)" />
+    <link rel="apple-touch-startup-image" href="/workout-tracker/splash/1179x2556.png"
+      media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)" />
+    <link rel="apple-touch-startup-image" href="/workout-tracker/splash/1170x2532.png"
+      media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)" />
+    <link rel="apple-touch-startup-image" href="/workout-tracker/splash/1242x2688.png"
+      media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)" />
+    <link rel="apple-touch-startup-image" href="/workout-tracker/splash/828x1792.png"
+      media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)" />
+    <link rel="apple-touch-startup-image" href="/workout-tracker/splash/1125x2436.png"
+      media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)" />
+    <link rel="apple-touch-startup-image" href="/workout-tracker/splash/750x1334.png"
+      media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)" />
+
     <meta name="format-detection" content="telephone=no" />
     <title>운동 기록</title>
   </head>

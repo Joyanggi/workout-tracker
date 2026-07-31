@@ -1266,3 +1266,60 @@ button.row {
   font-weight: 600;
   text-decoration: none;
 }
+
+/* ─── 분석 탭 (§5.4) ───────────────────────────────────── */
+
+.chart {
+  margin-left: -4px;
+  /* recharts의 ResponsiveContainer가 부모 폭을 재므로 넘침을 막아둔다 */
+  overflow: hidden;
+}
+
+.chart .recharts-surface {
+  overflow: visible;
+}
+
+/* 종목이 많으면 가로 스크롤 — 줄바꿈되면 카드가 세로로 길어진다 */
+.chip-scroll {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.chip-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.chip-scroll .pill {
+  flex-shrink: 0;
+}
+
+.srow {
+  margin-bottom: 12px;
+}
+
+.srow:last-of-type {
+  margin-bottom: 0;
+}
+
+.srow-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 5px;
+}
+
+.sdots {
+  display: flex;
+  gap: 3px;
+}
+
+.sdot {
+  flex: 1;
+  height: 14px;
+  border-radius: 3px;
+  min-width: 6px;
+}
