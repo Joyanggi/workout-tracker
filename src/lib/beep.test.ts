@@ -15,16 +15,22 @@ interface Recorded {
   type: string
   startAt: number
   stopAt: number
+  gain: number
 }
 
 let recorded: Recorded[] = []
 let ctxState: AudioContextState = 'running'
 let created = 0
 
+/** 마지막으로 만들어진 게인 노드의 목표값 — tone()이 linearRamp로 지정한다 */
+let lastGain = 0
+
 class FakeGain {
   gain = {
     setValueAtTime: vi.fn(),
-    linearRampToValueAtTime: vi.fn(),
+    linearRampToValueAtTime: vi.fn((value: number) => {
+      lastGain = value
+    }),
     exponentialRampToValueAtTime: vi.fn(),
   }
   connect = vi.fn(() => this)
@@ -39,7 +45,13 @@ class FakeOsc {
     this.startAt = at
   }
   stop = (at: number) => {
-    recorded.push({ freq: this.frequency.value, type: this.type, startAt: this.startAt, stopAt: at })
+    recorded.push({
+      freq: this.frequency.value,
+      type: this.type,
+      startAt: this.startAt,
+      stopAt: at,
+      gain: lastGain,
+    })
   }
 }
 
@@ -76,6 +88,7 @@ function stubAudio(Ctor: unknown = FakeCtx) {
 
 beforeEach(() => {
   recorded = []
+  lastGain = 0
   ctxState = 'running'
   created = 0
   stubAudio()
@@ -146,34 +159,70 @@ describe('G1 카운트다운 틱 · 종료 차임', () => {
     vi.stubGlobal('navigator', {})
   })
 
-  it('틱은 낮고 짧은 단음이다', async () => {
+  it('틱은 단음 하나다', async () => {
     const { unlockAudio, tick } = await freshModule()
     unlockAudio()
     tick()
     expect(recorded).toHaveLength(1)
-    expect(recorded[0].freq).toBe(330)
-    expect(recorded[0].stopAt - recorded[0].startAt).toBeCloseTo(0.1, 5) // 0.08 + 램프 여유
+    expect(recorded[0].freq).toBe(784)
   })
 
-  it('차임은 상행 2음이다 — 틱과 소리만으로 구분돼야 한다', async () => {
+  /*
+   * W2 회귀 방지. v1.2의 330Hz · 80ms는 폰 스피커에서 들리지 않았다 —
+   * 저역 롤오프(−13dB) + A가중(−6dB) + 200ms 미만 시간적분(−4dB)이 겹쳤다.
+   * 게인만 올려서는 못 넘는 차이였으므로 주파수와 길이를 되돌리면 안 된다.
+   */
+  it('틱이 폰 스피커 대역 안에 있고 귀의 적분 창에 걸린다 (W2)', async () => {
+    const { unlockAudio, tick, TICK } = await freshModule()
+    unlockAudio()
+    tick()
+    // 소형 스피커는 공진(수백 Hz) 아래로 12dB/oct 떨어진다
+    expect(TICK.freq).toBeGreaterThanOrEqual(700)
+    // 80ms는 귀의 적분 창(~200ms)보다 너무 짧아 4dB를 잃었다
+    expect(TICK.duration).toBeGreaterThanOrEqual(0.1)
+  })
+
+  it('차임은 상행 3음이다 — 형태로 틱과 구분한다', async () => {
     const { unlockAudio, chime } = await freshModule()
     unlockAudio()
     chime()
-    expect(recorded.map((r) => r.freq)).toEqual([880, 1320])
-    // 두 번째 음이 뒤에 온다 (동시에 울리면 화음이 되어 "상행"으로 안 들린다)
+    const freqs = recorded.map((r) => r.freq)
+    expect(freqs).toEqual([880, 1175, 1568])
+    // 상행이어야 한다 (내려가면 "종료"로 들리지 않는다)
+    expect(freqs).toEqual([...freqs].sort((a, b) => a - b))
+    // 순차적이어야 한다 — 동시에 울리면 화음이 되어 "상행"으로 안 들린다
     expect(recorded[1].startAt).toBeGreaterThan(recorded[0].startAt)
+    expect(recorded[2].startAt).toBeGreaterThan(recorded[1].startAt)
   })
 
-  it('차임이 틱보다 높고 길다 (구분 근거를 수치로 고정)', async () => {
+  /*
+   * 구분 근거가 v1.2와 **달라졌다**: 예전에는 "틱이 낮고 차임이 높다"였고,
+   * 그 낮음이 곧 안 들리는 이유였다. 이제 둘 다 스피커가 잘 내는 대역에 두고
+   * **형태**로 구분한다 — 틱은 같은 음 하나, 차임은 올라가는 세 음.
+   */
+  it('차임이 틱보다 길고 음이 많다 (구분 근거를 수치로 고정)', async () => {
     const mod = await freshModule()
     mod.unlockAudio()
     mod.tick()
     const t = recorded[0]
     recorded = []
     mod.chime()
+    expect(recorded.length).toBeGreaterThan(1)
     const totalChime = recorded[recorded.length - 1].stopAt - recorded[0].startAt
-    expect(Math.min(...recorded.map((r) => r.freq))).toBeGreaterThan(t.freq)
     expect(totalChime).toBeGreaterThan((t.stopAt - t.startAt) * 3)
+    // 차임 최고음이 틱보다 위에 있다 (상행의 도착점이 더 높아야 "끝"으로 들린다)
+    expect(Math.max(...recorded.map((r) => r.freq))).toBeGreaterThan(t.freq)
+  })
+
+  it('차임이 틱보다 크게 울린다 — 음악 위로 뚫려야 한다 (W2 ②③)', async () => {
+    const mod = await freshModule()
+    mod.unlockAudio()
+    mod.tick()
+    const tickGain = recorded[0].gain
+    recorded = []
+    mod.chime()
+    expect(tickGain).toBeGreaterThan(0.16) // v1.2 값보다 올렸다
+    for (const r of recorded) expect(r.gain).toBeGreaterThan(tickGain)
   })
 
   it('컨텍스트가 없으면(제스처 전) 조용히 넘어간다 — 던지지 않는다', async () => {

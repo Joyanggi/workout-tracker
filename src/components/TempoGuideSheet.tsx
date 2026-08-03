@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { tone, unlockAudio } from '../lib/beep'
+import { tick, tone, unlockAudio } from '../lib/beep'
 import {
   PHASE_LABEL,
   TEMPO,
@@ -84,7 +84,9 @@ export default function TempoGuideSheet({
     if (lastIndex.current === pos.phaseIndex) return
     lastIndex.current = pos.phaseIndex
     if (pos.countIn !== null) {
-      tone({ freq: 330, duration: 0.08, gain: 0.16 })
+      // 휴식 타이머 카운트다운과 **같은 함수**를 쓴다. v1.2는 여기에 톤 규격을 손으로
+      // 베껴 적어 뒀는데, W2에서 틱 주파수를 고치자 이쪽만 옛 소리로 남을 상황이었다
+      tick()
       return
     }
     if (pos.phase) tone(phaseTone(pos.phase))
