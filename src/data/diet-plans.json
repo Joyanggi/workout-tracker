@@ -1,0 +1,612 @@
+{
+  "seedRevision": 1,
+  "plans": [
+    {
+      "id": "cut-1800",
+      "name": "감량 1,800",
+      "kcalLabel": "약 1,781kcal · 단 166g",
+      "isDefault": true,
+      "slots": [
+        {
+          "id": "breakfast",
+          "name": "아침",
+          "timeHint": "07:30",
+          "items": [
+            {
+              "id": "boiled-eggs",
+              "name": "반숙란",
+              "qty": "3개",
+              "kcal": 225,
+              "proteinG": 20
+            },
+            {
+              "id": "multivitamin",
+              "name": "멀티비타민",
+              "qty": "1정",
+              "kcal": 0,
+              "proteinG": 0
+            },
+            {
+              "id": "omega3",
+              "name": "오메가3",
+              "qty": "1캡슐",
+              "kcal": 10,
+              "proteinG": 0
+            }
+          ]
+        },
+        {
+          "id": "lunch",
+          "name": "점심",
+          "timeHint": "11:30",
+          "items": [
+            {
+              "id": "brown-rice",
+              "name": "현미밥",
+              "qty": "1개",
+              "kcal": 215,
+              "proteinG": 4
+            },
+            {
+              "id": "chicken-2",
+              "name": "닭가슴살",
+              "qty": "2팩",
+              "kcal": 180,
+              "proteinG": 34
+            },
+            {
+              "id": "vegetables",
+              "name": "채소",
+              "qty": "1접시",
+              "kcal": 0,
+              "proteinG": 0
+            },
+            {
+              "id": "olive-oil",
+              "name": "올리브오일",
+              "qty": "1큰술",
+              "kcal": 115,
+              "proteinG": 0
+            }
+          ]
+        },
+        {
+          "id": "afternoon",
+          "name": "오후",
+          "timeHint": "15:00",
+          "items": [
+            {
+              "id": "almonds",
+              "name": "아몬드",
+              "qty": "25g",
+              "kcal": 145,
+              "proteinG": 5
+            }
+          ]
+        },
+        {
+          "id": "pre",
+          "name": "훈련 전",
+          "timeHint": "17:30",
+          "items": [
+            {
+              "id": "wpi",
+              "name": "WPI",
+              "qty": "1스쿱",
+              "kcal": 93,
+              "proteinG": 23
+            },
+            {
+              "id": "banana",
+              "name": "바나나",
+              "qty": "1개",
+              "kcal": 105,
+              "proteinG": 1
+            }
+          ]
+        },
+        {
+          "id": "post",
+          "name": "훈련 직후",
+          "timeHint": "20:00",
+          "items": [
+            {
+              "id": "wpi",
+              "name": "WPI",
+              "qty": "1스쿱",
+              "kcal": 93,
+              "proteinG": 23
+            },
+            {
+              "id": "banana",
+              "name": "바나나",
+              "qty": "1개",
+              "kcal": 105,
+              "proteinG": 1
+            }
+          ]
+        },
+        {
+          "id": "dinner",
+          "name": "저녁",
+          "timeHint": "21:00",
+          "items": [
+            {
+              "id": "brown-rice",
+              "name": "현미밥",
+              "qty": "1개",
+              "kcal": 215,
+              "proteinG": 4
+            },
+            {
+              "id": "chicken-3",
+              "name": "닭가슴살",
+              "qty": "3팩",
+              "kcal": 270,
+              "proteinG": 51
+            },
+            {
+              "id": "vegetables",
+              "name": "채소",
+              "qty": "1접시",
+              "kcal": 0,
+              "proteinG": 0
+            },
+            {
+              "id": "multivitamin",
+              "name": "멀티비타민",
+              "qty": "1정",
+              "kcal": 0,
+              "proteinG": 0
+            },
+            {
+              "id": "omega3",
+              "name": "오메가3",
+              "qty": "1캡슐",
+              "kcal": 10,
+              "proteinG": 0
+            }
+          ]
+        }
+      ],
+      "restDaySlots": [
+        {
+          "id": "breakfast",
+          "name": "아침",
+          "timeHint": "07:30",
+          "items": [
+            {
+              "id": "boiled-eggs",
+              "name": "반숙란",
+              "qty": "3개",
+              "kcal": 225,
+              "proteinG": 20
+            },
+            {
+              "id": "multivitamin",
+              "name": "멀티비타민",
+              "qty": "1정",
+              "kcal": 0,
+              "proteinG": 0
+            },
+            {
+              "id": "omega3",
+              "name": "오메가3",
+              "qty": "1캡슐",
+              "kcal": 10,
+              "proteinG": 0
+            }
+          ]
+        },
+        {
+          "id": "lunch",
+          "name": "점심",
+          "timeHint": "11:30",
+          "items": [
+            {
+              "id": "brown-rice",
+              "name": "현미밥",
+              "qty": "1개",
+              "kcal": 215,
+              "proteinG": 4
+            },
+            {
+              "id": "chicken-2",
+              "name": "닭가슴살",
+              "qty": "2팩",
+              "kcal": 180,
+              "proteinG": 34
+            },
+            {
+              "id": "vegetables",
+              "name": "채소",
+              "qty": "1접시",
+              "kcal": 0,
+              "proteinG": 0
+            },
+            {
+              "id": "olive-oil",
+              "name": "올리브오일",
+              "qty": "1큰술",
+              "kcal": 115,
+              "proteinG": 0
+            }
+          ]
+        },
+        {
+          "id": "afternoon",
+          "name": "오후",
+          "timeHint": "15:00",
+          "items": [
+            {
+              "id": "almonds",
+              "name": "아몬드",
+              "qty": "25g",
+              "kcal": 145,
+              "proteinG": 5
+            }
+          ]
+        },
+        {
+          "id": "shake",
+          "name": "보충 블록",
+          "timeHint": "15:00~16:00",
+          "items": [
+            {
+              "id": "wpi-2",
+              "name": "WPI",
+              "qty": "2스쿱",
+              "kcal": 186,
+              "proteinG": 46
+            },
+            {
+              "id": "banana-2",
+              "name": "바나나",
+              "qty": "2개",
+              "kcal": 210,
+              "proteinG": 2
+            }
+          ]
+        },
+        {
+          "id": "dinner",
+          "name": "저녁",
+          "timeHint": "21:00",
+          "items": [
+            {
+              "id": "brown-rice",
+              "name": "현미밥",
+              "qty": "1개",
+              "kcal": 215,
+              "proteinG": 4
+            },
+            {
+              "id": "chicken-3",
+              "name": "닭가슴살",
+              "qty": "3팩",
+              "kcal": 270,
+              "proteinG": 51
+            },
+            {
+              "id": "vegetables",
+              "name": "채소",
+              "qty": "1접시",
+              "kcal": 0,
+              "proteinG": 0
+            },
+            {
+              "id": "multivitamin",
+              "name": "멀티비타민",
+              "qty": "1정",
+              "kcal": 0,
+              "proteinG": 0
+            },
+            {
+              "id": "omega3",
+              "name": "오메가3",
+              "qty": "1캡슐",
+              "kcal": 10,
+              "proteinG": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cut-1500",
+      "name": "보정 1,500",
+      "kcalLabel": "약 1,566kcal · 단 162g",
+      "slots": [
+        {
+          "id": "breakfast",
+          "name": "아침",
+          "timeHint": "07:30",
+          "items": [
+            {
+              "id": "boiled-eggs",
+              "name": "반숙란",
+              "qty": "3개",
+              "kcal": 225,
+              "proteinG": 20
+            },
+            {
+              "id": "multivitamin",
+              "name": "멀티비타민",
+              "qty": "1정",
+              "kcal": 0,
+              "proteinG": 0
+            },
+            {
+              "id": "omega3",
+              "name": "오메가3",
+              "qty": "1캡슐",
+              "kcal": 10,
+              "proteinG": 0
+            }
+          ]
+        },
+        {
+          "id": "lunch",
+          "name": "점심",
+          "timeHint": "11:30",
+          "items": [
+            {
+              "id": "brown-rice",
+              "name": "현미밥",
+              "qty": "1개",
+              "kcal": 215,
+              "proteinG": 4
+            },
+            {
+              "id": "chicken-2",
+              "name": "닭가슴살",
+              "qty": "2팩",
+              "kcal": 180,
+              "proteinG": 34
+            },
+            {
+              "id": "vegetables",
+              "name": "채소",
+              "qty": "1접시",
+              "kcal": 0,
+              "proteinG": 0
+            },
+            {
+              "id": "olive-oil",
+              "name": "올리브오일",
+              "qty": "1큰술",
+              "kcal": 115,
+              "proteinG": 0
+            }
+          ]
+        },
+        {
+          "id": "afternoon",
+          "name": "오후",
+          "timeHint": "15:00",
+          "items": [
+            {
+              "id": "almonds",
+              "name": "아몬드",
+              "qty": "25g",
+              "kcal": 145,
+              "proteinG": 5
+            }
+          ]
+        },
+        {
+          "id": "pre",
+          "name": "훈련 전",
+          "timeHint": "17:30",
+          "items": [
+            {
+              "id": "wpi",
+              "name": "WPI",
+              "qty": "1스쿱",
+              "kcal": 93,
+              "proteinG": 23
+            },
+            {
+              "id": "banana",
+              "name": "바나나",
+              "qty": "1개",
+              "kcal": 105,
+              "proteinG": 1
+            }
+          ]
+        },
+        {
+          "id": "post",
+          "name": "훈련 직후",
+          "timeHint": "20:00",
+          "items": [
+            {
+              "id": "wpi",
+              "name": "WPI",
+              "qty": "1스쿱",
+              "kcal": 93,
+              "proteinG": 23
+            },
+            {
+              "id": "banana",
+              "name": "바나나",
+              "qty": "1개",
+              "kcal": 105,
+              "proteinG": 1
+            }
+          ]
+        },
+        {
+          "id": "dinner",
+          "name": "저녁",
+          "timeHint": "21:00",
+          "items": [
+            {
+              "id": "chicken-3",
+              "name": "닭가슴살",
+              "qty": "3팩",
+              "kcal": 270,
+              "proteinG": 51
+            },
+            {
+              "id": "vegetables",
+              "name": "채소",
+              "qty": "1접시",
+              "kcal": 0,
+              "proteinG": 0
+            },
+            {
+              "id": "multivitamin",
+              "name": "멀티비타민",
+              "qty": "1정",
+              "kcal": 0,
+              "proteinG": 0
+            },
+            {
+              "id": "omega3",
+              "name": "오메가3",
+              "qty": "1캡슐",
+              "kcal": 10,
+              "proteinG": 0
+            }
+          ]
+        }
+      ],
+      "restDaySlots": [
+        {
+          "id": "breakfast",
+          "name": "아침",
+          "timeHint": "07:30",
+          "items": [
+            {
+              "id": "boiled-eggs",
+              "name": "반숙란",
+              "qty": "3개",
+              "kcal": 225,
+              "proteinG": 20
+            },
+            {
+              "id": "multivitamin",
+              "name": "멀티비타민",
+              "qty": "1정",
+              "kcal": 0,
+              "proteinG": 0
+            },
+            {
+              "id": "omega3",
+              "name": "오메가3",
+              "qty": "1캡슐",
+              "kcal": 10,
+              "proteinG": 0
+            }
+          ]
+        },
+        {
+          "id": "lunch",
+          "name": "점심",
+          "timeHint": "11:30",
+          "items": [
+            {
+              "id": "brown-rice",
+              "name": "현미밥",
+              "qty": "1개",
+              "kcal": 215,
+              "proteinG": 4
+            },
+            {
+              "id": "chicken-2",
+              "name": "닭가슴살",
+              "qty": "2팩",
+              "kcal": 180,
+              "proteinG": 34
+            },
+            {
+              "id": "vegetables",
+              "name": "채소",
+              "qty": "1접시",
+              "kcal": 0,
+              "proteinG": 0
+            },
+            {
+              "id": "olive-oil",
+              "name": "올리브오일",
+              "qty": "1큰술",
+              "kcal": 115,
+              "proteinG": 0
+            }
+          ]
+        },
+        {
+          "id": "afternoon",
+          "name": "오후",
+          "timeHint": "15:00",
+          "items": [
+            {
+              "id": "almonds",
+              "name": "아몬드",
+              "qty": "25g",
+              "kcal": 145,
+              "proteinG": 5
+            }
+          ]
+        },
+        {
+          "id": "shake",
+          "name": "보충 블록",
+          "timeHint": "15:00~16:00",
+          "items": [
+            {
+              "id": "wpi-2",
+              "name": "WPI",
+              "qty": "2스쿱",
+              "kcal": 186,
+              "proteinG": 46
+            },
+            {
+              "id": "banana-2",
+              "name": "바나나",
+              "qty": "2개",
+              "kcal": 210,
+              "proteinG": 2
+            }
+          ]
+        },
+        {
+          "id": "dinner",
+          "name": "저녁",
+          "timeHint": "21:00",
+          "items": [
+            {
+              "id": "chicken-3",
+              "name": "닭가슴살",
+              "qty": "3팩",
+              "kcal": 270,
+              "proteinG": 51
+            },
+            {
+              "id": "vegetables",
+              "name": "채소",
+              "qty": "1접시",
+              "kcal": 0,
+              "proteinG": 0
+            },
+            {
+              "id": "multivitamin",
+              "name": "멀티비타민",
+              "qty": "1정",
+              "kcal": 0,
+              "proteinG": 0
+            },
+            {
+              "id": "omega3",
+              "name": "오메가3",
+              "qty": "1캡슐",
+              "kcal": 10,
+              "proteinG": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

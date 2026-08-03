@@ -1,17 +1,37 @@
+import dietPlansJson from '../data/diet-plans.json'
 import exercisesJson from '../data/exercises.json'
 import routineJson from '../data/routine-v2.4.json'
-import type { Exercise, RoutineTemplate } from '../types'
+import { formatPlanLabel } from '../lib/diet'
+import type { DietPlan, Exercise, RoutineTemplate } from '../types'
+import { validateDietPlan } from './validateDietPlan'
 import { db, deleteSettings, getSetting, setSettings } from './index'
 import { validateRoutine } from './validateRoutine'
 
 export const BUNDLED_EXERCISES = exercisesJson as Exercise[]
 export const BUNDLED_ROUTINE = routineJson as unknown as RoutineTemplate
 
+const dietSeed = dietPlansJson as unknown as { seedRevision: number; plans: DietPlan[] }
+export const BUNDLED_DIET_REVISION = dietSeed.seedRevision
+/**
+ * 번들 식단 플랜 (D1).
+ *
+ * `kcalLabel`을 시드 JSON의 값 대신 **항목 합계에서 다시 만든다.** 손으로 적은 라벨은
+ * 항목을 고칠 때 남아서 화면이 서로 다른 숫자를 말하게 된다 — 실제로 계획 문서의
+ * 표기(1,796kcal)와 항목 합계(1,781kcal)가 어긋나 있었다.
+ */
+export const BUNDLED_DIET_PLANS: DietPlan[] = dietSeed.plans.map((plan) => ({
+  ...plan,
+  seedRevision: dietSeed.seedRevision,
+  kcalLabel: formatPlanLabel(plan),
+}))
+
 export interface SeedResult {
   routineId: string
   routineVersion: string
   /** 이번에 주입한(또는 이미 주입돼 있던) 시드 리비전 */
   seedRevision: number
+  /** 식단 플랜 수 (D1) */
+  dietPlanCount: number
   exerciseCount: number
   /** 이번 실행에서 시드를 새로 넣었는가 */
   didSeed: boolean
@@ -30,6 +50,9 @@ export interface SeedResult {
  */
 export async function ensureSeed(): Promise<SeedResult> {
   const problems = validateRoutine(BUNDLED_ROUTINE, BUNDLED_EXERCISES)
+  for (const plan of BUNDLED_DIET_PLANS) {
+    for (const p of validateDietPlan(plan)) problems.push(`dietPlans/${plan.id}: ${p}`)
+  }
   if (problems.length > 0 && import.meta.env.DEV) {
     console.error('[seed] 루틴 정합성 문제:\n' + problems.join('\n'))
   }
@@ -75,6 +98,21 @@ export async function ensureSeed(): Promise<SeedResult> {
     })
   }
 
+  /*
+   * 식단 플랜 (D1). 루틴과 같은 리비전 규칙을 쓴다.
+   * 루틴처럼 "사용자가 가져온 것을 덮지 않는다"가 필요하므로 리비전이 같으면 건드리지 않는다.
+   */
+  const seededDiet = await getSetting<number | null>('seededDietRevision', null)
+  if (seededDiet !== BUNDLED_DIET_REVISION) {
+    await db.dietPlans.bulkPut(BUNDLED_DIET_PLANS)
+    await setSettings({ seededDietRevision: BUNDLED_DIET_REVISION })
+  }
+  // 기본 플랜은 없을 때만 채운다 (사용자 선택을 덮지 않는다)
+  if ((await db.settings.get('defaultDietPlanId')) === undefined) {
+    const fallback = BUNDLED_DIET_PLANS.find((p) => p.isDefault) ?? BUNDLED_DIET_PLANS[0]
+    if (fallback) await setSettings({ defaultDietPlanId: fallback.id })
+  }
+
   // 기본 설정값 채우기 (없는 것만)
   const defaults: Record<string, unknown> = {
     currentPhase: 0,
@@ -92,6 +130,7 @@ export async function ensureSeed(): Promise<SeedResult> {
     seedRevision: BUNDLED_ROUTINE.seedRevision,
     exerciseCount: BUNDLED_EXERCISES.length,
     didSeed: needsSeed,
+    dietPlanCount: BUNDLED_DIET_PLANS.length,
     repaired,
     problems: repaired
       ? [

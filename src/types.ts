@@ -245,6 +245,10 @@ export interface Settings {
   phaseChangedAt?: Partial<Record<Phase, string>>
   /** 체중 (T8) — 어시스티드 풀업 보조 무게 역산 전용. 추이는 저장하지 않는다 */
   bodyWeightKg?: number
+  /** 기본 식단 플랜 (D1). 날짜별 변경은 DietDay.planId가 담당한다 */
+  defaultDietPlanId?: string
+  /** 마지막으로 주입한 식단 시드 리비전 (D1 — 루틴과 같은 규칙) */
+  seededDietRevision?: number
 }
 
 /**
@@ -266,6 +270,78 @@ export interface ExerciseSetting {
   weightStepKg?: number
   /** 불규칙 스택의 실제 핀 값 (T9, 오름차순). 있으면 weightStepKg보다 우선 */
   weightLadderKg?: number[]
+}
+
+// ─── 식단 (D1) ───────────────────────────────────────────
+//
+// DESIGN.md §1의 비목적("식단 기록 없음")은 사용자 요구로 **공식 철회**됐다
+// (docs/PLAN-DIET.md). 원칙은 그대로다: 입력 마찰 최소화 · 원데이터는 앱,
+// 깊은 판단은 LLM 내보내기 · 파생값 비저장.
+//
+// 앱은 음식의 좋고 나쁨을 판단하지 않는다. 음식 DB·칼로리 검색도 하지 않는다
+// (과설계 + 입력 마찰). 대체 기록은 자가 태그 3단만 받는다.
+
+export interface DietItem {
+  id: string // "brown-rice"
+  name: string // "현미밥"
+  qty: string // "1개" | "2팩"
+  kcal: number
+  /** 단백질 진행이 식단 화면의 **핵심 지표**다 (칼로리는 보조 표기) */
+  proteinG: number
+}
+
+export interface DietSlot {
+  id: string // "breakfast" | ... | "pre" | "post"
+  name: string // "아침" | "훈련 전"
+  timeHint: string // "07:30"
+  items: DietItem[]
+}
+
+export interface DietPlan {
+  id: string // "cut-1800" | "cut-1500"
+  name: string // "감량 1,800"
+  /**
+   * 사람이 읽는 요약. **항목 합계에서 파생시켜 만든다** — 손으로 적으면
+   * 항목을 고칠 때 라벨이 남아 화면이 서로 다른 숫자를 말한다.
+   * (실제로 계획 문서의 표기와 항목 합계가 15kcal 어긋나 있었다)
+   */
+  kcalLabel: string
+  isDefault?: boolean
+  /** 훈련일 구성 (6슬롯) */
+  slots: DietSlot[]
+  /** 휴식일 구성 (5슬롯 — 훈련 전·직후를 15시 블록으로 통합, 총량 동일) */
+  restDaySlots: DietSlot[]
+  /** 시드 리비전 — 루틴과 같은 규칙 (해시 스냅샷 테스트가 강제) */
+  seedRevision: number
+}
+
+/** 슬롯 하나의 기록 */
+export interface SlotRecord {
+  checkedItemIds: string[]
+  /**
+   * 슬롯 전체/일부를 다른 음식으로 대체한 경우.
+   * 일부 체크 + 대체 입력 = "일부 대체" — 별도 상태를 두지 않는다 (데이터가 표현한다).
+   */
+  substitution?: {
+    text: string // "회사 근처 서브웨이 15cm 터키"
+    /**
+     * 자가 태그. `similar`는 "단백질원이 있었고 튀김·설탕 위주가 아님" —
+     * 기준을 입력 시트에 그대로 띄운다 (앱이 판단하지 않으므로 기준은 사용자가 적용한다).
+     */
+    quality: 'similar' | 'other' | 'cheat'
+  }
+  /** 그 끼니 자체를 안 먹음 */
+  skipped?: boolean
+}
+
+/** 하루 기록. `date`가 PK — 하루 하나 */
+export interface DietDay {
+  date: string // "2026-08-04"
+  planId: string
+  isTrainingDay: boolean
+  /** slotId → 기록. **손 안 댄 슬롯은 키가 없다** (미기록과 0점을 구분하기 위해) */
+  slots: Record<string, SlotRecord>
+  note?: string
 }
 
 /** settings 테이블은 key-value (§3) */

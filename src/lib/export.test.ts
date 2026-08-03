@@ -340,7 +340,7 @@ describe('T4 머신 세팅 메모 백업', () => {
     expect('problems' in r && r.problems.some((p) => p.includes('앱을 업데이트'))).toBe(true)
   })
 
-  it('스키마 버전이 2다 (exerciseNotes 도입)', () => {
-    expect(SCHEMA_VERSION).toBe(2)
+  it('스키마 버전이 3다 (식단 테이블 도입 — 파괴적 변경)', () => {
+    expect(SCHEMA_VERSION).toBe(3)
   })
 })

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import routineJson from '../data/routine-v2.4.json'
 import exercisesJson from '../data/exercises.json'
+import dietPlansJson from '../data/diet-plans.json'
 import { BUNDLED_ROUTINE } from '../db/seed'
 
 /**
@@ -53,6 +54,8 @@ const SNAPSHOT = {
   seedRevision: 1,
   routineHash: 'af6d7b05',
   exerciseCount: 28,
+  dietSeedRevision: 1,
+  dietHash: 'f05ea468',
 }
 
 describe('시드 리비전 강제', () => {
@@ -61,6 +64,8 @@ describe('시드 리비전 강제', () => {
       seedRevision: (routineJson as { seedRevision: number }).seedRevision,
       routineHash: fnv1a(stableStringify(routineJson)),
       exerciseCount: (exercisesJson as unknown[]).length,
+      dietSeedRevision: (dietPlansJson as { seedRevision: number }).seedRevision,
+      dietHash: fnv1a(stableStringify(dietPlansJson)),
     }).toEqual(SNAPSHOT)
   })
 

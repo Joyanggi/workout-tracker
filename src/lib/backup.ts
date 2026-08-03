@@ -1,5 +1,7 @@
 import { db } from "../db";
 import type {
+  DietDay,
+  DietPlan,
   Exercise,
   ExerciseSetting,
   RoutineTemplate,
@@ -20,12 +22,18 @@ import { isSecretSettingKey } from "./secrets";
  * 백업 파일 스키마 버전.
  * v2: exerciseNotes 추가 (T4). 구버전 앱은 parseBackup에서 "더 새로운 스키마"로 거부한다.
  *
- * T9(무게 단위)는 **버전을 올리지 않는다.** 같은 테이블·같은 행에 필드를 더한 것이고,
+ * T9(무게 단위)는 **버전을 올리지 않았다.** 같은 테이블·같은 행에 필드를 더한 것이고,
  * 복원은 행을 통째로 put하므로 모르는 필드도 그대로 실려간다 — 즉 v2 앱이 T9 파일을
  * 복원해도 무게 단위가 유실되지 않는다. 버전을 올리면 그 앱이 파일을 **거부**해
  * 오히려 복원이 막힌다.
+ *
+ * 원칙: **파괴적 변경만 상향한다.** 필드 추가는 하위 호환이고, 새 테이블은 아니다.
+ *
+ * v3: 식단 (D1). dietDays·dietPlans는 **구버전 앱이 이해하지 못하는 새 테이블**이므로
+ * 상향이 맞다 — v2 앱이 이 파일을 복원하면 식단 기록이 조용히 사라진다.
+ * 거부시켜서 "앱을 업데이트하세요"로 안내하는 편이 낫다.
  */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 export const APP_ID = "workout-tracker";
 
 export interface BackupFile {
@@ -38,6 +46,9 @@ export interface BackupFile {
   settings: SettingRow[];
   /** v2+. 구버전 백업에는 없으므로 optional (복원 시 [] 취급) */
   exerciseNotes?: ExerciseSetting[];
+  /** v3+ 식단 (D1) */
+  dietPlans?: DietPlan[];
+  dietDays?: DietDay[];
 }
 
 /**
@@ -81,13 +92,15 @@ function stripSecrets(rows: SettingRow[]): SettingRow[] {
 export async function createBackup(
   now: Date = new Date(),
 ): Promise<BackupFile> {
-  const [routines, exercises, sessions, settings, exerciseNotes] =
+  const [routines, exercises, sessions, settings, exerciseNotes, dietPlans, dietDays] =
     await Promise.all([
       db.routines.toArray(),
       db.exercises.toArray(),
       db.sessions.toArray(),
       db.settings.toArray(),
       db.exerciseNotes.toArray(),
+      db.dietPlans.toArray(),
+      db.dietDays.toArray(),
     ]);
   return {
     app: APP_ID,
@@ -98,6 +111,8 @@ export async function createBackup(
     sessions,
     settings: stripSecrets(settings),
     exerciseNotes,
+    dietPlans,
+    dietDays,
   };
 }
 
@@ -167,6 +182,12 @@ export function parseBackup(
   if (obj.exerciseNotes !== undefined && !Array.isArray(obj.exerciseNotes)) {
     problems.push("exerciseNotes가 배열이 아닙니다");
   }
+  // v3+ 식단. 구버전 백업에는 없다
+  for (const key of ["dietPlans", "dietDays"] as const) {
+    if (obj[key] !== undefined && !Array.isArray(obj[key])) {
+      problems.push(`${key}가 배열이 아닙니다`);
+    }
+  }
 
   let file = raw as BackupFile;
 
@@ -210,13 +231,18 @@ export function parseBackup(
  * 비밀값은 복원 대상이 아니다 — localStorage에 있고 백업에 들어가지 않는다.
  */
 export async function restoreBackup(file: BackupFile): Promise<void> {
+  // 테이블이 5개를 넘으면 가변 인자 오버로드가 없다 — 배열 형태를 쓴다
   await db.transaction(
     "rw",
-    db.routines,
-    db.exercises,
-    db.sessions,
-    db.settings,
-    db.exerciseNotes,
+    [
+      db.routines,
+      db.exercises,
+      db.sessions,
+      db.settings,
+      db.exerciseNotes,
+      db.dietPlans,
+      db.dietDays,
+    ],
     async () => {
       await Promise.all([
         db.routines.clear(),
@@ -224,6 +250,8 @@ export async function restoreBackup(file: BackupFile): Promise<void> {
         db.sessions.clear(),
         db.settings.clear(),
         db.exerciseNotes.clear(),
+        db.dietPlans.clear(),
+        db.dietDays.clear(),
       ]);
       await Promise.all([
         db.routines.bulkPut(file.routines),
@@ -234,6 +262,13 @@ export async function restoreBackup(file: BackupFile): Promise<void> {
         ),
         // v1 백업에는 없다 — 없으면 비운 상태로 둔다
         db.exerciseNotes.bulkPut(file.exerciseNotes ?? []),
+        /*
+         * 식단 (v3+). 플랜을 비운 채로 두면 다음 부팅에 ensureSeed가 다시 넣는다
+         * (seededDietRevision은 settings에 실려 오므로, 구버전 백업이면 그 키가 없어
+         * 리비전 불일치로 자동 재주입된다).
+         */
+        db.dietPlans.bulkPut(file.dietPlans ?? []),
+        db.dietDays.bulkPut(file.dietDays ?? []),
       ]);
     },
   );

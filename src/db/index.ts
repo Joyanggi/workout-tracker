@@ -1,6 +1,8 @@
 import Dexie, { type Table } from 'dexie'
 import { isSecretSettingKey } from '../lib/secrets'
 import type {
+  DietDay,
+  DietPlan,
   Exercise,
   ExerciseSetting,
   RoutineTemplate,
@@ -18,6 +20,10 @@ export class WorkoutDB extends Dexie {
    * 테이블 이름을 `exerciseSettings`로 바꾸지 않는 이유는 types.ts의 ExerciseSetting 주석 참조.
    */
   exerciseNotes!: Table<ExerciseSetting, string>
+  /** 식단 플랜 (D1) — 시드 + 사용자 JSON 교체 */
+  dietPlans!: Table<DietPlan, string>
+  /** 하루 식단 기록 (D1). date가 PK — 하루 하나 */
+  dietDays!: Table<DietDay, string>
 
   constructor() {
     super('workout-tracker')
@@ -48,6 +54,15 @@ export class WorkoutDB extends Dexie {
      */
     this.version(2).stores({
       exerciseNotes: 'recordKey',
+    })
+
+    /*
+     * v3: 식단 (D1). dietDays는 date가 PK — 하루 하나라는 규칙을 스키마가 강제한다.
+     * 테이블 추가뿐이므로 upgrade() 콜백은 불필요하다.
+     */
+    this.version(3).stores({
+      dietPlans: 'id',
+      dietDays: 'date',
     })
   }
 }
@@ -112,6 +127,21 @@ export async function getOpenSession(): Promise<Session | undefined> {
   return all
     .filter((s) => !s.endedAt)
     .sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0]
+}
+
+// ─── 식단 (D1) ───────────────────────────────────────────
+
+/** 그 날짜의 식단 기록. 없으면 undefined (미기록과 "전부 안 먹음"을 구분한다) */
+export async function getDietDay(date: string): Promise<DietDay | undefined> {
+  return db.dietDays.get(date)
+}
+
+export async function putDietDay(day: DietDay): Promise<void> {
+  await db.dietDays.put(day)
+}
+
+export async function getDietPlans(): Promise<DietPlan[]> {
+  return db.dietPlans.toArray()
 }
 
 // ─── 종목별 고정 설정: 세팅 메모(T4) + 무게 단위(T9) ────
