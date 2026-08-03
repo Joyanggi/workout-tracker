@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { db, setSettings } from '../db'
+import { BUNDLED_ROUTINE } from '../db/seed'
 import { validateRoutine } from '../db/validateRoutine'
 import { pickTextFile } from '../lib/pickFile'
 import { OUTCOME_MESSAGE, shareFile } from '../lib/share'
@@ -65,9 +66,15 @@ export default function RoutineIoPanel({
   const onApply = async () => {
     if (!staged) return
     await db.routines.put(staged.routine)
+    /*
+      **번들의 리비전**을 기록한다 (가져온 루틴의 것이 아니다).
+      의미는 "이 번들 리비전 기준으로 사용자가 루틴을 직접 골랐다"이고, 그래서
+      ensureSeed가 다음 부팅에 번들로 되돌리지 않는다. 가져온 파일에 seedRevision이
+      없을 수도 있는데(직접 만든 루틴), 그 값을 넣으면 매 부팅 재주입되어 덮어써진다.
+    */
     await setSettings({
       activeRoutineId: staged.routine.id,
-      seededRoutineVersion: staged.routine.version,
+      seededRoutineRevision: BUNDLED_ROUTINE.seedRevision,
     })
     setStaged(null)
     setStatus(`${staged.routine.name} 적용됨`)

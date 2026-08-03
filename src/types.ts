@@ -17,6 +17,15 @@ export interface RoutineTemplate {
   id: string // "physique-v2.4"
   name: string // "피지크형 상체 루틴 v2.4"
   version: string
+  /**
+   * 번들 시드의 **내용** 리비전 (R2). `ensureSeed`가 이 값으로 재주입을 판단한다.
+   *
+   * `version`(루틴 문서 버전)으로 판단하면 안 된다 — 실제로 그래서 뚫렸다.
+   * recordDayId를 마일스톤 2에서 fallbackDays에 추가하면서 version 2.4를 유지했고,
+   * 그 결과 마일스톤 1 설치본이 낡은 루틴을 영구히 들고 있었다.
+   * **시드 JSON을 고치면 이 숫자를 올린다.** 해시 스냅샷 테스트가 기계적으로 강제한다.
+   */
+  seedRevision: number
   createdAt: string // ISO
   isActive: boolean // 활성 루틴은 하나
   /**
@@ -230,8 +239,8 @@ export interface Settings {
   gistId?: string
   lastBackupAt?: string
   onboardingDone: boolean
-  /** 시드 마이그레이션 판단용 — 마지막으로 주입한 시드 버전 */
-  seededRoutineVersion?: string
+  /** 시드 마이그레이션 판단용 — 마지막으로 주입한 시드 리비전 (R2) */
+  seededRoutineRevision?: number
   /** Phase별 전환 시각 (T3). Phase가 바뀌면 목표 반복수·볼륨 기준도 바뀌므로 추이 해석에 필요 */
   phaseChangedAt?: Partial<Record<Phase, string>>
   /** 체중 (T8) — 어시스티드 풀업 보조 무게 역산 전용. 추이는 저장하지 않는다 */

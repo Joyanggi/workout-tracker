@@ -21,6 +21,19 @@ export function roundToHalf(kg: number): number {
  */
 export const DELOAD_SET_PCT = -50
 
+/**
+ * 방금 마감한 세션을 목록에 합류시킨다 (R4).
+ *
+ * `useLiveQuery`의 `sessions`는 마감 직후 아직 갱신되지 않았다. 그 목록으로 프리필을
+ * 만들면 방금 한 기록이 다음 세션에 반영되지 않아 **프리필이 한 세션 뒤처진다**
+ * ("마감하고 새로 시작" 경로). id로 중복을 제거하는 이유는 live query가 이미 갱신됐을
+ * 수도 있어서다 — 같은 세션이 두 번 들어가면 최근 3세션 창이 왜곡된다.
+ */
+export function withJustFinished(sessions: Session[], justFinished?: Session | null): Session[] {
+  if (!justFinished) return sessions
+  return [justFinished, ...sessions.filter((s) => s.id !== justFinished.id)]
+}
+
 export interface BuiltSession {
   session: Session
   prefills: Map<string, RecordPrefill>

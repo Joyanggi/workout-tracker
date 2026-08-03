@@ -1,7 +1,7 @@
 import exercisesJson from '../data/exercises.json'
 import routineJson from '../data/routine-v2.4.json'
 import type { Exercise, RoutineTemplate } from '../types'
-import { db, getSetting, setSettings } from './index'
+import { db, deleteSettings, getSetting, setSettings } from './index'
 import { validateRoutine } from './validateRoutine'
 
 export const BUNDLED_EXERCISES = exercisesJson as Exercise[]
@@ -10,6 +10,8 @@ export const BUNDLED_ROUTINE = routineJson as unknown as RoutineTemplate
 export interface SeedResult {
   routineId: string
   routineVersion: string
+  /** 이번에 주입한(또는 이미 주입돼 있던) 시드 리비전 */
+  seedRevision: number
   exerciseCount: number
   /** 이번 실행에서 시드를 새로 넣었는가 */
   didSeed: boolean
@@ -22,7 +24,7 @@ export interface SeedResult {
 /**
  * 최초 실행 / 시드 버전 상승 시에만 번들 루틴을 주입한다.
  *
- * seededRoutineVersion으로 판단하는 이유: 사용자가 설정 → 루틴 가져오기로
+ * seededRoutineRevision으로 판단하는 이유: 사용자가 설정 → 루틴 가져오기로
  * 같은 id의 루틴을 수정해 넣었을 때, 앱을 다시 열 때마다 번들 시드가 그걸
  * 덮어쓰면 안 된다.
  */
@@ -32,7 +34,7 @@ export async function ensureSeed(): Promise<SeedResult> {
     console.error('[seed] 루틴 정합성 문제:\n' + problems.join('\n'))
   }
 
-  const seededVersion = await getSetting<string | null>('seededRoutineVersion', null)
+  const seededRevision = await getSetting<number | null>('seededRoutineRevision', null)
   const stored = await db.routines.get(BUNDLED_ROUTINE.id)
   const routineExists = stored !== undefined
 
@@ -52,7 +54,8 @@ export async function ensureSeed(): Promise<SeedResult> {
    */
   const storedProblems = stored ? validateRoutine(stored, BUNDLED_EXERCISES) : []
   const repaired = storedProblems.length > 0
-  const needsSeed = !routineExists || seededVersion !== BUNDLED_ROUTINE.version || repaired
+  const needsSeed =
+    !routineExists || seededRevision !== BUNDLED_ROUTINE.seedRevision || repaired
 
   // 카탈로그는 **시드 여부와 무관하게** 매 실행 최신으로 맞춘다.
   // needsSeed 안에 두면 보상작용 체크리스트 문구를 고쳐도 루틴 version을 올리지 않는 한
@@ -64,9 +67,11 @@ export async function ensureSeed(): Promise<SeedResult> {
     await db.transaction('rw', db.routines, db.settings, async () => {
       await db.routines.put(BUNDLED_ROUTINE)
       await setSettings({
-        seededRoutineVersion: BUNDLED_ROUTINE.version,
+        seededRoutineRevision: BUNDLED_ROUTINE.seedRevision,
         activeRoutineId: BUNDLED_ROUTINE.id,
       })
+      // version 기반 판단은 폐기했다 — 낡은 키를 남기면 백업에 실려 혼란만 준다
+      await deleteSettings(['seededRoutineVersion'])
     })
   }
 
@@ -84,6 +89,7 @@ export async function ensureSeed(): Promise<SeedResult> {
   return {
     routineId: BUNDLED_ROUTINE.id,
     routineVersion: BUNDLED_ROUTINE.version,
+    seedRevision: BUNDLED_ROUTINE.seedRevision,
     exerciseCount: BUNDLED_EXERCISES.length,
     didSeed: needsSeed,
     repaired,

@@ -1,5 +1,11 @@
 # 리뷰 판정 — REVIEW-REQUEST.md에 대한 응답 (2026-07-31)
 
+> **✅ F1+F2 재검증 완료 (2026-08-01, 커밋 `2cb0482`):** 설계(docs/F1F2-DESIGN.md) 대비 전 항목 일치 확인.
+> 단일 커밋 ✓ / 3곳 교체 + 죽은 코드 2개 삭제 + `findRoutineExercise` 외부 참조 0 (unexport) ✓ /
+> inverse 전 경로(PR·볼륨·차트·프리필·하향) + 설정 행 없는 종목의 inverse 병합 체인 ✓ /
+> 테스트 351개(+25: 인바리언트 7 + inverse 18) 통과, 빌드 클린.
+> **F3~F5는 미착수** — 다음 라운드 대상.
+
 대상 커밋 `063f0ad`. 빌드·테스트 326개 독립 재실행 통과 확인.
 아래 결정은 루틴 설계자(리뷰어) 권한으로 확정한 것이다. 구현 시 이 문서를 기준으로.
 
@@ -85,13 +91,13 @@
 
 ## 수정 지시 요약 (우선순위순)
 
-| # | 내용 | 심각도 |
-|---|---|---|
-| F1 | 패턴 재발 3곳 `routineExerciseOfEntry`로 교체 (analysis×2, phaseReadiness) + isKnownRecord 삭제 | 높음 |
-| F2 | inverseWeight (c)+ — PR 무게·e1RM 제외 / 볼륨 제외 / 차트 제외 / **프리필·하향 방향 반전** / 반복수 PR 유지. **F1과 같은 커밋으로** | 높음 |
-| F3 | 구백업 복원 shim (1.2 옵션 ②) | 중간 |
-| F4 | seedRevision + 해시 스냅샷 테스트 (1.3) | 낮음 |
-| F5 | applySubstitute 원상복귀 시 substituteFor 클리어 | 낮음 |
-| — | 1.4는 수정하지 않음 (보류 확정) | — |
+| # | 내용 | 심각도 | 상태 |
+|---|---|---|---|
+| F1 | 패턴 재발 3곳 `routineExerciseOfEntry`로 교체 (analysis×2, phaseReadiness) + isKnownRecord 삭제 | 높음 | **✅ 2cb0482** |
+| F2 | inverseWeight (c)+ — PR 무게·e1RM 제외 / 볼륨 제외 / 차트 제외 / **프리필·하향 방향 반전** / 반복수 PR 유지. **F1과 같은 커밋으로** | 높음 | **✅ 2cb0482** |
+| F3 | 구백업 복원 shim (1.2 옵션 ②) | 중간 | **✅ R1** |
+| F4 | seedRevision + 해시 스냅샷 테스트 (1.3) | 낮음 | **✅ R2** |
+| F5 | applySubstitute 원상복귀 시 substituteFor 클리어 | 낮음 | **✅ R3** |
+| — | 1.4는 수정하지 않음 (보류 확정) | — | — |
 
 각 F에 테스트 추가. 완료 후 실기기 체크리스트(REVIEW-REQUEST 3.2)는 사용자가 수행.

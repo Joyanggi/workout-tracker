@@ -7,6 +7,7 @@ import type {
   SettingRow,
 } from "../types";
 import { validateRoutine } from "../db/validateRoutine";
+import { BUNDLED_ROUTINE } from "../db/seed";
 import { isSecretSettingKey } from "./secrets";
 
 /**
@@ -37,6 +38,33 @@ export interface BackupFile {
   settings: SettingRow[];
   /** v2+. 구버전 백업에는 없으므로 optional (복원 시 [] 취급) */
   exerciseNotes?: ExerciseSetting[];
+}
+
+/**
+ * 구형 백업 보정 (R1).
+ *
+ * `fallbackDays[].recordDayId`는 마일스톤 2에서 시드에 추가됐는데 루틴 version을
+ * 올리지 않아, 그 이전 설치본이 만든 백업에는 이 필드가 없다. 그대로 두면
+ * `validateRoutine`이 거부해서 **복원 자체가 막힌다** — 백업은 됐는데 복원이 안 되는
+ * 상태이므로 기기를 바꾸는 순간에야 알게 된다.
+ *
+ * 보정 범위를 좁게 잡는다: **번들과 같은 루틴 id이고, fallback id가 번들 정의에 있을 때만**
+ * 번들 값을 채운다. 검증을 완화하지 않는다 — 그 검증이 이 결함을 잡아낸 장치다.
+ * 마이그레이션 shim은 이런 파싱 경계에 두는 것이 맞다.
+ */
+function repairLegacyRoutine(routine: RoutineTemplate): RoutineTemplate {
+  if (routine.id !== BUNDLED_ROUTINE.id) return routine;
+  if (!Array.isArray(routine.fallbackDays)) return routine;
+  if (routine.fallbackDays.every((d) => Boolean(d.recordDayId))) return routine;
+
+  return {
+    ...routine,
+    fallbackDays: routine.fallbackDays.map((day) => {
+      if (day.recordDayId) return day;
+      const bundled = BUNDLED_ROUTINE.fallbackDays.find((b) => b.id === day.id);
+      return bundled?.recordDayId ? { ...day, recordDayId: bundled.recordDayId } : day;
+    }),
+  };
 }
 
 /**
@@ -140,6 +168,8 @@ export function parseBackup(
     problems.push("exerciseNotes가 배열이 아닙니다");
   }
 
+  let file = raw as BackupFile;
+
   if (problems.length === 0) {
     // 세션의 최소 형태 검사 — 하나라도 깨져 있으면 복원 후 화면이 터진다
     const sessions = obj.sessions as Session[];
@@ -157,7 +187,9 @@ export function parseBackup(
     // 루틴 정합성도 검사한다. muscleSets 합이 어긋난 루틴이 복원되면 §4 제안 로직과
     // §5.1 대시보드가 서로 다른 숫자를 말하기 시작하고 원인 추적이 매우 어렵다.
     // (설정 → 루틴 가져오기 경로는 이미 검증하는데 복원 경로만 빠져 있었다)
-    const routines = obj.routines as RoutineTemplate[];
+    // 보정을 검증 **전에** 하고, 보정된 것을 그대로 복원한다 (원본을 되쓰면 의미가 없다)
+    const routines = (obj.routines as RoutineTemplate[]).map(repairLegacyRoutine);
+    file = { ...(raw as BackupFile), routines };
     const exercises = obj.exercises as Exercise[];
     for (const routine of routines) {
       for (const p of validateRoutine(routine, exercises)) {
@@ -166,7 +198,7 @@ export function parseBackup(
     }
   }
 
-  return problems.length > 0 ? { problems } : { file: raw as BackupFile };
+  return problems.length > 0 ? { problems } : { file };
 }
 
 /**

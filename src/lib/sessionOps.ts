@@ -108,6 +108,10 @@ export function applySkipped(session: Session, recordKey: RecordKey, skipped: bo
  * 프리필·증량 판정·PR은 분리되고, 부위 집계·목표 반복수는
  * `derive.routineExerciseOfEntry`가 원 종목을 되짚는다.
  *
+ * 원 종목으로 되돌리는 경우(대체 → 원래대로)에는 `substituteFor`를 **지운다.**
+ * 그러지 않으면 `substituteFor === recordKey`인 "자기 자신의 대체" entry가 남아,
+ * 내보내기에 "(대체: 자기이름)"이 찍히고 분석이 무의미한 되짚기를 한다.
+ *
  * **이미 체크된 세트가 있으면 거부한다.** 교체는 세트를 새로 만들므로 기록이 사라지고,
  * 루틴 문서 규칙("대체한 날은 그걸로 끝 — 원 종목 세트를 나중에 추가하지 않는다")과도
  * 어긋난다. 자리가 없어서 바꾸는 상황이므로 아직 아무것도 수행하지 않은 것이 정상이다.
@@ -125,7 +129,10 @@ export function applySubstitute(
   return mapEntry(session, recordKey, (entry) => ({
     ...entry,
     recordKey: next.recordKey,
-    substituteFor: entry.substituteFor ?? entry.recordKey,
+    substituteFor:
+      next.recordKey === (entry.substituteFor ?? entry.recordKey)
+        ? undefined
+        : (entry.substituteFor ?? entry.recordKey),
     sets: Array.from({ length: next.setCount }, () => ({
       weight: next.weight,
       reps: next.reps,

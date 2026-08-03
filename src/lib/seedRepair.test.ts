@@ -55,8 +55,27 @@ describe('백업 왕복 — 앱은 자기 백업을 복원할 수 있어야 한�
     expect('problems' in parsed ? parsed.problems : []).toEqual([])
   })
 
-  it('recordDayId가 빠진 루틴이 담긴 백업은 거부된다 (복원이 막히는 실제 증상)', () => {
+  it('recordDayId가 빠진 구형 백업은 거부하지 않고 번들 값으로 보정한다 (R1)', () => {
+    /*
+      이 테스트는 원래 "거부된다"를 단정했다 — 그때는 그게 실제 증상이었다.
+      R1에서 파싱 경계에 보정 shim을 넣었으므로 기대가 반대로 바뀌는 것이 맞다:
+      백업은 됐는데 복원이 막히는 상태를 남겨두면 기기를 바꾸는 순간에야 알게 된다.
+    */
     const parsed = parseBackup(backupOf(withoutRecordDayId()))
+    expect('problems' in parsed).toBe(false)
+    if ('problems' in parsed) return
+    const fallbacks = parsed.file.routines[0].fallbackDays
+    expect(fallbacks.every((d) => Boolean(d.recordDayId))).toBe(true)
+    // 번들과 같은 값으로 채워졌다 (임의값이 아니다)
+    for (const day of fallbacks) {
+      const bundled = BUNDLED_ROUTINE.fallbackDays.find((b) => b.id === day.id)
+      expect(day.recordDayId).toBe(bundled?.recordDayId)
+    }
+  })
+
+  it('번들과 다른 루틴 id는 보정하지 않는다 (보정 범위를 좁게 유지)', () => {
+    const foreign: RoutineTemplate = { ...withoutRecordDayId(), id: 'someone-elses-routine' }
+    const parsed = parseBackup(backupOf(foreign))
     expect('problems' in parsed).toBe(true)
     if ('problems' in parsed) expect(parsed.problems.join(' ')).toContain('recordDayId')
   })

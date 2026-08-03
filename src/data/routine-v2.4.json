@@ -2,35 +2,141 @@
   "id": "physique-v2.4",
   "name": "피지크형 상체 루틴 v2.4",
   "version": "2.4",
+  "seedRevision": 1,
   "createdAt": "2026-07-31T00:00:00.000Z",
   "isActive": true,
-
   "muscleTargets": {
-    "측면어깨": { "target": 11, "weight": 1.0 },
-    "상부가슴": { "target": 10, "weight": 0.9 },
-    "광배": { "target": 16, "weight": 0.85 },
-    "후면어깨": { "target": 7, "weight": 0.7 },
-    "팔": { "target": 6, "weight": 0.5 },
-    "하체": { "target": 9, "weight": 0.45 },
-    "가슴": { "target": 3, "weight": 0.4 },
-    "코어": { "target": 5, "weight": 0.3 }
+    "측면어깨": {
+      "target": 11,
+      "weight": 1.0
+    },
+    "상부가슴": {
+      "target": 10,
+      "weight": 0.9
+    },
+    "광배": {
+      "target": 16,
+      "weight": 0.85
+    },
+    "후면어깨": {
+      "target": 7,
+      "weight": 0.7
+    },
+    "팔": {
+      "target": 6,
+      "weight": 0.5
+    },
+    "하체": {
+      "target": 9,
+      "weight": 0.45
+    },
+    "가슴": {
+      "target": 3,
+      "weight": 0.4
+    },
+    "코어": {
+      "target": 5,
+      "weight": 0.3
+    }
   },
-
   "days": [
     {
       "id": "d1",
       "name": "Day 1 — Push",
       "subtitle": "상부가슴 / 측면어깨 / 삼두",
       "isBuffer": false,
-      "muscleSets": { "상부가슴": 7, "가슴": 3, "측면어깨": 7, "후면어깨": 2, "팔": 3 },
+      "muscleSets": {
+        "상부가슴": 7,
+        "가슴": 3,
+        "측면어깨": 7,
+        "후면어깨": 2,
+        "팔": 3
+      },
       "exercises": [
-        { "exerciseId": "incline-chest-press", "group": "A", "muscle": "상부가슴", "sets": 4, "repMin": 6, "repMax": 10, "restSec": 150, "plannedOrder": 1, "optional": false, "note": "이 날의 1순위. 가장 무겁게" },
-        { "exerciseId": "pec-deck-fly", "group": "B", "muscle": "상부가슴", "sets": 3, "repMin": 12, "repMax": 15, "restSec": 90, "plannedOrder": 2, "optional": false, "note": "팔꿈치 각도 고정, 끝까지 벌리기" },
-        { "exerciseId": "flat-chest-press", "group": "A", "muscle": "가슴", "sets": 3, "repMin": 8, "repMax": 12, "restSec": 120, "plannedOrder": 3, "optional": false, "note": "벤치프레스 대신 머신 고정" },
-        { "exerciseId": "shoulder-press", "group": "A", "muscle": "측면어깨", "sets": 3, "repMin": 8, "repMax": 12, "restSec": 120, "plannedOrder": 4, "optional": false, "note": "과하게 늘리지 않는다" },
-        { "exerciseId": "lateral-raise", "group": "B", "muscle": "측면어깨", "sets": 4, "repMin": 12, "repMax": 20, "restSec": 90, "plannedOrder": 5, "optional": false, "note": "무게 대폭 하향. 승모 개입 체크" },
-        { "exerciseId": "rear-delt-fly", "group": "B", "muscle": "후면어깨", "sets": 2, "repMin": 12, "repMax": 20, "restSec": 90, "plannedOrder": 6, "optional": false, "note": "빈도 확보용 추가 2세트" },
-        { "exerciseId": "pushdown", "group": "B", "muscle": "팔", "sets": 3, "repMin": 10, "repMax": 15, "restSec": 90, "plannedOrder": 7, "optional": false, "note": "팔꿈치 고정" }
+        {
+          "exerciseId": "incline-chest-press",
+          "group": "A",
+          "muscle": "상부가슴",
+          "sets": 4,
+          "repMin": 6,
+          "repMax": 10,
+          "restSec": 150,
+          "plannedOrder": 1,
+          "optional": false,
+          "note": "이 날의 1순위. 가장 무겁게"
+        },
+        {
+          "exerciseId": "pec-deck-fly",
+          "group": "B",
+          "muscle": "상부가슴",
+          "sets": 3,
+          "repMin": 12,
+          "repMax": 15,
+          "restSec": 90,
+          "plannedOrder": 2,
+          "optional": false,
+          "note": "팔꿈치 각도 고정, 끝까지 벌리기"
+        },
+        {
+          "exerciseId": "flat-chest-press",
+          "group": "A",
+          "muscle": "가슴",
+          "sets": 3,
+          "repMin": 8,
+          "repMax": 12,
+          "restSec": 120,
+          "plannedOrder": 3,
+          "optional": false,
+          "note": "벤치프레스 대신 머신 고정"
+        },
+        {
+          "exerciseId": "shoulder-press",
+          "group": "A",
+          "muscle": "측면어깨",
+          "sets": 3,
+          "repMin": 8,
+          "repMax": 12,
+          "restSec": 120,
+          "plannedOrder": 4,
+          "optional": false,
+          "note": "과하게 늘리지 않는다"
+        },
+        {
+          "exerciseId": "lateral-raise",
+          "group": "B",
+          "muscle": "측면어깨",
+          "sets": 4,
+          "repMin": 12,
+          "repMax": 20,
+          "restSec": 90,
+          "plannedOrder": 5,
+          "optional": false,
+          "note": "무게 대폭 하향. 승모 개입 체크"
+        },
+        {
+          "exerciseId": "rear-delt-fly",
+          "group": "B",
+          "muscle": "후면어깨",
+          "sets": 2,
+          "repMin": 12,
+          "repMax": 20,
+          "restSec": 90,
+          "plannedOrder": 6,
+          "optional": false,
+          "note": "빈도 확보용 추가 2세트"
+        },
+        {
+          "exerciseId": "pushdown",
+          "group": "B",
+          "muscle": "팔",
+          "sets": 3,
+          "repMin": 10,
+          "repMax": 15,
+          "restSec": 90,
+          "plannedOrder": 7,
+          "optional": false,
+          "note": "팔꿈치 고정"
+        }
       ]
     },
     {
@@ -38,14 +144,85 @@
       "name": "Day 2 — Pull",
       "subtitle": "광배 / 등 두께 / 후면어깨 / 이두",
       "isBuffer": false,
-      "muscleSets": { "광배": 10, "후면어깨": 4, "측면어깨": 2, "팔": 3 },
+      "muscleSets": {
+        "광배": 10,
+        "후면어깨": 4,
+        "측면어깨": 2,
+        "팔": 3
+      },
       "exercises": [
-        { "exerciseId": "arm-pulldown", "group": "B", "muscle": "광배", "sets": 2, "repMin": 15, "repMax": 15, "restSec": 60, "plannedOrder": 1, "optional": false, "note": "가볍게. 광배 위치 확인용 프라이머" },
-        { "exerciseId": "lat-pulldown", "group": "A", "muscle": "광배", "sets": 4, "repMin": 8, "repMax": 12, "restSec": 120, "plannedOrder": 2, "optional": false, "note": "팔꿈치를 뒤·아래로" },
-        { "exerciseId": "seated-cable-row", "group": "A", "muscle": "광배", "sets": 4, "repMin": 8, "repMax": 12, "restSec": 120, "plannedOrder": 3, "optional": false, "note": "발판 밀지 않기" },
-        { "exerciseId": "rear-delt-fly", "group": "B", "muscle": "후면어깨", "sets": 4, "repMin": 12, "repMax": 20, "restSec": 90, "plannedOrder": 4, "optional": false, "note": "팔꿈치 살짝 굽힌 채 고정" },
-        { "exerciseId": "lateral-raise", "group": "B", "muscle": "측면어깨", "sets": 2, "repMin": 12, "repMax": 20, "restSec": 90, "plannedOrder": 5, "optional": false, "note": "빈도 확보용 추가 2세트. D1보다 가볍게" },
-        { "exerciseId": "curl", "group": "B", "muscle": "팔", "sets": 3, "repMin": 10, "repMax": 15, "restSec": 90, "plannedOrder": 6, "optional": false, "note": "팔꿈치 앞으로 나가지 않게" }
+        {
+          "exerciseId": "arm-pulldown",
+          "group": "B",
+          "muscle": "광배",
+          "sets": 2,
+          "repMin": 15,
+          "repMax": 15,
+          "restSec": 60,
+          "plannedOrder": 1,
+          "optional": false,
+          "note": "가볍게. 광배 위치 확인용 프라이머"
+        },
+        {
+          "exerciseId": "lat-pulldown",
+          "group": "A",
+          "muscle": "광배",
+          "sets": 4,
+          "repMin": 8,
+          "repMax": 12,
+          "restSec": 120,
+          "plannedOrder": 2,
+          "optional": false,
+          "note": "팔꿈치를 뒤·아래로"
+        },
+        {
+          "exerciseId": "seated-cable-row",
+          "group": "A",
+          "muscle": "광배",
+          "sets": 4,
+          "repMin": 8,
+          "repMax": 12,
+          "restSec": 120,
+          "plannedOrder": 3,
+          "optional": false,
+          "note": "발판 밀지 않기"
+        },
+        {
+          "exerciseId": "rear-delt-fly",
+          "group": "B",
+          "muscle": "후면어깨",
+          "sets": 4,
+          "repMin": 12,
+          "repMax": 20,
+          "restSec": 90,
+          "plannedOrder": 4,
+          "optional": false,
+          "note": "팔꿈치 살짝 굽힌 채 고정"
+        },
+        {
+          "exerciseId": "lateral-raise",
+          "group": "B",
+          "muscle": "측면어깨",
+          "sets": 2,
+          "repMin": 12,
+          "repMax": 20,
+          "restSec": 90,
+          "plannedOrder": 5,
+          "optional": false,
+          "note": "빈도 확보용 추가 2세트. D1보다 가볍게"
+        },
+        {
+          "exerciseId": "curl",
+          "group": "B",
+          "muscle": "팔",
+          "sets": 3,
+          "repMin": 10,
+          "repMax": 15,
+          "restSec": 90,
+          "plannedOrder": 6,
+          "optional": false,
+          "note": "팔꿈치 앞으로 나가지 않게"
+        }
       ]
     },
     {
@@ -53,13 +230,71 @@
       "name": "Day 3 — 하체 + 코어",
       "subtitle": "발 조건 하 유지 목적",
       "isBuffer": false,
-      "muscleSets": { "하체": 9, "코어": 5 },
+      "muscleSets": {
+        "하체": 9,
+        "코어": 5
+      },
       "exercises": [
-        { "exerciseId": "leg-extension", "group": "A", "muscle": "하체", "sets": 3, "repMin": 10, "repMax": 15, "restSec": 105, "plannedOrder": 1, "optional": false, "note": "무릎 통제, 반동 금지" },
-        { "exerciseId": "leg-curl", "group": "A", "muscle": "하체", "sets": 3, "repMin": 10, "repMax": 15, "restSec": 105, "plannedOrder": 2, "optional": false, "note": "수축에서 1초 정지" },
-        { "exerciseId": "hip-abduction", "group": "B", "muscle": "하체", "sets": 3, "repMin": 15, "repMax": 20, "restSec": 90, "plannedOrder": 3, "optional": false, "note": "무게 하향, 수축 정지" },
-        { "exerciseId": "crunch", "group": "core", "muscle": "코어", "sets": 3, "repMin": 10, "repMax": 15, "restSec": 60, "plannedOrder": 4, "optional": false, "note": "허리 과신전 금지" },
-        { "exerciseId": "dead-bug", "group": "core", "muscle": "코어", "sets": 2, "repMin": 10, "repMax": 12, "restSec": 60, "plannedOrder": 5, "optional": false, "note": "좌우 10~12. 천천히 통제" }
+        {
+          "exerciseId": "leg-extension",
+          "group": "A",
+          "muscle": "하체",
+          "sets": 3,
+          "repMin": 10,
+          "repMax": 15,
+          "restSec": 105,
+          "plannedOrder": 1,
+          "optional": false,
+          "note": "무릎 통제, 반동 금지"
+        },
+        {
+          "exerciseId": "leg-curl",
+          "group": "A",
+          "muscle": "하체",
+          "sets": 3,
+          "repMin": 10,
+          "repMax": 15,
+          "restSec": 105,
+          "plannedOrder": 2,
+          "optional": false,
+          "note": "수축에서 1초 정지"
+        },
+        {
+          "exerciseId": "hip-abduction",
+          "group": "B",
+          "muscle": "하체",
+          "sets": 3,
+          "repMin": 15,
+          "repMax": 20,
+          "restSec": 90,
+          "plannedOrder": 3,
+          "optional": false,
+          "note": "무게 하향, 수축 정지"
+        },
+        {
+          "exerciseId": "crunch",
+          "group": "core",
+          "muscle": "코어",
+          "sets": 3,
+          "repMin": 10,
+          "repMax": 15,
+          "restSec": 60,
+          "plannedOrder": 4,
+          "optional": false,
+          "note": "허리 과신전 금지"
+        },
+        {
+          "exerciseId": "dead-bug",
+          "group": "core",
+          "muscle": "코어",
+          "sets": 2,
+          "repMin": 10,
+          "repMax": 12,
+          "restSec": 60,
+          "plannedOrder": 5,
+          "optional": false,
+          "note": "좌우 10~12. 천천히 통제"
+        }
       ]
     },
     {
@@ -67,46 +302,202 @@
       "name": "Day 4 — 피지크 보완",
       "subtitle": "전 종목 B그룹 방식",
       "isBuffer": true,
-      "muscleSets": { "광배": 6, "상부가슴": 3, "측면어깨": 4, "후면어깨": 3, "팔": 4 },
+      "muscleSets": {
+        "광배": 6,
+        "상부가슴": 3,
+        "측면어깨": 4,
+        "후면어깨": 3,
+        "팔": 4
+      },
       "exercises": [
-        { "exerciseId": "neutral-lat-pulldown", "group": "B", "muscle": "광배", "sets": 3, "repMin": 10, "repMax": 15, "restSec": 120, "plannedOrder": 1, "optional": false, "note": "10~12회 중심" },
-        { "exerciseId": "incline-chest-press", "group": "B", "muscle": "상부가슴", "sets": 3, "repMin": 10, "repMax": 15, "restSec": 120, "plannedOrder": 2, "optional": false, "note": "", "weightHint": "Day 1 무게의 60~70%" },
-        { "exerciseId": "lateral-raise", "group": "B", "muscle": "측면어깨", "sets": 4, "repMin": 15, "repMax": 20, "restSec": 90, "plannedOrder": 3, "optional": false, "note": "이 날의 주인공" },
-        { "exerciseId": "rear-delt-fly", "group": "B", "muscle": "후면어깨", "sets": 3, "repMin": 15, "repMax": 20, "restSec": 90, "plannedOrder": 4, "optional": false, "note": "" },
-        { "exerciseId": "seated-cable-row", "group": "B", "muscle": "광배", "sets": 3, "repMin": 12, "repMax": 15, "restSec": 90, "plannedOrder": 5, "optional": false, "note": "수축감 중심" },
-        { "exerciseId": "curl", "group": "B", "muscle": "팔", "sets": 2, "repMin": 12, "repMax": 15, "restSec": 90, "plannedOrder": 6, "optional": true, "note": "컨디션 좋을 때만" },
-        { "exerciseId": "pushdown", "group": "B", "muscle": "팔", "sets": 2, "repMin": 12, "repMax": 15, "restSec": 90, "plannedOrder": 7, "optional": true, "note": "컨디션 좋을 때만" }
+        {
+          "exerciseId": "neutral-lat-pulldown",
+          "group": "B",
+          "muscle": "광배",
+          "sets": 3,
+          "repMin": 10,
+          "repMax": 15,
+          "restSec": 120,
+          "plannedOrder": 1,
+          "optional": false,
+          "note": "10~12회 중심"
+        },
+        {
+          "exerciseId": "incline-chest-press",
+          "group": "B",
+          "muscle": "상부가슴",
+          "sets": 3,
+          "repMin": 10,
+          "repMax": 15,
+          "restSec": 120,
+          "plannedOrder": 2,
+          "optional": false,
+          "note": "",
+          "weightHint": "Day 1 무게의 60~70%"
+        },
+        {
+          "exerciseId": "lateral-raise",
+          "group": "B",
+          "muscle": "측면어깨",
+          "sets": 4,
+          "repMin": 15,
+          "repMax": 20,
+          "restSec": 90,
+          "plannedOrder": 3,
+          "optional": false,
+          "note": "이 날의 주인공"
+        },
+        {
+          "exerciseId": "rear-delt-fly",
+          "group": "B",
+          "muscle": "후면어깨",
+          "sets": 3,
+          "repMin": 15,
+          "repMax": 20,
+          "restSec": 90,
+          "plannedOrder": 4,
+          "optional": false,
+          "note": ""
+        },
+        {
+          "exerciseId": "seated-cable-row",
+          "group": "B",
+          "muscle": "광배",
+          "sets": 3,
+          "repMin": 12,
+          "repMax": 15,
+          "restSec": 90,
+          "plannedOrder": 5,
+          "optional": false,
+          "note": "수축감 중심"
+        },
+        {
+          "exerciseId": "curl",
+          "group": "B",
+          "muscle": "팔",
+          "sets": 2,
+          "repMin": 12,
+          "repMax": 15,
+          "restSec": 90,
+          "plannedOrder": 6,
+          "optional": true,
+          "note": "컨디션 좋을 때만"
+        },
+        {
+          "exerciseId": "pushdown",
+          "group": "B",
+          "muscle": "팔",
+          "sets": 2,
+          "repMin": 12,
+          "repMax": 15,
+          "restSec": 90,
+          "plannedOrder": 7,
+          "optional": true,
+          "note": "컨디션 좋을 때만"
+        }
       ]
     }
   ],
-
   "fallbackDays": [
     {
-      "id": "fallback-push", "recordDayId": "d1",
+      "id": "fallback-push",
+      "recordDayId": "d1",
       "name": "Push 축소",
       "subtitle": "하한 모드 · 30분",
       "isBuffer": false,
-      "muscleSets": { "상부가슴": 5, "측면어깨": 3 },
+      "muscleSets": {
+        "상부가슴": 5,
+        "측면어깨": 3
+      },
       "exercises": [
-        { "exerciseId": "incline-chest-press", "group": "A", "muscle": "상부가슴", "sets": 3, "repMin": 6, "repMax": 10, "restSec": 150, "plannedOrder": 1, "optional": false, "note": "" },
-        { "exerciseId": "lateral-raise", "group": "B", "muscle": "측면어깨", "sets": 3, "repMin": 12, "repMax": 20, "restSec": 90, "plannedOrder": 2, "optional": false, "note": "" },
-        { "exerciseId": "pec-deck-fly", "group": "B", "muscle": "상부가슴", "sets": 2, "repMin": 12, "repMax": 15, "restSec": 90, "plannedOrder": 3, "optional": false, "note": "" }
+        {
+          "exerciseId": "incline-chest-press",
+          "group": "A",
+          "muscle": "상부가슴",
+          "sets": 3,
+          "repMin": 6,
+          "repMax": 10,
+          "restSec": 150,
+          "plannedOrder": 1,
+          "optional": false,
+          "note": ""
+        },
+        {
+          "exerciseId": "lateral-raise",
+          "group": "B",
+          "muscle": "측면어깨",
+          "sets": 3,
+          "repMin": 12,
+          "repMax": 20,
+          "restSec": 90,
+          "plannedOrder": 2,
+          "optional": false,
+          "note": ""
+        },
+        {
+          "exerciseId": "pec-deck-fly",
+          "group": "B",
+          "muscle": "상부가슴",
+          "sets": 2,
+          "repMin": 12,
+          "repMax": 15,
+          "restSec": 90,
+          "plannedOrder": 3,
+          "optional": false,
+          "note": ""
+        }
       ]
     },
     {
-      "id": "fallback-pull", "recordDayId": "d2",
+      "id": "fallback-pull",
+      "recordDayId": "d2",
       "name": "Pull 축소",
       "subtitle": "하한 모드 · 30분",
       "isBuffer": false,
-      "muscleSets": { "광배": 6, "후면어깨": 2 },
+      "muscleSets": {
+        "광배": 6,
+        "후면어깨": 2
+      },
       "exercises": [
-        { "exerciseId": "lat-pulldown", "group": "A", "muscle": "광배", "sets": 3, "repMin": 8, "repMax": 12, "restSec": 120, "plannedOrder": 1, "optional": false, "note": "" },
-        { "exerciseId": "seated-cable-row", "group": "A", "muscle": "광배", "sets": 3, "repMin": 8, "repMax": 12, "restSec": 120, "plannedOrder": 2, "optional": false, "note": "" },
-        { "exerciseId": "rear-delt-fly", "group": "B", "muscle": "후면어깨", "sets": 2, "repMin": 12, "repMax": 20, "restSec": 90, "plannedOrder": 3, "optional": false, "note": "" }
+        {
+          "exerciseId": "lat-pulldown",
+          "group": "A",
+          "muscle": "광배",
+          "sets": 3,
+          "repMin": 8,
+          "repMax": 12,
+          "restSec": 120,
+          "plannedOrder": 1,
+          "optional": false,
+          "note": ""
+        },
+        {
+          "exerciseId": "seated-cable-row",
+          "group": "A",
+          "muscle": "광배",
+          "sets": 3,
+          "repMin": 8,
+          "repMax": 12,
+          "restSec": 120,
+          "plannedOrder": 2,
+          "optional": false,
+          "note": ""
+        },
+        {
+          "exerciseId": "rear-delt-fly",
+          "group": "B",
+          "muscle": "후면어깨",
+          "sets": 2,
+          "repMin": 12,
+          "repMax": 20,
+          "restSec": 90,
+          "plannedOrder": 3,
+          "optional": false,
+          "note": ""
+        }
       ]
     }
   ],
-
   "rules": {
     "progressionNote": "모든 세트 상단 도달 + 보상작용 없음 → 소폭 증량",
     "weightIncrementKg": 2.5,
@@ -116,9 +507,27 @@
     "lowerBodyMaxGapDays": 10,
     "lowerBodyDayId": "d3",
     "returnProtocol": [
-      { "gapWeeksMin": 2, "weightPct": -5, "setPct": -30, "targetRIR": 3, "rampWeeks": 1 },
-      { "gapWeeksMin": 4, "weightPct": -10, "setPct": -40, "targetRIR": 3, "rampWeeks": 2 },
-      { "gapWeeksMin": 8, "weightPct": -20, "setPct": -50, "targetRIR": 4, "rampWeeks": 3 }
+      {
+        "gapWeeksMin": 2,
+        "weightPct": -5,
+        "setPct": -30,
+        "targetRIR": 3,
+        "rampWeeks": 1
+      },
+      {
+        "gapWeeksMin": 4,
+        "weightPct": -10,
+        "setPct": -40,
+        "targetRIR": 3,
+        "rampWeeks": 2
+      },
+      {
+        "gapWeeksMin": 8,
+        "weightPct": -20,
+        "setPct": -50,
+        "targetRIR": 4,
+        "rampWeeks": 3
+      }
     ]
   }
 }

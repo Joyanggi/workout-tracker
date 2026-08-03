@@ -264,6 +264,38 @@ describe('applySubstitute', () => {
     expect(next).toBe(fresh)
   })
 
+  it('원 종목으로 되돌리면 substituteFor를 지운다 (자기참조 방지, R3)', () => {
+    // 대체 → 아직 세트 체크 전 → 원래대로 되돌림.
+    // substituteFor를 남기면 "자기 자신의 대체"가 되어 내보내기에 "(대체: 자기이름)"이 찍힌다
+    const substituted = applySubstitute(fresh, ORIGIN_KEY, {
+      recordKey: SUB_KEY,
+      setCount: 4,
+      weight: 28,
+      reps: 6,
+    })
+    expect(substituted.entries.find((e) => e.recordKey === SUB_KEY)?.substituteFor).toBe(ORIGIN_KEY)
+
+    const reverted = applySubstitute(substituted, SUB_KEY, {
+      recordKey: ORIGIN_KEY,
+      setCount: 4,
+      weight: 40,
+      reps: 6,
+    })
+    const back = reverted.entries.find((e) => e.recordKey === ORIGIN_KEY)!
+    expect(back.substituteFor).toBeUndefined()
+  })
+
+  it('다른 대체로 갈아타면 원 종목을 계속 가리킨다', () => {
+    const first = applySubstitute(fresh, ORIGIN_KEY, {
+      recordKey: SUB_KEY, setCount: 4, weight: 28, reps: 6,
+    })
+    const second = applySubstitute(first, SUB_KEY, {
+      recordKey: makeRecordKey('db-incline-press', 'd1'), setCount: 4, weight: 6.5, reps: 6,
+    })
+    const entry = second.entries.find((e) => e.recordKey === makeRecordKey('db-incline-press', 'd1'))!
+    expect(entry.substituteFor).toBe(ORIGIN_KEY)
+  })
+
   it('감각·보상작용을 원 종목에서 물려받지 않는다', () => {
     const withNotes: Session = {
       ...fresh,

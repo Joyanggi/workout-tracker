@@ -21,13 +21,13 @@ import { progressionSuggestions } from '../lib/progression'
 import { bannerWatches, compensationWatches } from '../lib/compensationWatch'
 import { buildScaleMap, formatProgression, isInverseKey } from '../lib/weightScale'
 import { useExerciseSettings } from '../lib/useExerciseSettings'
-import { buildSession } from '../lib/sessionFactory'
+import { buildSession, withJustFinished } from '../lib/sessionFactory'
 import { suggestNextDay } from '../lib/suggestNextDay'
 import { exerciseLabel, useRoutine } from '../lib/useRoutine'
 import { useSessionStore } from '../store/session'
 import { useSettings } from '../store/settings'
 import { BANNER_BACKUP, BANNER_COMPENSATION, BANNER_DELOAD, BANNER_PHASE, useUi } from '../store/ui'
-import { parseRecordKey, type Phase, type RoutineDay, type SessionMode } from '../types'
+import { parseRecordKey, type Phase, type RoutineDay, type Session, type SessionMode } from '../types'
 
 export default function HomeScreen({ onEnterSession }: { onEnterSession: () => void }) {
   const bundle = useRoutine()
@@ -90,7 +90,15 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
   const { suggestion, dots, volume, deload, phase0, progressions, phase, watches } = dash
   const done = completedSessions(sessions)
 
-  const create = (day: RoutineDay, forceMode?: SessionMode) => {
+  /**
+   * 새 세션을 만든다.
+   *
+   * `justFinished`는 **방금 마감한 세션**이다 (R4). `sessions`는 useLiveQuery의 값이라
+   * 마감 직후에는 아직 갱신되지 않았고, 그 낡은 목록으로 프리필을 만들면 방금 한 기록이
+   * 다음 세션에 반영되지 않는다 — "마감하고 새로 시작"에서 프리필이 한 세션 뒤처진다.
+   * id로 중복을 제거해 합류시킨다 (live query가 이미 갱신됐을 수도 있다).
+   */
+  const create = (day: RoutineDay, forceMode?: SessionMode, justFinished?: Session | null) => {
     // 복귀는 **공백 상태**이지 Day의 속성이 아니다. 바텀시트로 다른 Day를 골라도
     // 14일+ 공백이면 복귀 프로토콜을 적용해야 한다 (이전에는 제안 Day만 적용됐다).
     const isReturn = forceMode === undefined && Boolean(suggestion.returnStep) && applyReturn
@@ -99,7 +107,7 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
       routine,
       day,
       mode,
-      sessions,
+      sessions: withJustFinished(sessions, justFinished),
       phase: currentPhase,
       today,
       returnStep: isReturn ? suggestion.returnStep : undefined,
@@ -121,9 +129,10 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
   /** OpenSessionSheet에서 기존 세션을 정리한 뒤 대기 중이던 Day로 시작 */
   const startPending = async (resolve: 'finish' | 'discard') => {
     if (!pending) return
-    if (resolve === 'finish') await finishSession()
-    else await discardSession()
-    begin(create(pending.day, pending.forceMode))
+    // finish()가 반환하는 세션을 그대로 넘긴다 — live query 갱신을 기다리지 않는다
+    const finished = resolve === 'finish' ? await finishSession() : null
+    if (resolve === 'discard') await discardSession()
+    begin(create(pending.day, pending.forceMode, finished))
     setPending(null)
     onEnterSession()
   }
