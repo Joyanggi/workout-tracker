@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useState } from 'react'
 import TabBar, { type TabId } from './components/TabBar'
 import UpdatePrompt from './components/UpdatePrompt'
 import { ensureSeed, type SeedResult } from './db/seed'
+import { configureAudioSession } from './lib/beep'
 import { flushPendingSync, installSyncLifecycle } from './lib/gistSync'
 import { usePwaUpdate } from './lib/usePwaUpdate'
 import { useRoutine } from './lib/useRoutine'
@@ -43,6 +44,12 @@ export default function App() {
       try {
         // Safari 탭 사용 기간의 추가 방어층 (§11 ITP 삭제). 거부돼도 무해하므로 무시한다
         void navigator.storage?.persist?.().catch(() => undefined)
+
+        /*
+         * 오디오 세션을 ambient로 (G8). **AudioContext를 만들기 전에** 지정해야
+         * iOS가 이 앱을 재생 앱으로 잡아 다른 앱 음악을 끊는 것을 막는다.
+         */
+        configureAudioSession()
 
         const result = await ensureSeed()
         setSeed(result)

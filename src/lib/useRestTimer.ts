@@ -1,8 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { beep, resumeAudio, vibrate } from './beep'
+import { chime, resumeAudio, tick, vibrate } from './beep'
 
 const STORAGE_KEY = 'workout-tracker.restTimer'
 const TICK_MS = 250
+
+/** 이 초부터 카운트다운 틱을 울린다 (G1) */
+export const COUNTDOWN_FROM_SEC = 3
+
+/**
+ * 지금 울려야 하는 카운트다운 초. 아니면 null.
+ *
+ * **남은 시간에서 파생시킨다** — 카운터를 누적하면 화면이 잠긴 동안 밀린 틱이
+ * 복귀 순간 몰아서 울린다 (타이머 자체를 endTime 기준으로 만든 것과 같은 이유).
+ */
+export function countdownSecond(remainingMs: number): number | null {
+  if (remainingMs <= 0) return null
+  const sec = Math.ceil(remainingMs / 1000)
+  return sec <= COUNTDOWN_FROM_SEC ? sec : null
+}
 
 export interface Persisted {
   endTime: number
@@ -72,6 +87,8 @@ export function useRestTimer(): RestTimer {
   const [now, setNow] = useState(() => Date.now())
   /** 이 endTime에 대해 알림을 이미 울렸는가 (중복 방지) */
   const notified = useRef<number | null>(null)
+  /** 이 endTime에서 이미 울린 카운트다운 초 (중복·소급 방지) */
+  const ticked = useRef<{ endTime: number; fired: Set<number> }>({ endTime: 0, fired: new Set() })
 
   // state → localStorage 단방향 미러링. 쓰기가 한 곳이라 중복·역전이 없다
   useEffect(() => {
@@ -100,13 +117,32 @@ export function useRestTimer(): RestTimer {
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [])
 
+  /*
+   * 카운트다운 틱 (G1). 3·2·1초에 각 1회.
+   *
+   * **현재 초 하나만 울린다** — 화면이 꺼져 있다가 남은 1초에 복귀하면 3·2를
+   * 소급해서 울리지 않는다 (계획서 수용 기준: "틱이 몰아서 울리지 않는다").
+   */
+  useEffect(() => {
+    if (!state) return
+    const sec = countdownSecond(remainingMs)
+    if (sec === null) return
+    if (document.visibilityState !== 'visible') return
+    if (ticked.current.endTime !== state.endTime) {
+      ticked.current = { endTime: state.endTime, fired: new Set() }
+    }
+    if (ticked.current.fired.has(sec)) return
+    ticked.current.fired.add(sec)
+    tick()
+  }, [state, remainingMs])
+
   // 0 도달 알림. 화면이 켜져 있을 때만 (§5.2)
   useEffect(() => {
     if (!state || remainingMs > 0) return
     if (notified.current === state.endTime) return
     notified.current = state.endTime
     if (document.visibilityState === 'visible') {
-      beep()
+      chime()
       vibrate()
     }
   }, [state, remainingMs])
