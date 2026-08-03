@@ -194,6 +194,20 @@ export function planStreak(days: DietDay[], planId: string, today: string): numb
   return streak
 }
 
+/**
+ * 아직 기록하지 않은 첫 슬롯 (D5 홈 칩).
+ *
+ * 시간순으로 첫 미기록 슬롯을 준다 — "지금 뭘 먹어야 하나"에 답하는 것이 목적이므로
+ * 이미 기록한 슬롯을 건너뛴다. 전부 기록했으면 null (칩을 숨긴다).
+ */
+export function nextUnloggedSlot(
+  plan: DietPlan,
+  day: DietDay | undefined,
+  isTrainingDay: boolean,
+): DietSlot | null {
+  return slotsFor(plan, isTrainingDay).find((s) => day?.slots[s.id] === undefined) ?? null
+}
+
 // ─── 월 집계 (D3 캘린더 링 · 월 요약) ────────────────────
 
 /**

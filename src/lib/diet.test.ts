@@ -5,6 +5,7 @@ import {
   MIN_SLOTS_FOR_VERDICT,
   formatPlanLabel,
   dietMonthStats,
+  nextUnloggedSlot,
   planStreak,
   planTotals,
   slotScore,
@@ -319,5 +320,37 @@ describe('dietMonthStats', () => {
     const stats = dietMonthStats([orphan], BUNDLED_DIET_PLANS, '2026-08-04')
     expect(stats.byDate.get('2026-08-04')).toBe('unlogged')
     expect(stats.logged).toBe(0)
+  })
+})
+
+// ─── 홈 칩 (D5) ──────────────────────────────────────────
+
+describe('nextUnloggedSlot', () => {
+  it('시간순 첫 미기록 슬롯을 준다', () => {
+    const partial = day({ breakfast: { checkedItemIds: [] } })
+    expect(nextUnloggedSlot(PLAN, partial, true)?.id).toBe('lunch')
+  })
+
+  it('기록이 없으면 첫 슬롯', () => {
+    expect(nextUnloggedSlot(PLAN, undefined, true)?.id).toBe('breakfast')
+  })
+
+  it('전부 기록했으면 null (칩이 판정 마크로 바뀐다)', () => {
+    const all = Object.fromEntries(
+      PLAN.slots.map((s) => [s.id, { checkedItemIds: [] }]),
+    ) as Record<string, SlotRecord>
+    expect(nextUnloggedSlot(PLAN, day(all), true)).toBeNull()
+  })
+
+  it('휴식일이면 휴식일 슬롯에서 찾는다', () => {
+    const rest = day({ breakfast: { checkedItemIds: [] } }, { isTrainingDay: false })
+    const next = nextUnloggedSlot(PLAN, rest, false)
+    expect(PLAN.restDaySlots.some((s) => s.id === next?.id)).toBe(true)
+    expect(next?.id).not.toBe('pre')
+  })
+
+  it('건너뛴 슬롯도 "기록됨"이다 (안 먹은 것도 결정이다)', () => {
+    const skipped = day({ breakfast: { checkedItemIds: [], skipped: true } })
+    expect(nextUnloggedSlot(PLAN, skipped, true)?.id).toBe('lunch')
   })
 })

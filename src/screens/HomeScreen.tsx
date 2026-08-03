@@ -16,6 +16,8 @@ import { todayLocal } from '../lib/dates'
 import { phaseReadiness } from '../lib/phaseReadiness'
 import { backupReminder, isGistConfigured } from '../lib/gistSync'
 import { completedSessions, findDay } from '../lib/derive'
+import { ADHERENCE_MARK, nextUnloggedSlot, summarizeDietDay } from '../lib/diet'
+import { findPlan, useDiet } from '../lib/useDiet'
 import { storageAtRisk } from '../lib/platform'
 import { progressionSuggestions } from '../lib/progression'
 import { bannerWatches, compensationWatches } from '../lib/compensationWatch'
@@ -29,7 +31,14 @@ import { useSettings } from '../store/settings'
 import { BANNER_BACKUP, BANNER_COMPENSATION, BANNER_DELOAD, BANNER_PHASE, useUi } from '../store/ui'
 import { parseRecordKey, type Phase, type RoutineDay, type Session, type SessionMode } from '../types'
 
-export default function HomeScreen({ onEnterSession }: { onEnterSession: () => void }) {
+export default function HomeScreen({
+  onEnterSession,
+  onOpenDiet,
+}: {
+  onEnterSession: () => void
+  /** 식단 탭으로 이동 (D5 칩) */
+  onOpenDiet: () => void
+}) {
   const bundle = useRoutine()
   const currentPhase = useSettings((s) => s.currentPhase)
   const setPhase = useSettings((s) => s.setPhase)
@@ -52,6 +61,24 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
   )
 
   const today = todayLocal()
+
+  /*
+   * 식단 한 줄 칩 (D5).
+   *
+   * **새 카드로 만들지 않았다.** 홈은 배너 없이도 이미 뷰포트 1.7배(1,382px)이고,
+   * 계획서가 "홈 과밀이면 뺀다"고 했다. 대신 탭하면 식단 탭으로 가는 40px 한 줄만 둔다 —
+   * 정보를 복제하는 것이 아니라 "지금 뭘 먹어야 하나"의 진입점 역할이다.
+   */
+  const diet = useDiet()
+  const dietChip = useMemo(() => {
+    const stored = diet.days.find((d) => d.date === today)
+    const plan = findPlan(diet.plans, stored?.planId ?? diet.defaultPlanId)
+    if (!plan) return null
+    const trained = completedSessions(sessions).some((s) => s.date === today)
+    const isTrainingDay = trained || (stored?.isTrainingDay ?? false)
+    const summary = summarizeDietDay(plan, stored)
+    return { next: nextUnloggedSlot(plan, stored, isTrainingDay), summary }
+  }, [diet.days, diet.plans, diet.defaultPlanId, sessions, today])
 
   const dash = useMemo(() => {
     if (!bundle) return undefined
@@ -299,6 +326,24 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
             <span style={{ color: 'var(--warn)' }}>나중에</span>
           </button>
         </div>
+      )}
+
+      {dietChip && (
+        <button className="diet-chip" onClick={onOpenDiet}>
+          <span>
+            {/*
+              전부 기록한 날에 "완료"라고 쓰면 안 된다 — 모든 끼니를 치팅으로 기록한 날도
+              "완료"가 되어 성공처럼 읽힌다 (실측에서 단백질 0g인데 "기록 완료"가 떴다).
+              기록을 다 했으면 **판정 마크**를 보여준다.
+            */}
+            {dietChip.next
+              ? `다음 식단 ${dietChip.next.name} ${dietChip.next.timeHint}`
+              : `오늘 식단 ${ADHERENCE_MARK[dietChip.summary.adherence]}`}
+          </span>
+          <span className="diet-chip-value">
+            단백질 {dietChip.summary.proteinG}/{dietChip.summary.targetProteinG}g ▸
+          </span>
+        </button>
       )}
 
       <button className="card today-card today-card-btn" onClick={() => setPicking(true)}>

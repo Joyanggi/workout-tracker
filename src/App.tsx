@@ -115,7 +115,9 @@ export default function App() {
   return (
     <div className="app">
       {banner}
-      {tab === 'home' && <HomeScreen onEnterSession={() => setView('session')} />}
+      {tab === 'home' && (
+        <HomeScreen onEnterSession={() => setView('session')} onOpenDiet={() => setTab('diet')} />
+      )}
       {tab === 'diet' && <DietScreen />}
       {tab === 'history' &&
         (bundle ? <HistoryScreen bundle={bundle} /> : <p className="center-note">불러오는 중…</p>)}
