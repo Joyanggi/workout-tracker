@@ -12,7 +12,7 @@ import { compensationSummary, hasCompensation } from '../lib/compensation'
 import { doneSetsAll } from '../lib/derive'
 import type { RecordPrefill } from '../lib/prefill'
 import type { RecordKey, RoutineExercise, SessionEntry, SetRecord } from '../types'
-import { NO_AUTOFILL } from '../lib/inputProps'
+import { AUTOFILL_UNKNOWN_TOKEN, NO_AUTOFILL } from '../lib/inputProps'
 
 /** 감각 점수 라벨 (루틴 문서: 목표 부위에 자극이 왔는지) */
 const SENSORY_LABELS: Record<0 | 1 | 2 | 3, string> = {
@@ -246,6 +246,12 @@ export default function ExerciseCard({
             <div className="setup-edit">
               <input
                 {...NO_AUTOFILL}
+                /*
+                  W1 1차 실험 — 이 필드만 연락처 제안이 남는다는 보고가 있었다.
+                  spread 뒤에 두어 `autoComplete`만 덮는다 (JSX는 뒤에 온 prop이 이긴다).
+                  다른 필드는 그대로 두어 **변수를 하나만** 바꾼다.
+                */
+                autoComplete={AUTOFILL_UNKNOWN_TOKEN}
                 className="field"
                 value={setupNote ?? ''}
                 onChange={(e) => setSetupNote(e.target.value)}

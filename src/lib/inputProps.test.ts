@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { NO_AUTOFILL } from './inputProps'
+import { AUTOFILL_UNKNOWN_TOKEN, NO_AUTOFILL } from './inputProps'
 
 /**
  * 모든 텍스트 입력에 자동완성 억제가 적용돼 있는지 (G5).
@@ -60,5 +60,38 @@ describe('자동완성 억제 전수 적용', () => {
       autoCapitalize: 'off',
       spellCheck: false,
     })
+  })
+})
+
+/**
+ * W1 1차 실험의 **범위**를 고정한다.
+ *
+ * 조사 결과 머신 세팅 메모는 이미 `NO_AUTOFILL`을 받고 있었다 — 속성 누락이 아니다.
+ * 그래서 남은 변수는 `autocomplete` 값 자체이고, 비표준 토큰으로 우회를 시도한다.
+ *
+ * 이 테스트가 지키는 것은 "고쳤다"가 아니라 **"한 곳만 바꿨다"**다.
+ * 여러 곳에 동시에 넣으면 실기기에서 효과가 있어도 무엇이 들었는지 알 수 없다.
+ */
+describe('W1 1차 실험 — 한 필드만 다르게 둔다', () => {
+  const overrides = files.flatMap((f) =>
+    (sources[f].match(/autoComplete=\{AUTOFILL_UNKNOWN_TOKEN\}/g) ?? []).map(() => f),
+  )
+
+  it('덮어쓴 필드가 정확히 하나다', () => {
+    expect(overrides).toEqual(['/src/components/ExerciseCard.tsx'])
+  })
+
+  it('비표준 토큰이다 — 표준 값이면 iOS가 필드 종류를 추론한다', () => {
+    const STANDARD = ['off', 'on', 'name', 'username', 'email', 'tel', 'new-password']
+    expect(STANDARD).not.toContain(AUTOFILL_UNKNOWN_TOKEN)
+  })
+
+  it('spread를 대체하지 않고 뒤에서 덮는다 (개수 불변식 유지)', () => {
+    const src = sources['/src/components/ExerciseCard.tsx']
+    const spreadAt = src.indexOf('{...NO_AUTOFILL}')
+    const overrideAt = src.indexOf('autoComplete={AUTOFILL_UNKNOWN_TOKEN}')
+    expect(spreadAt).toBeGreaterThan(-1)
+    // JSX는 뒤에 온 prop이 이긴다 — 순서가 뒤바뀌면 실험이 무효다
+    expect(overrideAt).toBeGreaterThan(spreadAt)
   })
 })
