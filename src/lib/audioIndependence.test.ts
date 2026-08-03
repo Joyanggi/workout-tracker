@@ -35,8 +35,16 @@ const emitters = appFiles.filter(([, src]) =>
 
 describe('소리 경로의 설정 독립성 (W2)', () => {
   it('스캔이 실제로 소리 파일을 찾는다 (정규식이 깨지면 항상 통과한다)', () => {
-    // useRestTimer(틱·차임) · TempoGuideSheet(카운트인·페이즈 톤)
+    /*
+     * 목록을 열어 두지 않고 못 박는 이유: 소리를 내는 곳이 늘어나면 그 파일도
+     * 아래 "설정을 읽지 않는다" 검사를 받아야 한다. 새 파일이 조용히 추가되면
+     * 검사 대상에서 빠진 채로 통과한다.
+     *   useRestTimer — 틱·차임
+     *   TempoGuideSheet — 카운트인·페이즈 톤·마지막 큐
+     *   AudioDiagnosticsPanel — 진단용 수동 재생 (실기기 조사 도구)
+     */
     expect(emitters.map(([p]) => p).sort()).toEqual([
+      '/src/components/AudioDiagnosticsPanel.tsx',
       '/src/components/TempoGuideSheet.tsx',
       '/src/lib/useRestTimer.ts',
     ])

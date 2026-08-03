@@ -141,8 +141,20 @@ export function tempoPositionAt(elapsedMs: number, phases: TempoPhase[]): TempoP
  * 확정적이어야 한다.
  */
 export interface TempoRepState {
-  /** 완료한 반복 수. `repMax`를 넘겨 세지 않는다 */
+  /** **완료한** 반복 수. 기록에 들어가는 값이다 (`repMax`를 넘겨 세지 않는다) */
   reps: number
+  /**
+   * **지금 하고 있는** 회차 (1부터). 화면에 보여주는 값이다.
+   *
+   * 완료 수와 진행 회차를 나눈 이유 (실사용 피드백): 화면에 완료 수만 보여주니
+   * 10회짜리에서 마지막에 보이는 숫자가 **9**였다 — 10번째를 하는 동안 "9"가 떠 있고,
+   * 10회가 완료되는 순간 자동 종료되어 시트가 닫히므로 10은 한 번도 보이지 않는다.
+   * 사용자는 "최대횟수 −1만큼만 뜬다"고 느낀다 (기록되는 값은 10으로 정확했다).
+   *
+   * 그래서 화면은 진행 회차(1부터)를, 기록과 종료 라벨은 완료 수를 쓴다.
+   * 라벨을 "N회째"로 두어 "약 N회로 기록"과 구분한다 — 3회째를 하는 중이면 2회 완료다.
+   */
+  currentRep: number
   /** 지금 도는 사이클이 마지막이다 — 갑자기 끊기지 않게 미리 알린다 */
   lastCycle: boolean
   /** 상단에 도달했다 — 자동 종료 신호 */
@@ -152,11 +164,13 @@ export interface TempoRepState {
 export function tempoRepState(pos: TempoPosition, repMax: number): TempoRepState {
   // 카운트인 중에는 아직 한 회도 시작하지 않았다
   if (pos.countIn !== null || repMax <= 0) {
-    return { reps: 0, lastCycle: false, complete: false }
+    return { reps: 0, currentRep: 0, lastCycle: false, complete: false }
   }
   const complete = pos.reps >= repMax
   return {
     reps: Math.min(pos.reps, repMax),
+    // 진행 중인 회차는 완료 수 + 1이고, 상단을 넘지 않는다
+    currentRep: Math.min(pos.reps + 1, repMax),
     // 상단 직전 사이클 — 도달한 뒤에는 "마지막"이 아니라 "끝"이다
     lastCycle: !complete && pos.reps === repMax - 1,
     complete,

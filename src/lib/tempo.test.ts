@@ -174,8 +174,8 @@ describe('W3 — 상단 반복수 판정', () => {
   const state = (sec: number, repMax = 10) => tempoRepState(at(sec), repMax)
 
   it('카운트인 중에는 아직 한 회도 아니다', () => {
-    expect(state(0)).toEqual({ reps: 0, lastCycle: false, complete: false })
-    expect(state(2.9)).toEqual({ reps: 0, lastCycle: false, complete: false })
+    expect(state(0)).toEqual({ reps: 0, currentRep: 0, lastCycle: false, complete: false })
+    expect(state(2.9)).toEqual({ reps: 0, currentRep: 0, lastCycle: false, complete: false })
   })
 
   it('사이클이 끝날 때마다 한 회씩 는다', () => {
@@ -210,8 +210,8 @@ describe('W3 — 상단 반복수 판정', () => {
   })
 
   it('repMax가 0 이하면 자동 종료를 하지 않는다 (시드 이상값 방어)', () => {
-    expect(state(COUNT_IN_SEC + 60, 0)).toEqual({ reps: 0, lastCycle: false, complete: false })
-    expect(state(COUNT_IN_SEC + 60, -1)).toEqual({ reps: 0, lastCycle: false, complete: false })
+    expect(state(COUNT_IN_SEC + 60, 0)).toEqual({ reps: 0, currentRep: 0, lastCycle: false, complete: false })
+    expect(state(COUNT_IN_SEC + 60, -1)).toEqual({ reps: 0, currentRep: 0, lastCycle: false, complete: false })
   })
 
   it('lastCycle과 complete는 동시에 참이 될 수 없다', () => {
@@ -285,5 +285,59 @@ describe('가이드 종료 라벨의 신뢰도 표시 (V1)', () => {
   it('자동 종료가 프레임마다 재발화하지 않도록 ref로 막는다', () => {
     // 80ms마다 다시 부르면 세트 체크가 토글되어 방금 시작한 휴식 타이머가 꺼진다
     expect(sheet()).toMatch(/fired\.current\.complete/)
+  })
+})
+
+// ─── 실사용 피드백: "최대횟수 −1만큼만 뜬다" ─────────────────────────────
+// 기록되는 값은 정확했다 (10회짜리에 10이 들어갔다). 화면이 **완료 수**를 보여준 탓에
+// 10번째를 하는 동안 "9"가 떠 있고, 10이 완료되는 순간 자동 종료로 시트가 닫혀
+// 10은 한 번도 보이지 않았다. 그래서 화면용 진행 회차를 따로 뒀다.
+
+describe('진행 회차 표시 (완료 수와 분리)', () => {
+  const B = TEMPO.B
+  const state = (sec: number, repMax = 10) => tempoRepState(tempoPositionAt(sec * 1000, B), repMax)
+  const cycle = cycleSeconds(B)
+
+  it('첫 사이클을 도는 동안 "1회째"다 (완료 수는 0)', () => {
+    const s = state(COUNT_IN_SEC + 0.1)
+    expect(s.currentRep).toBe(1)
+    expect(s.reps).toBe(0)
+  })
+
+  it('마지막 사이클을 도는 동안 화면이 상단 값에 닿는다', () => {
+    // 이것이 피드백의 핵심 — 예전에는 여기서 9가 떠 있었다
+    const s = state(COUNT_IN_SEC + cycle * 9 + 0.1, 10)
+    expect(s.currentRep).toBe(10)
+    expect(s.lastCycle).toBe(true)
+    expect(s.reps).toBe(9) // 기록·종료 라벨은 여전히 완료 수를 쓴다
+  })
+
+  it('진행 회차는 상단을 넘지 않는다', () => {
+    for (const sec of [cycle * 10, cycle * 15, cycle * 40]) {
+      expect(state(COUNT_IN_SEC + sec, 10).currentRep).toBe(10)
+    }
+  })
+
+  it('카운트인 중에는 0이다 (아직 시작하지 않았다)', () => {
+    expect(state(0).currentRep).toBe(0)
+    expect(state(COUNT_IN_SEC - 0.1).currentRep).toBe(0)
+  })
+
+  it('진행 회차 = 완료 수 + 1 (상단에서만 같아진다)', () => {
+    for (let ms = COUNT_IN_SEC * 1000; ms < 70_000; ms += 250) {
+      const s = tempoRepState(tempoPositionAt(ms, B), 10)
+      expect(s.currentRep).toBe(s.complete ? 10 : s.reps + 1)
+    }
+  })
+
+  it('모든 그룹·상단값에서 화면이 상단에 닿는 순간이 존재한다', () => {
+    for (const phases of Object.values(TEMPO)) {
+      for (const repMax of [6, 10, 20]) {
+        const c = cycleSeconds(phases)
+        const s = tempoRepState(tempoPositionAt((COUNT_IN_SEC + c * (repMax - 1) + 0.1) * 1000, phases), repMax)
+        expect(s.currentRep).toBe(repMax)
+        expect(s.complete).toBe(false) // 아직 도는 중 — 보여줄 시간이 한 사이클 있다
+      }
+    }
   })
 })

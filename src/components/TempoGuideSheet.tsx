@@ -161,7 +161,7 @@ export default function TempoGuideSheet({
           템포 가이드 · {exerciseName} {setNumber}세트
         </div>
         <div className={`tempo-progress${rep.lastCycle ? ' tempo-progress-last' : ''}`}>
-          {rep.reps} / 최대 {routineExercise.repMax}회{rep.lastCycle && ' · 마지막'}
+          {rep.currentRep} / 최대 {routineExercise.repMax}회{rep.lastCycle && ' · 마지막'}
         </div>
 
         <div className="tempo-stage">
@@ -178,7 +178,11 @@ export default function TempoGuideSheet({
             ) : (
               <>
                 <span className="tempo-phase">{pos.phase ? PHASE_LABEL[pos.phase.kind] : ''}</span>
-                <span className="tempo-reps">{rep.reps}회</span>
+                {/*
+                  진행 회차를 보여준다 (완료 수가 아니다) — 완료 수만 보여주면 10회짜리에서
+                  마지막에 보이는 숫자가 9다. "회째"로 적어 종료 라벨의 "약 N회"와 구분한다.
+                */}
+                <span className="tempo-reps">{rep.currentRep}회째</span>
               </>
             )}
           </div>

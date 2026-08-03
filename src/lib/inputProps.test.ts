@@ -26,9 +26,20 @@ const sources = import.meta.glob('/src/**/*.tsx', {
 
 const files = Object.keys(sources).sort()
 
+/**
+ * 실험대는 이 불변식의 **의도적 예외**다 (W1).
+ *
+ * `AutofillLab`은 처방마다 다른 속성 조합을 주는 것이 목적이고, 특히 **대조군(F)** 은
+ * 억제 속성을 하나도 주지 않아야 한다 — F에서만 제안이 뜨는지가 "현행 억제가 일하고
+ * 있는가"를 가르는 유일한 관측이다. spread를 강제하면 그 관측이 불가능해진다.
+ *
+ * 목록에 두는 이유: 예외를 조용히 두면 다음에 진짜 누락이 이 파일에 생겨도 안 걸린다.
+ */
+const AUTOFILL_LAB = '/src/components/AutofillLab.tsx'
+
 describe('자동완성 억제 전수 적용', () => {
   it('input·textarea 개수와 NO_AUTOFILL spread 개수가 같다', () => {
-    const counts = files.map((f) => {
+    const counts = files.filter((f) => f !== AUTOFILL_LAB).map((f) => {
       const src = sources[f]
       return {
         file: f,
@@ -46,6 +57,12 @@ describe('자동완성 억제 전수 적용', () => {
 
     // 스캔 자체가 헛돌지 않는지 (입력이 하나도 안 잡히면 정규식이 깨진 것)
     expect(counts.reduce((n, c) => n + c.fields, 0)).toBeGreaterThan(10)
+  })
+
+  it('실험대는 예외 목록에 있고 실제로 존재한다 (경로 오타로 검사가 헛돌지 않게)', () => {
+    expect(files, `${AUTOFILL_LAB}가 없습니다`).toContain(AUTOFILL_LAB)
+    // 실험대에는 대조군이 있어야 한다 — 없으면 예외를 둘 이유도 없다
+    expect(sources[AUTOFILL_LAB]).toMatch(/대조군/)
   })
 
   it('name 속성을 쓰지 않는다 — iOS가 그 이름으로 필드 종류를 추측한다', () => {
