@@ -4,6 +4,7 @@ import {
   LOW_KCAL_STREAK_WARN,
   MIN_SLOTS_FOR_VERDICT,
   formatPlanLabel,
+  dietMonthStats,
   planStreak,
   planTotals,
   slotScore,
@@ -264,5 +265,59 @@ describe('planStreak', () => {
 
   it('오늘 기록이 없으면 0', () => {
     expect(planStreak([mk('2026-08-03', LOW.id)], LOW.id, '2026-08-04')).toBe(0)
+  })
+})
+
+// ─── 월 집계 (D3) ────────────────────────────────────────
+
+describe('dietMonthStats', () => {
+  const mk = (date: string, planId: string, full: boolean): DietDay => ({
+    date,
+    planId,
+    isTrainingDay: true,
+    slots: full
+      ? (Object.fromEntries(
+          PLAN.slots.map((s) => [s.id, { checkedItemIds: s.items.map((i) => i.id) }]),
+        ) as Record<string, SlotRecord>)
+      : (Object.fromEntries(
+          PLAN.slots.map((s) => [
+            s.id,
+            { checkedItemIds: [], substitution: { text: 'x', quality: 'cheat' as const } },
+          ]),
+        ) as Record<string, SlotRecord>),
+  })
+
+  it('그 달 기록만 세고 등급별로 나눈다', () => {
+    const days = [
+      mk('2026-08-01', PLAN.id, true),
+      mk('2026-08-02', PLAN.id, false),
+      mk('2026-07-31', PLAN.id, true), // 다른 달 — 제외
+    ]
+    const stats = dietMonthStats(days, BUNDLED_DIET_PLANS, '2026-08-15')
+    expect(stats.logged).toBe(2)
+    expect(stats.good).toBe(1)
+    expect(stats.byDate.get('2026-08-01')).toBe('good')
+    expect(stats.byDate.get('2026-08-02')).toBe('poor')
+    expect(stats.byDate.has('2026-07-31')).toBe(false)
+  })
+
+  it('판정 불가한 날은 logged에 넣지 않는다 (링을 그리지 않는 근거)', () => {
+    const sparse: DietDay = {
+      date: '2026-08-03',
+      planId: PLAN.id,
+      isTrainingDay: true,
+      slots: { breakfast: { checkedItemIds: [] } },
+    }
+    const stats = dietMonthStats([sparse], BUNDLED_DIET_PLANS, '2026-08-03')
+    expect(stats.logged).toBe(0)
+    expect(stats.byDate.get('2026-08-03')).toBe('unlogged')
+  })
+
+  it('플랜이 사라진 과거 기록도 화면을 깨뜨리지 않는다', () => {
+    // 플랜 JSON을 교체해 id가 없어질 수 있다 — 운동 쪽 "루틴에 없음"과 같은 내구성
+    const orphan = mk('2026-08-04', 'deleted-plan', true)
+    const stats = dietMonthStats([orphan], BUNDLED_DIET_PLANS, '2026-08-04')
+    expect(stats.byDate.get('2026-08-04')).toBe('unlogged')
+    expect(stats.logged).toBe(0)
   })
 })

@@ -1610,3 +1610,11 @@ textarea.field {
   margin-top: 8px;
   color: var(--warn);
 }
+
+/*
+  달력 셀의 식단 준수 링 (D3). 불꽃(운동)과 겹쳐 보여주므로 테두리만 쓴다 —
+  배경을 칠하면 세션 유무 표시와 충돌한다. 미기록은 링을 그리지 않는다.
+*/
+.cal-cell-diet-good { box-shadow: inset 0 0 0 2px var(--ok); }
+.cal-cell-diet-mid { box-shadow: inset 0 0 0 2px var(--accent); }
+.cal-cell-diet-poor { box-shadow: inset 0 0 0 2px var(--warn); }

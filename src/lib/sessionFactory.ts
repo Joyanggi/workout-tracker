@@ -9,6 +9,7 @@ import type {
 } from '../types'
 import { NO_COMPENSATION, makeRecordKey, recordDayIdOf } from '../types'
 import { buildPrefill, defaultSetFor, type RecordPrefill } from './prefill'
+import type { WeightScaleMap } from './weightScale'
 
 /** 머신 무게는 2.5kg 단위가 많지만 조절 결과가 애매하게 떨어지므로 0.5kg 단위로 맞춘다 */
 export function roundToHalf(kg: number): number {
@@ -50,6 +51,12 @@ export function buildSession(args: {
   returnStep?: ReturnProtocolStep
   /** 표시 무게가 클수록 쉬운 종목 (T8 어시스티드) — 프리필 기준 기록 비교 방향이 반대다 */
   isInverse?: (recordKey: string) => boolean
+  /**
+   * 종목별 무게 단위 (T9). **없으면 증량 프리필이 루틴 전역값을 쓴다** —
+   * 5kg 머신에서 세션 화면 칩은 "40 → 45kg"인데 실제 세트에는 42.5가 들어가
+   * 같은 화면이 서로 다른 말을 한다 (F6).
+   */
+  scales?: WeightScaleMap
 }): BuiltSession {
   const { routine, day, mode, sessions, phase, today, now = new Date(), returnStep } = args
 
@@ -68,6 +75,7 @@ export function buildSession(args: {
         recordKey,
         routineExercise,
         phase,
+        scales: args.scales,
         inverse: args.isInverse?.(recordKey) ?? false,
       })
       prefills.set(recordKey, prefill)

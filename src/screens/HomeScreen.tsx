@@ -112,6 +112,8 @@ export default function HomeScreen({ onEnterSession }: { onEnterSession: () => v
       today,
       returnStep: isReturn ? suggestion.returnStep : undefined,
       isInverse: (rk) => isInverseKey(catalog, rk),
+      // 없으면 프리필이 전역 2.5를 써서 칩과 실제 세트 무게가 어긋난다 (F6)
+      scales: buildScaleMap(exerciseSettings, routine.rules.weightIncrementKg),
     }).session
   }
 

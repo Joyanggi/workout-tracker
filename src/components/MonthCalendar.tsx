@@ -1,4 +1,5 @@
 import { monthLabel, parseDateStr, todayLocal } from '../lib/dates'
+import type { Adherence } from '../lib/diet'
 import type { CalendarCell } from '../lib/history'
 
 const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일']
@@ -6,6 +7,10 @@ const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일']
 /**
  * 월 달력 (DESIGN.md §5.3). 세션 있는 날 불꽃, 탭하면 상세.
  * 주 시작은 월요일 — 주간 집계(§7)와 같은 기준이어야 도트/카운트가 일관된다.
+ *
+ * 식단은 **테두리 링 색**으로 겹쳐 보여준다 (D3). 전용 달력을 만들지 않는 이유:
+ * "그날 운동과 식단이 어땠나"를 한 화면에서 봐야 상관을 읽을 수 있다.
+ * 미기록은 링을 그리지 않는다 — 링이 없는 것과 빨간 링은 다른 정보다.
  */
 export default function MonthCalendar({
   cells,
@@ -14,6 +19,7 @@ export default function MonthCalendar({
   onNext,
   onPickDate,
   selectedDate,
+  adherenceByDate,
 }: {
   cells: CalendarCell[]
   month: string
@@ -21,6 +27,8 @@ export default function MonthCalendar({
   onNext: () => void
   onPickDate: (date: string) => void
   selectedDate: string | null
+  /** 날짜 → 식단 준수 등급 (D3). 없으면 링을 그리지 않는다 */
+  adherenceByDate?: Map<string, Adherence>
 }) {
   const today = todayLocal()
 
@@ -48,6 +56,8 @@ export default function MonthCalendar({
         {cells.map((cell) => {
           const hasSession = cell.sessions.length > 0
           const dayNum = parseDateStr(cell.date).getDate()
+          const diet = adherenceByDate?.get(cell.date)
+          const hasDiet = diet !== undefined && diet !== 'unlogged'
           return (
             <button
               key={cell.date}
@@ -55,13 +65,15 @@ export default function MonthCalendar({
                 'cal-cell',
                 cell.inMonth ? '' : 'cal-cell-out',
                 hasSession ? 'cal-cell-done' : '',
+                hasDiet ? `cal-cell-diet-${diet}` : '',
                 cell.date === today ? 'cal-cell-today' : '',
                 cell.date === selectedDate ? 'cal-cell-selected' : '',
               ]
                 .filter(Boolean)
                 .join(' ')}
               onClick={() => onPickDate(cell.date)}
-              disabled={!hasSession && !cell.inMonth}
+              // 식단만 있는 날도 열려야 한다 (기록 보정 경로, D3)
+              disabled={!hasSession && !hasDiet && !cell.inMonth}
             >
               <span className="cal-num">{dayNum}</span>
               {hasSession && (

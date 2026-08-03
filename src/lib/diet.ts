@@ -1,5 +1,5 @@
 import type { DietDay, DietPlan, DietSlot, SlotRecord } from '../types'
-import { addDays } from './dates'
+import { addDays, isSameMonth } from './dates'
 
 /**
  * 식단 파생 계산 (D1·D3). **저장하지 않는다** — 기록을 나중에 고쳐도 모든 지표가
@@ -192,4 +192,47 @@ export function planStreak(days: DietDay[], planId: string, today: string): numb
     cursor = addDays(cursor, -1)
   }
   return streak
+}
+
+// ─── 월 집계 (D3 캘린더 링 · 월 요약) ────────────────────
+
+/**
+ * 날짜별 준수 등급.
+ *
+ * 플랜을 찾지 못하면 `unlogged`로 둔다 — 플랜 JSON을 교체해 id가 사라져도 과거 기록이
+ * 화면을 깨뜨리지 않아야 한다 (운동 쪽 "루틴에 없음" 처리와 같은 사상).
+ */
+export function adherenceByDate(days: DietDay[], plans: DietPlan[]): Map<string, Adherence> {
+  const byId = new Map(plans.map((p) => [p.id, p]))
+  const out = new Map<string, Adherence>()
+  for (const day of days) {
+    const plan = byId.get(day.planId)
+    out.set(day.date, plan ? summarizeDietDay(plan, day).adherence : 'unlogged')
+  }
+  return out
+}
+
+export interface DietMonthStats {
+  byDate: Map<string, Adherence>
+  /** 판정 가능한 날 수 (미기록 제외) */
+  logged: number
+  /** ● 인 날 수 */
+  good: number
+}
+
+export function dietMonthStats(
+  days: DietDay[],
+  plans: DietPlan[],
+  anyDateInMonth: string,
+): DietMonthStats {
+  const inMonth = days.filter((d) => isSameMonth(d.date, anyDateInMonth))
+  const byDate = adherenceByDate(inMonth, plans)
+  let logged = 0
+  let good = 0
+  for (const grade of byDate.values()) {
+    if (grade === 'unlogged') continue
+    logged += 1
+    if (grade === 'good') good += 1
+  }
+  return { byDate, logged, good }
 }

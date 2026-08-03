@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildSession, withJustFinished } from './sessionFactory'
+import { buildScaleMap } from './weightScale'
 import { ROUTINE, completedSession } from './testFixtures'
 import { findDay } from './derive'
 import { makeRecordKey } from '../types'
@@ -63,5 +64,42 @@ describe('마감 직후 시작한 세션의 프리필', () => {
   it('병합하지 않으면 한 세션 뒤처진다 (수정의 근거)', () => {
     // 낡은 목록만 쓰면 47.5kg를 방금 했는데도 40kg로 프리필된다
     expect(weightOf([older])).toBe(40)
+  })
+})
+
+/**
+ * F6 — 세션 생성 시 종목별 무게 단위(T9)가 프리필에 반영되지 않았다.
+ *
+ * 세션 화면의 증량 칩은 scales를 넘겨 계산하는데(SessionScreen) 실제 세트 무게를 만드는
+ * buildSession은 안 넘겼다. 5kg 머신에서 칩은 "40 → 45kg", 세트는 42.5 —
+ * **같은 화면이 서로 다른 말을 한다.**
+ */
+describe('F6 종목별 무게 단위가 세션 생성에 반영된다', () => {
+  const full = completedSession({ dayId: 'd1', date: '2026-07-27', fullReps: true, weight: 40 })
+
+  const firstSetWeight = (scales?: ReturnType<typeof buildScaleMap>) => {
+    const { session } = buildSession({
+      routine: ROUTINE,
+      day,
+      mode: 'normal',
+      sessions: [full],
+      phase: 1,
+      today: '2026-07-29',
+      scales,
+    })
+    return session.entries.find((e) => e.recordKey === KEY)!.sets[0].weight
+  }
+
+  it('5kg 머신이면 프리필도 +5', () => {
+    expect(firstSetWeight(buildScaleMap([{ recordKey: KEY, weightStepKg: 5 }], 2.5))).toBe(45)
+  })
+
+  it('넘기지 않으면 전역값을 써서 어긋난다 (수정의 근거)', () => {
+    expect(firstSetWeight()).toBe(42.5)
+  })
+
+  it('사다리 종목은 다음 핀으로 프리필된다', () => {
+    const ladder = buildScaleMap([{ recordKey: KEY, weightLadderKg: [30, 35, 41, 47] }], 2.5)
+    expect(firstSetWeight(ladder)).toBe(41)
   })
 })

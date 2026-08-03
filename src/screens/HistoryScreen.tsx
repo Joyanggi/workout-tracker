@@ -3,6 +3,10 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import MonthCalendar from '../components/MonthCalendar'
 import { db } from '../db'
 import { addMonths, monthStart, todayLocal, weekdayKo } from '../lib/dates'
+import DietDayEditor from '../components/DietDayEditor'
+import { dietMonthStats } from '../lib/diet'
+import { useDiet } from '../lib/useDiet'
+import { completedSessions } from '../lib/derive'
 import { calendarCells, sessionsInMonth, summarize } from '../lib/history'
 import { isInverseKey } from '../lib/weightScale'
 import type { RoutineBundle } from '../lib/useRoutine'
@@ -21,6 +25,11 @@ export default function HistoryScreen({ bundle }: { bundle: RoutineBundle }) {
 
   const cells = useMemo(() => calendarCells(sessions, month), [sessions, month])
   const monthSessions = useMemo(() => sessionsInMonth(sessions, month), [sessions, month])
+  const diet = useDiet()
+  const dietStats = useMemo(
+    () => dietMonthStats(diet.days, diet.plans, month),
+    [diet.days, diet.plans, month],
+  )
 
   if (detailId) {
     return (
@@ -34,8 +43,9 @@ export default function HistoryScreen({ bundle }: { bundle: RoutineBundle }) {
 
   const pickDate = (date: string) => {
     const cell = cells.find((c) => c.date === date)
+    // 세션이 없어도 그 달 안이면 선택한다 — 식단만 기록한 날(또는 보정할 날)이 있다 (D3)
     if (!cell || cell.sessions.length === 0) {
-      setSelectedDate(null)
+      setSelectedDate(cell?.inMonth ? date : null)
       return
     }
     // 세션이 하나면 바로 상세로, 여럿이면 아래 목록에서 고르게 한다 (§4 같은 날 두 세션 허용)
@@ -81,7 +91,14 @@ export default function HistoryScreen({ bundle }: { bundle: RoutineBundle }) {
             }}
             onPickDate={pickDate}
             selectedDate={selectedDate}
+            adherenceByDate={dietStats.byDate}
           />
+
+          {dietStats.logged > 0 && (
+            <p className="row-sub" style={{ margin: '-6px 0 12px' }}>
+              식단 준수 {dietStats.good}/{dietStats.logged}일 (기록한 날 기준) · 링 색이 그날 준수입니다
+            </p>
+          )}
 
           <div className="card">
             <div className="week-head">
@@ -134,6 +151,26 @@ export default function HistoryScreen({ bundle }: { bundle: RoutineBundle }) {
               )
             })}
           </div>
+
+          {/*
+            선택한 날짜의 식단 — 당일 입력 누락 보정 경로 (D3).
+            오늘 화면과 **같은 편집기**를 쓴다 (조작이 갈라지지 않게).
+          */}
+          {selectedDate && !diet.loading && diet.plans.length > 0 && (
+            <>
+              <div className="card-label" style={{ marginTop: 4 }}>
+                {selectedDate} 식단
+              </div>
+              <DietDayEditor
+                date={selectedDate}
+                today={todayLocal()}
+                plans={diet.plans}
+                days={diet.days}
+                defaultPlanId={diet.defaultPlanId}
+                trainedThatDay={completedSessions(sessions).some((x) => x.date === selectedDate)}
+              />
+            </>
+          )}
         </>
       )}
     </div>
