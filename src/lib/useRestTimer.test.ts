@@ -1,13 +1,23 @@
 import { describe, expect, it } from 'vitest'
 import {
+  AUTO_DISMISS_MS,
   COUNTDOWN_FROM_SEC,
   countdownSecond,
   createCountdownTicker,
+  dismissIfUnchanged,
   extendEndTime,
   isRestorable,
+  type Persisted,
 } from './useRestTimer'
 
 const NOW = new Date('2026-08-05T18:30:00.000Z').getTime()
+
+/** 소스 스캔용 (W4 확인 버튼 부재) */
+const SOURCES = import.meta.glob('/src/**/*.tsx', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>
 
 describe('휴식 타이머 — 타임스탬프 기준 계산', () => {
   it('진행 중인 타이머에 +30초를 더하면 남은 시간이 30초 늘어난다', () => {
@@ -122,5 +132,62 @@ describe('W2 — 카운트다운 틱이 실제로 발화하는가', () => {
     const ticker = createCountdownTicker()
     expect(ticker(100_000, 0)).toBeNull()
     expect(ticker(100_000, -500)).toBeNull()
+  })
+})
+
+// ─── W4: 종료 후 자동 닫힘 ─────────────────────────────────
+// 확인 탭이 매 세트 반복되는 것이 실사용 피드백이었다. 3초 뒤 스스로 사라진다.
+// 위험은 하나뿐이다: 그 3초 안에 다음 세트를 체크하면 새 타이머가 시작되는데,
+// 뒤늦게 도착한 자동 닫힘이 그것을 지워버리면 "체크했는데 타이머가 안 뜬다"가 된다.
+
+describe('W4 — 자동 닫힘이 새 타이머를 죽이지 않는다', () => {
+  const timer = (endTime: number): Persisted => ({ endTime, totalSec: 90, label: '인클라인' })
+
+  it('예약 당시의 타이머가 그대로면 닫는다', () => {
+    expect(dismissIfUnchanged(timer(1000), 1000)).toBeNull()
+  })
+
+  it('3초 안에 다음 세트를 체크했으면 새 타이머를 남긴다', () => {
+    // 90초 타이머가 끝나 자동 닫힘이 예약됐고, 그 사이 사용자가 다음 세트를 체크했다
+    const fresh = timer(999_000)
+    expect(dismissIfUnchanged(fresh, 1000)).toBe(fresh)
+  })
+
+  it('+30초로 연장된 경우도 남긴다 (endTime이 바뀐다)', () => {
+    const extended = timer(extendEndTime(1000, 1000, 30))
+    expect(dismissIfUnchanged(extended, 1000)).toBe(extended)
+  })
+
+  it('이미 닫혀 있으면 아무 일도 하지 않는다', () => {
+    expect(dismissIfUnchanged(null, 1000)).toBeNull()
+  })
+
+  it('차임을 듣고 읽을 시간이 있다 (차임 자체가 약 0.6초)', () => {
+    expect(AUTO_DISMISS_MS).toBeGreaterThanOrEqual(2000)
+    // 너무 길면 확인 버튼이 있던 것과 다를 바 없다
+    expect(AUTO_DISMISS_MS).toBeLessThanOrEqual(5000)
+  })
+})
+
+/**
+ * 휴식 종료 후 확인 버튼이 되살아나지 않게 한다 (W4).
+ *
+ * 매 세트 반복되는 탭이 실사용 피드백이었다. 자동 닫힘은 `useRestTimer`가 하고,
+ * 바는 "확인"이라는 승인 버튼을 두지 않는다 — 기다리기 싫으면 바를 탭한다.
+ */
+describe('휴식 종료 확인 버튼 부재 (W4)', () => {
+  const bar = () => {
+    const src = SOURCES['/src/components/RestTimerBar.tsx']
+    expect(src, 'RestTimerBar를 찾지 못했다 — 이 검사가 헛돌고 있다').toBeDefined()
+    return src!
+  }
+
+  it('"확인" 라벨이 없다', () => {
+    expect(bar()).not.toMatch(/'확인'|"확인"|>확인</)
+  })
+
+  it('닫기 영역은 실제 button이다 (div onClick은 키보드로 닿지 않는다)', () => {
+    expect(bar()).toMatch(/<button className="rest-dismiss"/)
+    expect(bar()).toMatch(/aria-label="휴식 완료 — 닫기"/)
   })
 })

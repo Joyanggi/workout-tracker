@@ -51,6 +51,20 @@ export interface Persisted {
   label: string
 }
 
+/** 휴식 완료 표시를 스스로 거두기까지 (W4) — 차임(약 0.6초)을 듣고 읽을 시간 */
+export const AUTO_DISMISS_MS = 3000
+
+/**
+ * 자동 닫힘 (W4). **그 사이 새 타이머가 시작됐으면 건드리지 않는다.**
+ *
+ * 3초는 다음 세트를 체크하기 충분한 시간이다 — 자동 닫힘이 그때 도착해서 방금 시작한
+ * 타이머를 지우면, 사용자는 "체크했는데 타이머가 안 뜬다"를 겪는다.
+ * 예약 시점의 `endTime`과 현재 상태를 비교해서 같을 때만 닫는다.
+ */
+export function dismissIfUnchanged(prev: Persisted | null, endTime: number): Persisted | null {
+  return prev && prev.endTime === endTime ? null : prev
+}
+
 /**
  * 이미 끝난 타이머에 +30초를 누르면 **지금부터** 30초여야 한다.
  * 지나간 endTime에 그냥 더하면 (예: 2분 전에 끝난 타이머 + 30초) 여전히 과거라
@@ -167,6 +181,25 @@ export function useRestTimer(): RestTimer {
       vibrate()
     }
   }, [state, remainingMs])
+
+  /*
+   * 자동 닫힘 (W4). 휴식이 끝나면 확인 탭 없이 스스로 사라진다.
+   *
+   * **화면이 보일 때만 예약한다.** 잠긴 사이에 끝났다면 복귀 순간 바가 즉시 사라져
+   * "휴식이 끝났다"는 사실 자체를 못 보게 된다. `now`가 의존성에 있어서
+   * visibilitychange가 `setNow`를 부를 때 다시 예약된다 (복귀 후 3초를 보장).
+   * 진행 중에는 `finished`가 false라 곧바로 빠져나온다.
+   */
+  useEffect(() => {
+    if (!finished || !state) return
+    if (document.visibilityState !== 'visible') return
+    const { endTime } = state
+    const id = window.setTimeout(() => {
+      setState((prev) => dismissIfUnchanged(prev, endTime))
+    }, AUTO_DISMISS_MS)
+    // 새 타이머가 시작되면 state가 바뀌어 이 정리가 먼저 돈다 (경쟁 조건 1차 방어)
+    return () => window.clearTimeout(id)
+  }, [finished, state, now])
 
   const start = useCallback((seconds: number, label: string) => {
     notified.current = null

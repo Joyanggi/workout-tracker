@@ -225,6 +225,42 @@ describe('G1 카운트다운 틱 · 종료 차임', () => {
     for (const r of recorded) expect(r.gain).toBeGreaterThan(tickGain)
   })
 
+  /*
+   * 세 신호가 **형태로** 구분돼야 한다 (W2에서 높이로 구분하려다 실패했다):
+   *   틱 = 낮은 단음 하나 / 마지막 큐 = 높은 단음 둘 / 차임 = 올라가는 셋
+   */
+  it('마지막 사이클 큐는 같은 음 두 번이다 — 틱·차임과 형태가 다르다 (W3)', async () => {
+    const { unlockAudio, lastCycleCue, TICK } = await freshModule()
+    unlockAudio()
+    lastCycleCue()
+    const freqs = recorded.map((r) => r.freq)
+    expect(freqs).toHaveLength(2)
+    expect(freqs[0]).toBe(freqs[1]) // 같은 음 = 상행 차임과 구분된다
+    expect(freqs[0]).toBeGreaterThan(TICK.freq) // 틱보다 높다
+    expect(recorded[1].startAt).toBeGreaterThan(recorded[0].startAt) // 겹치지 않는다
+  })
+
+  it('마지막 큐도 스피커 대역 안이다 (W2와 같은 실수 반복 금지)', async () => {
+    const { LAST_CYCLE_CUE } = await freshModule()
+    for (const spec of LAST_CYCLE_CUE) expect(spec.freq).toBeGreaterThanOrEqual(700)
+  })
+
+  it('세 신호의 음 개수가 서로 다르다 (개수만으로도 구분된다)', async () => {
+    const mod = await freshModule()
+    mod.unlockAudio()
+    const count = (fn: () => void) => {
+      recorded = []
+      fn()
+      return recorded.length
+    }
+    const tickN = count(mod.tick)
+    const cueN = count(mod.lastCycleCue)
+    const chimeN = count(mod.chime)
+    expect(new Set([tickN, cueN, chimeN]).size).toBe(3)
+    expect(tickN).toBeLessThan(cueN)
+    expect(cueN).toBeLessThan(chimeN)
+  })
+
   it('컨텍스트가 없으면(제스처 전) 조용히 넘어간다 — 던지지 않는다', async () => {
     const { tick, chime } = await freshModule()
     expect(() => {

@@ -141,6 +141,22 @@ export function tick(): void {
   tone(TICK)
 }
 
+/**
+ * 마지막 사이클 큐 (W3) — **같은 음 두 번, 틱보다 높게.**
+ *
+ * 형태로 구분한다: 틱은 낮은 단음 하나, 이건 높은 단음 **둘**, 차임은 올라가는 셋.
+ * "이번이 마지막"을 미리 알려야 자동 종료가 갑자기 끊기는 느낌이 되지 않는다.
+ */
+export const LAST_CYCLE_CUE: readonly ToneSpec[] = [
+  { freq: 1319, duration: 0.07, gain: 0.22 },
+  { freq: 1319, duration: 0.07, delay: 0.12, gain: 0.22 },
+]
+
+/** 마지막 사이클 큐 (W3). 고음 더블 — 틱·차임과 형태가 다르다 */
+export function lastCycleCue(): void {
+  for (const spec of LAST_CYCLE_CUE) tone(spec)
+}
+
 /** 휴식 종료 차임 (G1). 상행 3음 — 틱의 단음 반복과 형태가 다르다 */
 export function chime(): void {
   for (const spec of CHIME) tone(spec)

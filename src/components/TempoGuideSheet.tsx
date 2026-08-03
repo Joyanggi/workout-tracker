@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { tick, tone, unlockAudio } from '../lib/beep'
+import { lastCycleCue, tick, tone, unlockAudio } from '../lib/beep'
 import {
   PHASE_LABEL,
   TEMPO,
   cycleSeconds,
   phaseTone,
   tempoPositionAt,
+  tempoRepState,
   type TempoPhase,
 } from '../lib/tempo'
 import type { RoutineExercise } from '../types'
@@ -23,19 +24,31 @@ const FRAME_MS = 80
  *
  * 종료하면 **카운트된 반복수를 그 세트에 자동 입력**한다 — 가이드가 기록 마찰을
  * 오히려 줄여야 한다. 수정은 스테퍼로 언제든 가능하다.
+ *
+ * **상단(`repMax`) 도달 시 스스로 끝낸다 (W3)** — 인클라인 6~10회에서 30회를 넘어도
+ * 계속 돌던 것이 실사용 피드백이었다. 자동 종료는 반복수 기록 → 세트 체크 →
+ * 휴식 타이머까지 이어지므로 사용자 탭이 0회다.
+ *
+ * 두 종료 경로의 **기록 신뢰도가 다르다**:
+ * - 자동 = 상단까지 완주했으므로 `repMax`와 정확히 일치한다
+ * - 수동 = 사이클 수에서 추정한 값이다. 그래서 라벨에 "약"을 붙인다 (V1).
+ *   가이드보다 느리게 하거나 시트를 열어둔 채 쉬면 실제 반복보다 많이 세어진다.
  */
 export default function TempoGuideSheet({
   exerciseName,
   setNumber,
   routineExercise,
   onDone,
+  onComplete,
   onClose,
 }: {
   exerciseName: string
   setNumber: number
   routineExercise: RoutineExercise
-  /** 카운트된 반복수를 그 세트에 넣는다 */
+  /** 수동 종료 — 사이클 수에서 **추정한** 반복수 */
   onDone: (reps: number) => void
+  /** 상단 도달 자동 종료 (W3) — 반복수 기록 + 세트 체크 + 휴식 시작까지 호출부가 한다 */
+  onComplete: (reps: number) => void
   onClose: () => void
 }) {
   const phases: TempoPhase[] = TEMPO[routineExercise.group]
@@ -43,6 +56,8 @@ export default function TempoGuideSheet({
   const [elapsed, setElapsed] = useState(0)
   const lastIndex = useRef<number | null>(null)
   const wakeLock = useRef<{ release: () => Promise<void> } | null>(null)
+  /** 자동 종료·마지막 큐를 각각 한 번만 발화시킨다 (프레임마다 재발화 금지) */
+  const fired = useRef({ complete: false, lastCycle: false })
 
   // 시트를 여는 탭이 제스처다 — 여기서 컨텍스트를 열어야 이후 톤이 울린다
   useEffect(() => {
@@ -78,6 +93,28 @@ export default function TempoGuideSheet({
   }, [])
 
   const pos = tempoPositionAt(elapsed, phases)
+  const rep = tempoRepState(pos, routineExercise.repMax)
+
+  /*
+   * 마지막 사이클 큐 (W3). 자동 종료가 갑자기 끊기는 느낌이 되지 않도록 미리 알린다.
+   * 고음 더블 틱 + 링 색 변화 — 소리를 못 듣는 상황(무음 스위치)에서도 보이게 둘 다 쓴다.
+   */
+  useEffect(() => {
+    if (!rep.lastCycle || fired.current.lastCycle) return
+    fired.current.lastCycle = true
+    lastCycleCue()
+  }, [rep.lastCycle])
+
+  /*
+   * 상단 도달 자동 종료 (W3). **정확히 한 번** — 80ms 프레임마다 다시 부르면
+   * 세트 체크가 토글되어 방금 시작한 휴식 타이머가 꺼진다.
+   */
+  useEffect(() => {
+    if (!rep.complete || fired.current.complete) return
+    fired.current.complete = true
+    onComplete(rep.reps)
+    onClose()
+  }, [rep.complete, rep.reps, onComplete, onClose])
 
   // 페이즈 경계에서만 소리를 낸다
   useEffect(() => {
@@ -123,10 +160,15 @@ export default function TempoGuideSheet({
         <div className="card-label">
           템포 가이드 · {exerciseName} {setNumber}세트
         </div>
+        <div className={`tempo-progress${rep.lastCycle ? ' tempo-progress-last' : ''}`}>
+          {rep.reps} / 최대 {routineExercise.repMax}회{rep.lastCycle && ' · 마지막'}
+        </div>
 
         <div className="tempo-stage">
           <div
-            className={`tempo-ring tempo-ring-${pos.phase?.kind ?? 'idle'}`}
+            className={`tempo-ring tempo-ring-${pos.phase?.kind ?? 'idle'}${
+              rep.lastCycle ? ' tempo-ring-last' : ''
+            }`}
             style={{ transform: `scale(${scale.toFixed(3)})` }}
             aria-hidden="true"
           />
@@ -136,7 +178,7 @@ export default function TempoGuideSheet({
             ) : (
               <>
                 <span className="tempo-phase">{pos.phase ? PHASE_LABEL[pos.phase.kind] : ''}</span>
-                <span className="tempo-reps">{pos.reps}회</span>
+                <span className="tempo-reps">{rep.reps}회</span>
               </>
             )}
           </div>
@@ -151,16 +193,22 @@ export default function TempoGuideSheet({
           className="btn btn-primary"
           style={{ marginTop: 12 }}
           onClick={() => {
-            onDone(pos.reps)
+            onDone(rep.reps)
             onClose()
           }}
         >
-          {pos.countIn !== null ? '취소' : `종료 — ${pos.reps}회로 기록`}
+          {/*
+            "약"을 붙이는 이유 (V1): 이 값은 실제 반복이 아니라 **가이드가 돈 사이클 수**다.
+            가이드보다 느리게 하거나 시트를 열어둔 채 쉬면 실제보다 많이 세어진다.
+            자동 종료(상단 도달)는 정확한 값이므로 이 경로를 지나지 않는다.
+          */}
+          {pos.countIn !== null ? '취소' : `종료 — 약 ${rep.reps}회로 기록`}
         </button>
         <div style={{ height: 8 }} />
         <p className="row-sub">
-          마지막 2~3회에서 리듬을 못 따라가기 시작하면 그게 세트 종료 신호입니다 (문서 13장).
-          화면이 꺼지면 가이드도 멈춥니다 — iOS PWA의 제약입니다.
+          최대 {routineExercise.repMax}회에 닿으면 자동으로 기록하고 휴식이 시작됩니다.
+          마지막 2~3회에서 리듬을 못 따라가기 시작하면 그게 세트 종료 신호입니다 (문서 13장) —
+          그때는 먼저 종료하세요. 화면이 꺼지면 가이드도 멈춥니다 (iOS PWA 제약).
         </p>
       </div>
     </div>

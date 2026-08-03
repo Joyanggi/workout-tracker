@@ -878,8 +878,23 @@ select {
   background: transparent;
 }
 
+/*
+ * 종료 후 "탭하면 닫기" 영역 (W4). 내용 **뒤에** 깔아서 +30초 버튼과 겹치지 않는다.
+ * div에 onClick을 달면 키보드로 닿지 않으므로 실제 button을 쓴다.
+ */
+.rest-dismiss {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
 .rest-content {
   position: relative;
+  z-index: 1;
+  pointer-events: none;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -916,6 +931,7 @@ select {
 
 .rest-btn {
   flex-shrink: 0;
+  pointer-events: auto; /* .rest-content가 none이므로 버튼만 되살린다 */
   padding: 10px 14px;
   border-radius: var(--r-sm);
   background: var(--surface-2);
@@ -1694,6 +1710,26 @@ textarea.field::placeholder {
   background: transparent;
   color: var(--text-dim);
   font-size: 15px;
+}
+
+/* 상단 도달까지의 진행 (W3). 마지막 사이클에서 색으로도 알린다 */
+.tempo-progress {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+
+.tempo-progress-last {
+  color: var(--warn);
+}
+
+/* 무음 스위치로 큐를 못 들을 수 있으므로 링 색도 함께 바꾼다 */
+.tempo-ring-last {
+  border-color: var(--warn) !important;
+  box-shadow: 0 0 0 2px rgba(255, 204, 0, 0.28); /* --warn #ffcc00 */
 }
 
 .tempo-stage {

@@ -507,6 +507,15 @@ export default function ExerciseCard({
             // 0회면 기록을 건드리지 않는다 (카운트인 중 취소한 경우)
             if (reps > 0) actions.patchSet(entry.recordKey, guideSet, { reps })
           }}
+          onComplete={(reps) => {
+            /*
+             * 상단 도달 자동 종료 (W3) — 탭 0회로 기록·체크·휴식까지 간다.
+             * `onCheck`를 쓰는 이유: 세트 체크 → 휴식 타이머 자동 시작이 그 경로에 있다.
+             * 이미 체크된 세트라면 다시 부르지 않는다 (토글이라 풀려 버린다).
+             */
+            actions.patchSet(entry.recordKey, guideSet, { reps })
+            if (!entry.sets[guideSet]?.done) onCheck(guideSet, false)
+          }}
           onClose={() => setGuideSet(null)}
         />
       )}

@@ -124,6 +124,40 @@ export function tempoPositionAt(elapsedMs: number, phases: TempoPhase[]): TempoP
 }
 
 /**
+ * 상단 반복수 대비 현재 상태 (W3).
+ *
+ * 실사용 피드백: 인클라인(6~10회)에서 **30회를 넘어도 가이드가 계속 돌았다.**
+ * 상단(`repMax`)에 도달하면 계속할 운동학적 이유가 없다 — A그룹은 상단 도달이
+ * 더블 프로그레션의 목표 지점이고(문서 10장), B그룹은 "횟수는 목표가 아니라 결과"다(3장).
+ *
+ * 순수 함수로 두는 이유는 `tempoPositionAt`과 같다 — 화면 없이 경계를 검증할 수 있어야 한다.
+ * 특히 "자동 종료가 정확히 한 번"은 호출부의 ref로 지키지만, **그 판정 자체**는 여기서
+ * 확정적이어야 한다.
+ */
+export interface TempoRepState {
+  /** 완료한 반복 수. `repMax`를 넘겨 세지 않는다 */
+  reps: number
+  /** 지금 도는 사이클이 마지막이다 — 갑자기 끊기지 않게 미리 알린다 */
+  lastCycle: boolean
+  /** 상단에 도달했다 — 자동 종료 신호 */
+  complete: boolean
+}
+
+export function tempoRepState(pos: TempoPosition, repMax: number): TempoRepState {
+  // 카운트인 중에는 아직 한 회도 시작하지 않았다
+  if (pos.countIn !== null || repMax <= 0) {
+    return { reps: 0, lastCycle: false, complete: false }
+  }
+  const complete = pos.reps >= repMax
+  return {
+    reps: Math.min(pos.reps, repMax),
+    // 상단 직전 사이클 — 도달한 뒤에는 "마지막"이 아니라 "끝"이다
+    lastCycle: !complete && pos.reps === repMax - 1,
+    complete,
+  }
+}
+
+/**
  * 그 페이즈에 낼 소리.
  *
  * 수축은 상행, 이완은 하행 롱톤(길이 = 이완 초), 정지·짜내기는 저음 틱.
