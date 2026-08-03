@@ -21,8 +21,9 @@ import {
   applyTrainingDay,
   emptyDietDay,
 } from '../lib/dietOps'
-import { dietDayFor, findPlan, mutateDietDay } from '../lib/useDiet'
+import { dietDayFor, findPlan, mutateDietDay, removeDietDay } from '../lib/useDiet'
 import type { DietDay, DietPlan } from '../types'
+import { NO_AUTOFILL } from '../lib/inputProps'
 
 /**
  * 하루 식단 기록 편집기 (D2 오늘 화면 · D3 과거 보정 공용).
@@ -57,6 +58,7 @@ export default function DietDayEditor({
   const [slotSheet, setSlotSheet] = useState<string | null>(null)
   const [planSheet, setPlanSheet] = useState(false)
   const [noteDraft, setNoteDraft] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const stored = days.find((d) => d.date === date)
   const plan = findPlan(plans, stored?.planId ?? defaultPlanId)
@@ -83,19 +85,39 @@ export default function DietDayEditor({
   return (
     <>
       <div className="card">
-        <div className="diet-head">
-          <button className="btn btn-sm" onClick={() => setPlanSheet(true)}>
-            {plan.name} ▾
-          </button>
-          <button
-            className="btn btn-sm"
-            disabled={trainedThatDay}
-            title={trainedThatDay ? '완료 세션이 있어 훈련일로 고정됩니다' : undefined}
-            onClick={() => mutate((d) => applyTrainingDay(d, !isTrainingDay))}
-          >
-            {isTrainingDay ? '훈련일' : '휴식일'} ⇄
-          </button>
+        <button className="btn btn-sm diet-plan-btn" onClick={() => setPlanSheet(true)}>
+          {plan.name} ▾
+        </button>
+
+        {/*
+          훈련일/휴식일은 **세그먼트 컨트롤**이다 (G3). 이전엔 "훈련일 ⇄" 한 버튼이라
+          현재 상태인지 누르면 바뀌는 값인지 화면에서 읽히지 않았다 (실사용 첫 피드백).
+          끼니 수를 함께 적어 무엇이 달라지는지 보이게 하고, 아래 캡션이 규칙을 설명한다.
+        */}
+        <div className="segment diet-daytype">
+          {([true, false] as const).map((training) => (
+            <button
+              key={String(training)}
+              aria-pressed={isTrainingDay === training}
+              disabled={trainedThatDay}
+              onClick={() => mutate((d) => applyTrainingDay(d, training))}
+            >
+              {training ? '훈련일' : '휴식일'} · {slotsFor(plan, training).length}끼
+            </button>
+          ))}
         </div>
+        <p className="row-sub diet-daytype-note">
+          {trainedThatDay ? (
+            <>
+              <span aria-hidden="true">🔒 </span>
+              운동 기록이 있어 훈련일로 고정됩니다
+            </>
+          ) : isTrainingDay ? (
+            '훈련 전·직후 쉐이크가 별도 끼니입니다'
+          ) : (
+            '쉐이크·바나나를 오후 간식 한 번으로 합칩니다 (총량 동일)'
+          )}
+        </p>
         <div className="diet-protein">
           <span className="diet-protein-value">
             {summary.proteinG}
@@ -206,6 +228,7 @@ export default function DietDayEditor({
       <div className="card">
         <div className="card-label">메모 (선택)</div>
         <input
+          {...NO_AUTOFILL}
           className="field"
           value={noteDraft ?? day.note ?? ''}
           onChange={(e) => setNoteDraft(e.target.value)}
@@ -217,6 +240,42 @@ export default function DietDayEditor({
           aria-label="식단 메모"
         />
       </div>
+
+      {/*
+        기록 삭제 (G4). 날짜 키를 덮어쓰는 편집으로 충분하다고 봤지만, 테스트 기록을
+        정리할 방법이 없었다. 세션 삭제와 **같은 2단 확인 패턴**을 쓴다 —
+        파괴적 동작의 조작이 화면마다 다르면 안 된다.
+      */}
+      {stored && (
+        <div className="card">
+          <div className="card-label">위험 구역</div>
+          {confirmDelete ? (
+            <>
+              <p className="row-sub" style={{ color: 'var(--danger)' }}>
+                이 날 식단 기록({summary.loggedSlots}슬롯)이 삭제됩니다. 되돌릴 수 없습니다.
+              </p>
+              <div className="btn-row">
+                <button className="btn btn-sm" onClick={() => setConfirmDelete(false)}>
+                  취소
+                </button>
+                <button
+                  className="btn btn-sm btn-danger"
+                  onClick={() => {
+                    removeDietDay(date)
+                    setConfirmDelete(false)
+                  }}
+                >
+                  정말 삭제
+                </button>
+              </div>
+            </>
+          ) : (
+            <button className="btn btn-sm" onClick={() => setConfirmDelete(true)}>
+              이 날 식단 기록 지우기
+            </button>
+          )}
+        </div>
+      )}
 
       {openSlot && (
         <DietSlotSheet

@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db'
+import { db, deleteDietDay } from '../db'
 import { resolveTrainingDays } from './diet'
 import { emptyDietDay } from './dietOps'
 import { completedSessions } from './derive'
@@ -73,6 +73,13 @@ export function dietDayFor(
   isTrainingDay: boolean,
 ): DietDay {
   return days.find((d) => d.date === date) ?? emptyDietDay(date, planId, isTrainingDay)
+}
+
+/** 그 날짜 기록 삭제 (G4). 미기록 상태로 완전히 되돌린다 */
+export function removeDietDay(date: string): void {
+  void deleteDietDay(date).catch((err) => {
+    console.error('[diet] 삭제 실패', err)
+  })
 }
 
 /**

@@ -393,3 +393,41 @@ describe('resolveTrainingDays', () => {
     expect(raw.isTrainingDay).toBe(false)
   })
 })
+
+// ─── G4 삭제 후 상태 ─────────────────────────────────────
+
+describe('식단 기록 삭제 (G4)', () => {
+  const full = () =>
+    Object.fromEntries(
+      PLAN.slots.map((s) => [s.id, { checkedItemIds: s.items.map((i) => i.id) }]),
+    ) as Record<string, SlotRecord>
+
+  it('삭제된 날짜는 캘린더 링·월 요약에서 사라진다', () => {
+    const days: DietDay[] = [
+      { date: '2026-08-01', planId: PLAN.id, isTrainingDay: true, slots: full() },
+      { date: '2026-08-02', planId: PLAN.id, isTrainingDay: true, slots: full() },
+    ]
+    const before = dietMonthStats(days, BUNDLED_DIET_PLANS, '2026-08-01')
+    expect(before.logged).toBe(2)
+
+    // 행 삭제 = 목록에서 빠지는 것 (플랜 선택도 함께 사라진다)
+    const after = dietMonthStats(days.slice(1), BUNDLED_DIET_PLANS, '2026-08-01')
+    expect(after.logged).toBe(1)
+    expect(after.byDate.has('2026-08-01')).toBe(false)
+  })
+
+  it('삭제 후 그 날은 다시 "미기록"이다 (0점이 아니다)', () => {
+    expect(summarizeDietDay(PLAN, undefined).adherence).toBe('unlogged')
+    expect(summarizeDietDay(PLAN, undefined).score).toBeNull()
+  })
+
+  it('연속 플랜 카운트도 끊긴다', () => {
+    const days: DietDay[] = [
+      { date: '2026-08-03', planId: LOW.id, isTrainingDay: true, slots: {} },
+      { date: '2026-08-02', planId: LOW.id, isTrainingDay: true, slots: {} },
+    ]
+    expect(planStreak(days, LOW.id, '2026-08-03')).toBe(2)
+    // 8/3을 지우면 오늘 기록이 없으므로 0
+    expect(planStreak(days.slice(1), LOW.id, '2026-08-03')).toBe(0)
+  })
+})

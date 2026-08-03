@@ -140,6 +140,16 @@ export async function putDietDay(day: DietDay): Promise<void> {
   await db.dietDays.put(day)
 }
 
+/**
+ * 그 날짜 식단 기록을 지운다 (G4).
+ *
+ * 행을 지우면 플랜 선택도 함께 사라진다 — 그게 맞다. "미기록"으로 완전히 되돌리는 것이
+ * 목적이고, 플랜만 남으면 캘린더·연속 카운트가 그 날을 여전히 "정한 날"로 본다.
+ */
+export async function deleteDietDay(date: string): Promise<void> {
+  await db.dietDays.delete(date)
+}
+
 export async function getDietPlans(): Promise<DietPlan[]> {
   return db.dietPlans.toArray()
 }
