@@ -39,6 +39,12 @@ export interface ExportRange {
  * 계획서 예시는 깨끗한 슬롯을 한 줄에 묶었는데, 여기서는 마크 요약 한 줄 + 예외만
  * 상세 줄로 뺀다. 파싱이 쉽고 짧으면서 대체 문구는 그대로 남는다.
  */
+const QUALITY_LABEL: Record<'similar' | 'other' | 'cheat', string> = {
+  similar: '비슷한 구성',
+  other: '다른 음식',
+  cheat: '치팅',
+}
+
 export function dietSectionMarkdown(plan: DietPlan, day: DietDay): string[] {
   const slots = slotsFor(plan, day.isTrainingDay)
   const logged = slots.filter((s) => day.slots[s.id] !== undefined)
@@ -69,13 +75,15 @@ export function dietSectionMarkdown(plan: DietPlan, day: DietDay): string[] {
       details.push(`미섭취: ${missing.join(', ')}`)
     }
     if (record.substitution) {
-      const label =
-        record.substitution.quality === 'similar'
-          ? '비슷한 구성'
-          : record.substitution.quality === 'other'
-            ? '다른 음식'
-            : '치팅'
-      details.push(`대체: "${record.substitution.text}" — ${label}`)
+      details.push(
+        `대체: "${record.substitution.text}" — ${QUALITY_LABEL[record.substitution.quality]}`,
+      )
+    }
+    // 추가는 대체와 별개로 적는다 (G2) — 결식·대체·과식이 구분돼야 분석이 된다
+    if (record.addition) {
+      details.push(
+        `+ 추가: "${record.addition.text}" — ${QUALITY_LABEL[record.addition.quality]}`,
+      )
     }
     if (details.length > 0) out.push(`- ${slot.name}: ${details.join(' / ')}`)
   }

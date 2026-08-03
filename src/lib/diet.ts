@@ -23,6 +23,19 @@ export const SCORE = {
   skipped: 0.5,
 } as const
 
+/**
+ * 추가 섭취가 있을 때의 **점수 상한** (G2).
+ *
+ * 계획을 완수했어도 치팅을 추가했으면 완수가 아니다 — 감량기에 "계획 완수 + 야식"은
+ * 완수로 볼 수 없다. 반대로 건강하게 추가한 것은 무벌점이다.
+ * 기존 점수를 **깎지 않고 상한으로만** 적용한다 (이미 낮은 점수를 더 낮추지 않는다).
+ */
+export const ADDITION_CAP = {
+  similar: 1,
+  other: 0.75,
+  cheat: 0.5,
+} as const
+
 /** 하루 판정에 필요한 최소 기록 슬롯 수. 이보다 적으면 "미기록"으로 두고 판정하지 않는다 */
 export const MIN_SLOTS_FOR_VERDICT = 3
 
@@ -62,6 +75,12 @@ export function slotsFor(plan: DietPlan, isTrainingDay: boolean): DietSlot[] {
  */
 export function slotScore(slot: DietSlot, record: SlotRecord | undefined): number | null {
   if (!record) return null // 미기록 — 평균에 넣지 않는다
+  const base = baseSlotScore(slot, record)
+  // 추가 섭취는 상한으로만 작용한다 (G2) — 완수했어도 치팅 추가면 완수가 아니다
+  return record.addition ? Math.min(base, ADDITION_CAP[record.addition.quality]) : base
+}
+
+function baseSlotScore(slot: DietSlot, record: SlotRecord): number {
   if (record.substitution) {
     return record.substitution.quality === 'similar'
       ? SCORE.full

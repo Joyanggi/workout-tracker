@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { dietSectionMarkdown, exportMarkdown } from './exportMarkdown'
+import { summarizeDietDay } from './diet'
 import { BUNDLED_DIET_PLANS } from '../db/seed'
 import { ROUTINE, completedSession } from './testFixtures'
 import EXERCISES from '../data/exercises.json'
@@ -200,5 +201,54 @@ describe('식단 날짜가 범위 밖이면 빠진다 (범위 계산의 근거)'
       dietDays: days,
     })
     expect(out).not.toContain('(기간 내 기록 없음)')
+  })
+})
+
+// ─── G2 추가 섭취 내보내기 ──────────────────────────────
+
+describe('추가 섭취 (G2) 내보내기', () => {
+  it('추가를 대체와 별개 줄로 적는다 — 결식·대체·과식이 구분돼야 분석이 된다', () => {
+    const slots = allChecked()
+    slots.dinner = {
+      checkedItemIds: PLAN.slots.find((s) => s.id === 'dinner')!.items.map((i) => i.id),
+      addition: { text: '라면 반 개', quality: 'cheat' },
+    }
+    const md = dietSectionMarkdown(PLAN, dietDay('2026-08-04', slots)).join('\n')
+    expect(md).toContain('+ 추가: "라면 반 개" — 치팅')
+    expect(md).not.toContain('대체: "라면 반 개"')
+  })
+
+  it('대체와 추가가 같은 슬롯에 있으면 둘 다 적는다', () => {
+    const slots = allChecked()
+    slots.lunch = {
+      checkedItemIds: [],
+      substitution: { text: '구내식당 제육', quality: 'other' },
+      addition: { text: '아이스크림', quality: 'cheat' },
+    }
+    const md = dietSectionMarkdown(PLAN, dietDay('2026-08-04', slots)).join('\n')
+    expect(md).toContain('대체: "구내식당 제육" — 다른 음식')
+    expect(md).toContain('+ 추가: "아이스크림" — 치팅')
+  })
+
+  it('치팅 추가가 준수 판정에 반영된다', () => {
+    const slots = allChecked()
+    const withoutAdd = dietSectionMarkdown(PLAN, dietDay('2026-08-04', slots)).join('\n')
+    expect(withoutAdd).toContain('준수 ●')
+
+    // 6슬롯 전부 치팅 추가 → 상한 0.5가 전 슬롯에 걸려 ◐
+    for (const s of PLAN.slots) {
+      slots[s.id] = { ...slots[s.id], addition: { text: '야식', quality: 'cheat' } }
+    }
+    const withAdd = dietSectionMarkdown(PLAN, dietDay('2026-08-04', slots)).join('\n')
+    expect(withAdd).toContain('준수 ◐')
+  })
+
+  it('단백질 추정에는 반영하지 않는다 (미지수)', () => {
+    const slots = allChecked()
+    const before = summarizeDietDay(PLAN, dietDay('2026-08-04', slots)).proteinG
+    for (const s of PLAN.slots) {
+      slots[s.id] = { ...slots[s.id], addition: { text: '고기 300g', quality: 'similar' } }
+    }
+    expect(summarizeDietDay(PLAN, dietDay('2026-08-04', slots)).proteinG).toBe(before)
   })
 })

@@ -11,7 +11,9 @@ import {
   summarizeDietDay,
 } from '../lib/diet'
 import {
+  applyAddition,
   applyCheckAllItems,
+  applyClearAddition,
   applyClearSlot,
   applyNote,
   applyPlan,
@@ -36,6 +38,13 @@ import { NO_AUTOFILL } from '../lib/inputProps'
  * 곧 "전부 먹음"이다 (훈련일 6슬롯 × 1탭). 슬롯 이름을 누르면 시트가 열리고
  * 거기서 대체·안 먹음 같은 예외를 처리한다.
  */
+/** 자가 태그 표시 문구 — 카드·시트·내보내기가 같은 말을 써야 한다 */
+const QUALITY_LABEL: Record<'similar' | 'other' | 'cheat', string> = {
+  similar: '비슷한 구성',
+  other: '다른 음식',
+  cheat: '치팅',
+}
+
 export default function DietDayEditor({
   date,
   plans,
@@ -213,12 +222,12 @@ export default function DietDayEditor({
             {record?.skipped && <p className="row-sub diet-note">안 먹음</p>}
             {record?.substitution && (
               <p className="row-sub diet-note">
-                대체: “{record.substitution.text}” ·{' '}
-                {record.substitution.quality === 'similar'
-                  ? '비슷한 구성'
-                  : record.substitution.quality === 'other'
-                    ? '다른 음식'
-                    : '치팅'}
+                대체: “{record.substitution.text}” · {QUALITY_LABEL[record.substitution.quality]}
+              </p>
+            )}
+            {record?.addition && (
+              <p className="row-sub diet-note">
+                + 추가: “{record.addition.text}” · {QUALITY_LABEL[record.addition.quality]}
               </p>
             )}
           </div>
@@ -284,6 +293,8 @@ export default function DietDayEditor({
           onCheckAll={() => mutate((d) => applyCheckAllItems(d, openSlot))}
           onSkip={() => mutate((d) => applySkipSlot(d, openSlot.id))}
           onSubstitute={(sub) => mutate((d) => applySubstitution(d, openSlot.id, sub))}
+          onAddition={(add) => mutate((d) => applyAddition(d, openSlot.id, add))}
+          onClearAddition={() => mutate((d) => applyClearAddition(d, openSlot.id))}
           onClear={() => mutate((d) => applyClearSlot(d, openSlot.id))}
           onClose={() => setSlotSheet(null)}
         />

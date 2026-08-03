@@ -54,7 +54,12 @@ export function applyToggleItem(day: DietDay, slotId: string, itemId: string): D
  * 대체·스킵을 지운다: 계획대로 전부 먹었다면 그 둘은 사실이 아니다.
  */
 export function applyCheckAllItems(day: DietDay, slot: DietSlot): DietDay {
-  return patchSlot(day, slot.id, () => ({
+  /*
+   * 대체·스킵은 지우지만 **추가는 남긴다** (G2) — "계획대로 다 먹었고 그 위에 더 먹었다"가
+   * 실제로 흔한 조합이고, 일괄 체크가 추가 기록을 지워버리면 다시 적어야 한다.
+   */
+  return patchSlot(day, slot.id, (record) => ({
+    ...record,
     checkedItemIds: slot.items.map((i) => i.id),
     substitution: undefined,
     skipped: undefined,
@@ -66,6 +71,7 @@ export function applySkipSlot(day: DietDay, slotId: string): DietDay {
   return patchSlot(day, slotId, () => ({
     checkedItemIds: [],
     substitution: undefined,
+    addition: undefined,
     skipped: true,
   }))
 }
@@ -80,6 +86,23 @@ export function applySubstitution(
     substitution,
     skipped: undefined,
   }))
+}
+
+/**
+ * 계획 외로 더 먹은 것 (G2). 대체와 **독립**이다 — 일부 대체 + 추가가 동시에 가능하다.
+ * `skipped`는 해제한다 (안 먹었다면서 추가로 먹었다는 건 모순이다).
+ */
+export function applyAddition(
+  day: DietDay,
+  slotId: string,
+  addition: NonNullable<SlotRecord['addition']>,
+): DietDay {
+  return patchSlot(day, slotId, (record) => ({ ...record, addition, skipped: undefined }))
+}
+
+/** 추가 기록만 지운다 (체크·대체는 유지) */
+export function applyClearAddition(day: DietDay, slotId: string): DietDay {
+  return patchSlot(day, slotId, (record) => ({ ...record, addition: undefined }))
 }
 
 /** 기록 취소 — 슬롯을 미기록 상태로 되돌린다 (잘못 누른 것을 없앨 수 있어야 한다) */

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  applyAddition,
   applyCheckAllItems,
+  applyClearAddition,
   applyClearSlot,
   applyNote,
   applyPlan,
@@ -10,7 +12,7 @@ import {
   applyTrainingDay,
   emptyDietDay,
 } from './dietOps'
-import { slotScore, summarizeDietDay } from './diet'
+import { ADDITION_CAP, SCORE, slotScore, summarizeDietDay } from './diet'
 import { BUNDLED_DIET_PLANS } from '../db/seed'
 
 const PLAN = BUNDLED_DIET_PLANS.find((p) => p.id === 'cut-1800')!
@@ -117,5 +119,85 @@ describe('메모', () => {
   it('빈 문자열은 저장하지 않는다', () => {
     expect(applyNote(base(), '  ').note).toBeUndefined()
     expect(applyNote(base(), '회식').note).toBe('회식')
+  })
+})
+
+// ─── G2 추가로 먹었어요 ─────────────────────────────────
+
+describe('추가 섭취 (G2)', () => {
+  const cheatAdd = { text: '라면 반 개', quality: 'cheat' as const }
+  const goodAdd = { text: '삶은 달걀 2개', quality: 'similar' as const }
+
+  it('대체와 독립이다 — 동시에 존재할 수 있다', () => {
+    let day = applySubstitution(base(), LUNCH.id, { text: '제육', quality: 'other' })
+    day = applyAddition(day, LUNCH.id, cheatAdd)
+    expect(day.slots[LUNCH.id].substitution?.text).toBe('제육')
+    expect(day.slots[LUNCH.id].addition?.text).toBe('라면 반 개')
+  })
+
+  it('일괄 체크가 추가 기록을 지우지 않는다', () => {
+    // "계획대로 다 먹고 그 위에 더 먹었다"가 흔한 조합이다
+    let day = applyAddition(base(), LUNCH.id, cheatAdd)
+    day = applyCheckAllItems(day, LUNCH)
+    expect(day.slots[LUNCH.id].addition).toEqual(cheatAdd)
+    expect(day.slots[LUNCH.id].checkedItemIds).toHaveLength(LUNCH.items.length)
+  })
+
+  it('안 먹음은 추가도 지운다 (모순)', () => {
+    let day = applyAddition(base(), LUNCH.id, cheatAdd)
+    day = applySkipSlot(day, LUNCH.id)
+    expect(day.slots[LUNCH.id].addition).toBeUndefined()
+  })
+
+  it('추가로 먹었다고 하면 안 먹음이 풀린다', () => {
+    let day = applySkipSlot(base(), LUNCH.id)
+    day = applyAddition(day, LUNCH.id, cheatAdd)
+    expect(day.slots[LUNCH.id].skipped).toBeUndefined()
+  })
+
+  it('추가만 따로 지울 수 있다 (체크·대체 유지)', () => {
+    let day = applyCheckAllItems(base(), LUNCH)
+    day = applyAddition(day, LUNCH.id, cheatAdd)
+    day = applyClearAddition(day, LUNCH.id)
+    expect(day.slots[LUNCH.id].addition).toBeUndefined()
+    expect(day.slots[LUNCH.id].checkedItemIds).toHaveLength(LUNCH.items.length)
+  })
+
+  it('건강한 추가는 무벌점 — 완수 점수가 유지된다', () => {
+    let day = applyCheckAllItems(base(), LUNCH)
+    day = applyAddition(day, LUNCH.id, goodAdd)
+    expect(slotScore(LUNCH, day.slots[LUNCH.id])).toBe(1)
+  })
+
+  it('치팅 추가는 완수했어도 반영된다 — "계획 완수 + 야식"은 완수가 아니다', () => {
+    let day = applyCheckAllItems(base(), LUNCH)
+    expect(slotScore(LUNCH, day.slots[LUNCH.id])).toBe(1)
+    day = applyAddition(day, LUNCH.id, cheatAdd)
+    expect(slotScore(LUNCH, day.slots[LUNCH.id])).toBe(ADDITION_CAP.cheat)
+  })
+
+  it('상한으로만 작용한다 — 이미 낮은 점수를 더 깎지 않는다', () => {
+    /*
+      "안 먹음 + 추가"는 조합 자체가 존재하지 않는다 — applyAddition이 skipped를
+      해제한다 (안 먹었다면서 더 먹었다는 건 모순이고, 그건 대체로 적을 일이다).
+      그래서 상한 검증은 skipped가 아닌 낮은 점수로 한다.
+    */
+    // 절반 체크(0.5)에 similar 추가(상한 1) → 0.5 유지
+    let day = applyToggleItem(base(), LUNCH.id, LUNCH.items[0].id)
+    day = applyToggleItem(day, LUNCH.id, LUNCH.items[1].id)
+    expect(slotScore(LUNCH, day.slots[LUNCH.id])).toBe(SCORE.partial)
+    day = applyAddition(day, LUNCH.id, goodAdd)
+    expect(slotScore(LUNCH, day.slots[LUNCH.id])).toBe(SCORE.partial)
+
+    // 치팅 대체(0)에 치팅 추가(상한 0.5) → 0 유지
+    let worse = applySubstitution(base(), LUNCH.id, { text: 'x', quality: 'cheat' })
+    worse = applyAddition(worse, LUNCH.id, cheatAdd)
+    expect(slotScore(LUNCH, worse.slots[LUNCH.id])).toBe(SCORE.cheat)
+  })
+
+  it('기존 기록(필드 없음)은 영향받지 않는다', () => {
+    const legacy = applyCheckAllItems(base(), LUNCH)
+    expect(legacy.slots[LUNCH.id].addition).toBeUndefined()
+    expect(slotScore(LUNCH, legacy.slots[LUNCH.id])).toBe(1)
   })
 })

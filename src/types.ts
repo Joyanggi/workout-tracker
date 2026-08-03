@@ -330,6 +330,19 @@ export interface SlotRecord {
      */
     quality: 'similar' | 'other' | 'cheat'
   }
+  /**
+   * 계획 외로 **더 먹은** 것 (G2). `substitution`과 별개이고 동시에 존재할 수 있다.
+   *
+   * 추가 섭취를 대체로 적으면 의미가 오염된다 — "전부 체크 + 대체 텍스트"는 일부 대체로
+   * 해석돼 점수가 부당하게 깎이고, LLM 분석에서 결식·대체·과식을 구분할 수 없다.
+   *
+   * 필드 추가는 하위 호환이므로 백업 SCHEMA_VERSION을 올리지 않는다
+   * (파괴적 변경만 상향 — backup.ts 주석의 원칙).
+   */
+  addition?: {
+    text: string
+    quality: 'similar' | 'other' | 'cheat'
+  }
   /** 그 끼니 자체를 안 먹음 */
   skipped?: boolean
 }
