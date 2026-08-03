@@ -25,7 +25,7 @@ const PHASES: { value: Phase; label: string; desc: string }[] = [
 export default function SettingsScreen({ seed }: { seed: SeedResult }) {
   const diet = useDiet()
   const bundle = useRoutine()
-  const { currentPhase, setPhase, setOnboardingDone } = useSettings()
+  const { currentPhase, setPhase, setOnboardingDone, tempoGuide, setTempoGuide } = useSettings()
   const sessionCount = useLiveQuery(() => db.sessions.count(), [], 0)
   const sessions = useLiveQuery(() => db.sessions.toArray(), [], [])
   const readiness = bundle
@@ -191,6 +191,30 @@ export default function SettingsScreen({ seed }: { seed: SeedResult }) {
       <GistPanel />
 
       <ImportPanel />
+
+      {/* 템포 가이드 (G7). 기본 꺼짐 — 세트 행에 버튼이 늘어나므로 원할 때만 켠다 */}
+      <div className="card">
+        <div className="card-label">템포 가이드</div>
+        <div className="segment">
+          {([false, true] as const).map((on) => (
+            <button
+              key={String(on)}
+              aria-pressed={tempoGuide === on}
+              onClick={() => void setTempoGuide(on)}
+            >
+              {on ? '사용' : '사용 안 함'}
+            </button>
+          ))}
+        </div>
+        <p className="row-sub" style={{ marginTop: 8 }}>
+          세트 행의 ♩ 버튼으로 수축·이완 리듬을 소리와 링으로 안내합니다
+          (A그룹 1-2초 · B그룹 3-1-1-1 · 코어 2-1-2, 루틴 문서 3장).
+          종료하면 카운트된 반복수가 그 세트에 들어갑니다.
+        </p>
+        <p className="row-sub">
+          마지막 2~3회에서 리듬을 못 따라가기 시작하면 그게 세트 종료 신호입니다 (문서 13장).
+        </p>
+      </div>
 
       {bundle && <RoutineIoPanel routine={bundle.routine} catalog={bundle.catalog} />}
       <DietIoPanel plans={diet.plans} />

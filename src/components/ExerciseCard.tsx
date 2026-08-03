@@ -6,6 +6,7 @@ import { getExerciseSetting, setExerciseNote, setExerciseWeightScale } from '../
 import { describeScale, type WeightScale } from '../lib/weightScale'
 import { CALIBRATION_RIR, calibratedWeight } from '../lib/substitute'
 import CompensationWatchSheet from './CompensationWatchSheet'
+import TempoGuideSheet from './TempoGuideSheet'
 import type { CompensationWatch } from '../lib/compensationWatch'
 import { compensationSummary, hasCompensation } from '../lib/compensation'
 import { doneSetsAll } from '../lib/derive'
@@ -64,6 +65,7 @@ export default function ExerciseCard({
   inverseWeight = false,
   onRequestSubstitute,
   compensationWatch,
+  tempoGuide = false,
   actions,
   open,
   onToggleOpen,
@@ -94,6 +96,8 @@ export default function ExerciseCard({
   onRequestSubstitute?: () => void
   /** 반복 보상작용 경고 (T11). 과거 세션 편집에서는 넘기지 않는다 */
   compensationWatch?: CompensationWatch
+  /** 템포 가이드 사용 (G7). 꺼져 있으면 세트 행에 버튼이 없다 */
+  tempoGuide?: boolean
   actions: EntryActions
   open: boolean
   onToggleOpen: () => void
@@ -112,6 +116,8 @@ export default function ExerciseCard({
   }>({})
   const [editingScale, setEditingScale] = useState(false)
   const [showingWatch, setShowingWatch] = useState(false)
+  /** 템포 가이드를 띄운 세트 인덱스 (G7) */
+  const [guideSet, setGuideSet] = useState<number | null>(null)
   useEffect(() => {
     let cancelled = false
     void getExerciseSetting(entry.recordKey).then((row) => {
@@ -346,6 +352,16 @@ export default function ExerciseCard({
                 <span className="set-ghost">
                   {showPrefillHints ? ghostText(prefill, i) || '기준 기록 없음' : ''}
                 </span>
+                {/* 템포 가이드 (G7). 기본 꺼짐이라 켠 사람만 이 버튼을 본다 */}
+                {tempoGuide && (
+                  <button
+                    className="set-tempo"
+                    onClick={() => setGuideSet(i)}
+                    aria-label={`${i + 1}세트 템포 가이드`}
+                  >
+                    ♩
+                  </button>
+                )}
                 <button
                   className={`set-check${set.done ? ' set-check-on' : ''}`}
                   onClick={() => onCheck(i, set.done)}
@@ -480,6 +496,19 @@ export default function ExerciseCard({
             </button>
           </div>
         </div>
+      )}
+
+      {guideSet !== null && (
+        <TempoGuideSheet
+          exerciseName={name}
+          setNumber={guideSet + 1}
+          routineExercise={routineExercise}
+          onDone={(reps) => {
+            // 0회면 기록을 건드리지 않는다 (카운트인 중 취소한 경우)
+            if (reps > 0) actions.patchSet(entry.recordKey, guideSet, { reps })
+          }}
+          onClose={() => setGuideSet(null)}
+        />
       )}
 
       {showingWatch && compensationWatch && (

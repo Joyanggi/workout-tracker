@@ -249,6 +249,8 @@ export interface Settings {
   defaultDietPlanId?: string
   /** 마지막으로 주입한 식단 시드 리비전 (D1 — 루틴과 같은 규칙) */
   seededDietRevision?: number
+  /** 템포 가이드 사용 (G7). 기본 꺼짐 — 세트 행에 버튼이 늘어나므로 원할 때만 */
+  tempoGuide?: boolean
 }
 
 /**

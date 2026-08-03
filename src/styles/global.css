@@ -1682,3 +1682,67 @@ textarea.field::placeholder {
   color: var(--text-placeholder);
   opacity: 1; /* Firefox가 기본 opacity를 낮춘다 */
 }
+
+/* ─── 템포 가이드 (G7) ──────────────────────────────────── */
+
+.set-tempo {
+  min-width: 34px;
+  min-height: 34px;
+  margin-right: 6px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 15px;
+}
+
+.tempo-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 200px;
+  margin: 12px 0;
+}
+
+/*
+  링 크기가 수축에서 커지고 이완에서 작아진다 — 숫자를 읽지 않고도 방향을 알아야 한다.
+  transition은 프레임 간격(80ms)보다 조금 길게 둬서 끊겨 보이지 않게 한다.
+*/
+.tempo-ring {
+  position: absolute;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  border: 3px solid var(--line);
+  transition: transform 120ms linear, border-color 160ms ease-out;
+}
+
+.tempo-ring-concentric { border-color: var(--accent); }
+.tempo-ring-eccentric { border-color: var(--ok); }
+.tempo-ring-squeeze,
+.tempo-ring-stretch { border-color: var(--warn); }
+
+.tempo-center {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.tempo-count {
+  font-size: 56px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.tempo-phase {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.tempo-reps {
+  font-size: 15px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}

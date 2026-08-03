@@ -12,11 +12,14 @@ interface SettingsState {
    * 인바디 앱과 중복이다. 여기 있는 것은 계산에 필요한 현재 값 하나다.
    */
   bodyWeightKg?: number
+  /** 템포 가이드 사용 (G7) */
+  tempoGuide: boolean
 
   load: () => Promise<void>
   setPhase: (phase: Phase) => Promise<void>
   setOnboardingDone: (done: boolean) => Promise<void>
   setBodyWeight: (kg: number) => Promise<void>
+  setTempoGuide: (on: boolean) => Promise<void>
 }
 
 /**
@@ -27,16 +30,18 @@ export const useSettings = create<SettingsState>((set) => ({
   loaded: false,
   currentPhase: 0,
   onboardingDone: false,
+  tempoGuide: false,
 
   load: async () => {
     // activeRoutineId는 여기 두지 않는다 — 루틴 교체 시 낡은 값이 남고,
     // 실제 소비처인 getActiveRoutine()이 Dexie에서 직접 읽는다
-    const [currentPhase, onboardingDone, bodyWeightKg] = await Promise.all([
+    const [currentPhase, onboardingDone, bodyWeightKg, tempoGuide] = await Promise.all([
       getSetting<Phase>('currentPhase', 0),
       getSetting<boolean>('onboardingDone', false),
       getSetting<number | undefined>('bodyWeightKg', undefined),
+      getSetting<boolean>('tempoGuide', false),
     ])
-    set({ loaded: true, currentPhase, onboardingDone, bodyWeightKg })
+    set({ loaded: true, currentPhase, onboardingDone, bodyWeightKg, tempoGuide })
   },
 
   setPhase: async (phase) => {
@@ -56,5 +61,10 @@ export const useSettings = create<SettingsState>((set) => ({
   setBodyWeight: async (kg) => {
     await setSetting('bodyWeightKg', kg)
     set({ bodyWeightKg: kg })
+  },
+
+  setTempoGuide: async (on) => {
+    await setSetting('tempoGuide', on)
+    set({ tempoGuide: on })
   },
 }))

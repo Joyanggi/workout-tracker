@@ -57,6 +57,7 @@ export default function SessionScreen({
   // 반복 보상작용 (T11). 이번 세션은 아직 완료가 아니므로 과거 기록만 본다
   const watches = useMemo(() => compensationWatches(allSessions), [allSessions])
   const bodyWeightKg = useSettings((st) => st.bodyWeightKg)
+  const tempoGuide = useSettings((st) => st.tempoGuide)
   const setBodyWeight = useSettings((st) => st.setBodyWeight)
 
   // 프리필은 저장하지 않고 매번 파생 계산한다 (앱 재시작 후 이어하기에서도 동일하게 나와야 함).
@@ -169,6 +170,7 @@ export default function SessionScreen({
               inverseWeight={isInverseKey(bundle.catalog, entry.recordKey)}
               onRequestSubstitute={() => setSubstituting(entry.recordKey)}
               compensationWatch={watchFor(watches, entry.recordKey)}
+              tempoGuide={tempoGuide}
               prefill={prefills.get(entry.recordKey)}
               showProgression={session.mode === 'normal'}
               actions={actions}
