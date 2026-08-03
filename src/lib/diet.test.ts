@@ -4,6 +4,8 @@ import {
   LOW_KCAL_STREAK_WARN,
   MIN_SLOTS_FOR_VERDICT,
   formatPlanLabel,
+  CRITICAL_SKIP_SLOTS,
+  SCORE,
   dietMonthStats,
   nextUnloggedSlot,
   planStreak,
@@ -214,8 +216,11 @@ describe('summarizeDietDay', () => {
   })
 
   it('중간 준수는 ◐, 낮으면 ○', () => {
+    // 훈련 전·직후를 제외한 슬롯만 스킵 → 전부 0.5 → ◐ (H3 이후에도 유지)
     const half = Object.fromEntries(
-      PLAN.slots.map((s) => [s.id, { checkedItemIds: [], skipped: true }]),
+      PLAN.slots
+        .filter((s) => !CRITICAL_SKIP_SLOTS.includes(s.id))
+        .map((s) => [s.id, { checkedItemIds: [], skipped: true }]),
     ) as Record<string, SlotRecord>
     expect(summarizeDietDay(PLAN, day(half)).adherence).toBe('mid')
 
@@ -429,5 +434,49 @@ describe('식단 기록 삭제 (G4)', () => {
     expect(planStreak(days, LOW.id, '2026-08-03')).toBe(2)
     // 8/3을 지우면 오늘 기록이 없으므로 0
     expect(planStreak(days.slice(1), LOW.id, '2026-08-03')).toBe(0)
+  })
+})
+
+// ─── H3 훈련 전·직후 스킵 차등 ──────────────────────────
+
+describe('훈련 전·직후 스킵은 더 무겁다 (H3)', () => {
+  const skipOf = (slotId: string) =>
+    slotScore(
+      slotsFor(PLAN, true).find((s) => s.id === slotId)!,
+      { checkedItemIds: [], skipped: true },
+    )
+
+  it('훈련 전·직후 스킵은 0.25', () => {
+    // 루틴 문서 15장이 훈련 전 쉐이크를 "생략하지 말 것"으로 명시한다
+    expect(skipOf('pre')).toBe(SCORE.skippedCritical)
+    expect(skipOf('post')).toBe(SCORE.skippedCritical)
+  })
+
+  it('나머지 끼니 스킵은 0.5 유지 — 덜 먹은 것은 실패가 아니다', () => {
+    expect(skipOf('breakfast')).toBe(SCORE.skipped)
+    expect(skipOf('lunch')).toBe(SCORE.skipped)
+    expect(skipOf('dinner')).toBe(SCORE.skipped)
+    expect(skipOf('afternoon')).toBe(SCORE.skipped)
+  })
+
+  it('휴식일의 통합 슬롯(shake)도 무겁게 본다', () => {
+    const shake = PLAN.restDaySlots.find((s) => s.id === 'shake')!
+    expect(CRITICAL_SKIP_SLOTS).toContain('shake')
+    expect(slotScore(shake, { checkedItemIds: [], skipped: true })).toBe(SCORE.skippedCritical)
+  })
+
+  it('하루 전체를 스킵하면 ◐가 아니라 ○다 (H3의 결과)', () => {
+    const all = Object.fromEntries(
+      PLAN.slots.map((s) => [s.id, { checkedItemIds: [], skipped: true }]),
+    ) as Record<string, SlotRecord>
+    const summary = summarizeDietDay(PLAN, day(all))
+    // (0.5×4 + 0.25×2) / 6 ≈ 0.42 → poor
+    expect(summary.score).toBeCloseTo(0.4167, 3)
+    expect(summary.adherence).toBe('poor')
+  })
+
+  it('체크한 경우는 슬롯 종류와 무관하다 (스킵에만 적용되는 규칙)', () => {
+    const pre = PLAN.slots.find((s) => s.id === 'pre')!
+    expect(slotScore(pre, { checkedItemIds: pre.items.map((i) => i.id) })).toBe(SCORE.full)
   })
 })

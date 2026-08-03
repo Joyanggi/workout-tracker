@@ -21,7 +21,21 @@ export const SCORE = {
    * 감량 문맥에서 덜 먹은 것은 실패가 아니다 — 단백질 손실은 단백질 지표가 따로 잡는다.
    */
   skipped: 0.5,
+  /**
+   * **훈련 전·직후 슬롯**의 스킵 (H3, 리뷰어 판정).
+   * 루틴 문서 15장이 훈련 전 쉐이크를 "생략하지 말 것"으로 명시한다 —
+   * 그 슬롯의 스킵은 다른 끼니보다 무겁다.
+   */
+  skippedCritical: 0.25,
 } as const
+
+/**
+ * 스킵을 더 무겁게 보는 슬롯 (H3).
+ *
+ * 슬롯 id로 판정한다 — 플랜 JSON을 교체해도 같은 id를 쓰면 규칙이 따라간다.
+ * 휴식일에는 두 슬롯이 하나로 합쳐지므로(`shake`) 그것도 포함한다.
+ */
+export const CRITICAL_SKIP_SLOTS: readonly string[] = ['pre', 'post', 'shake']
 
 /**
  * 추가 섭취가 있을 때의 **점수 상한** (G2).
@@ -88,7 +102,9 @@ function baseSlotScore(slot: DietSlot, record: SlotRecord): number {
         ? SCORE.partial
         : SCORE.cheat
   }
-  if (record.skipped) return SCORE.skipped
+  if (record.skipped) {
+    return CRITICAL_SKIP_SLOTS.includes(slot.id) ? SCORE.skippedCritical : SCORE.skipped
+  }
 
   const total = slot.items.length
   if (total === 0) return SCORE.full
