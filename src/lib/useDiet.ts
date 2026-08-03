@@ -1,6 +1,8 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
+import { resolveTrainingDays } from './diet'
 import { emptyDietDay } from './dietOps'
+import { completedSessions } from './derive'
 import type { DietDay, DietPlan } from '../types'
 
 /**
@@ -27,12 +29,22 @@ export interface DietData {
 
 export function useDiet(): DietData {
   const data = useLiveQuery(async () => {
-    const [plans, days, defaultRow] = await Promise.all([
+    const [plans, rawDays, defaultRow, sessions] = await Promise.all([
       db.dietPlans.toArray(),
       db.dietDays.toArray(),
       db.settings.get('defaultDietPlanId'),
+      db.sessions.toArray(),
     ])
-    return { plans, days, defaultPlanId: (defaultRow?.value as string | undefined) ?? null }
+    /*
+     * 훈련일 여부를 **여기서 한 번** 정규화한다 (diet.resolveTrainingDays 주석 참조).
+     * 이 훅이 식단 데이터의 단일 읽기 경로이므로, 화면·캘린더·내보내기가 전부 같은 답을 본다.
+     */
+    const trained = new Set(completedSessions(sessions).map((s) => s.date))
+    return {
+      plans,
+      days: resolveTrainingDays(rawDays, trained),
+      defaultPlanId: (defaultRow?.value as string | undefined) ?? null,
+    }
   }, [])
 
   return {

@@ -8,6 +8,7 @@ import {
   nextUnloggedSlot,
   planStreak,
   planTotals,
+  resolveTrainingDays,
   slotScore,
   slotsFor,
   summarizeDietDay,
@@ -352,5 +353,43 @@ describe('nextUnloggedSlot', () => {
   it('건너뛴 슬롯도 "기록됨"이다 (안 먹은 것도 결정이다)', () => {
     const skipped = day({ breakfast: { checkedItemIds: [], skipped: true } })
     expect(nextUnloggedSlot(PLAN, skipped, true)?.id).toBe('lunch')
+  })
+})
+
+// ─── 훈련일 정규화 (실기기 백업에서 드러난 결함) ─────────
+
+describe('resolveTrainingDays', () => {
+  const stored = (isTrainingDay: boolean): DietDay => ({
+    date: '2026-08-03',
+    planId: PLAN.id,
+    isTrainingDay,
+    slots: { breakfast: { checkedItemIds: [] } },
+  })
+
+  it('그 날 완료 세션이 있으면 훈련일로 덮는다', () => {
+    // 아침을 운동 전에 기록하면 false로 저장된다. 이후 운동을 마쳐도 저장값은 그대로다
+    const [fixed] = resolveTrainingDays([stored(false)], new Set(['2026-08-03']))
+    expect(fixed.isTrainingDay).toBe(true)
+  })
+
+  it('세션이 없으면 저장값을 그대로 둔다 (수동 토글을 존중한다)', () => {
+    const [kept] = resolveTrainingDays([stored(false)], new Set())
+    expect(kept.isTrainingDay).toBe(false)
+    const [keptTrue] = resolveTrainingDays([stored(true)], new Set())
+    expect(keptTrue.isTrainingDay).toBe(true)
+  })
+
+  it('정규화하지 않으면 판정 슬롯 수가 갈라진다 (수정의 근거)', () => {
+    const raw = stored(false)
+    // 화면은 파생값(훈련일 6슬롯)으로 보는데 저장값으로 판정하면 휴식일 5슬롯이 된다
+    expect(summarizeDietDay(PLAN, raw).totalSlots).toBe(5)
+    const [fixed] = resolveTrainingDays([raw], new Set(['2026-08-03']))
+    expect(summarizeDietDay(PLAN, fixed).totalSlots).toBe(6)
+  })
+
+  it('원본 객체를 변형하지 않는다', () => {
+    const raw = stored(false)
+    resolveTrainingDays([raw], new Set(['2026-08-03']))
+    expect(raw.isTrainingDay).toBe(false)
   })
 })

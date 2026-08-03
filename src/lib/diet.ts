@@ -31,6 +31,25 @@ export const ADHERENCE_MID = 0.5
 
 export type Adherence = 'good' | 'mid' | 'poor' | 'unlogged'
 
+/**
+ * 저장된 `isTrainingDay`를 **사실로 덮어쓴다** (읽기 경계 정규화).
+ *
+ * 그 날짜에 완료 세션이 있으면 훈련일이다 — 수동 토글보다 사실이 우선한다.
+ * 정규화를 읽는 쪽 한 곳에서 하지 않으면 화면과 나머지 경로가 갈라진다:
+ * 아침을 운동 **전에** 기록하면 그 시점엔 휴식일이 맞아서 false로 저장되고, 이후 운동을
+ * 마쳐도 저장값은 그대로다. 화면은 파생값(훈련일 6슬롯)으로 판정하는데 캘린더 링·월 요약·
+ * 내보내기는 저장값(휴식일 5슬롯)으로 판정해서 **같은 날에 두 답이 나온다.**
+ * (실기기 백업에서 실제로 그 상태가 나왔다)
+ *
+ * 저장값을 고치지 않고 읽을 때 덮는 이유: 저장값은 "사용자가 수동으로 고른 것"이라는
+ * 의미를 유지해야 하고, 사실은 언제든 sessions에서 다시 파생할 수 있다.
+ */
+export function resolveTrainingDays(days: DietDay[], trainedDates: Set<string>): DietDay[] {
+  return days.map((day) =>
+    trainedDates.has(day.date) && !day.isTrainingDay ? { ...day, isTrainingDay: true } : day,
+  )
+}
+
 export function slotsFor(plan: DietPlan, isTrainingDay: boolean): DietSlot[] {
   return isTrainingDay ? plan.slots : plan.restDaySlots
 }
