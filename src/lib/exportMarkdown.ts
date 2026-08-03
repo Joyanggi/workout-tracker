@@ -6,7 +6,8 @@ import { withObjectParticle } from './korean'
 import { completedSessions, doneSets, routineExerciseOfEntry, orderDeviations } from './derive'
 import { progressionSuggestions } from './progression'
 import { buildScaleMap, type WeightScaleMap } from './weightScale'
-import type { ExerciseSetting } from '../types'
+import { ADHERENCE_MARK, slotScore, slotsFor, summarizeDietDay } from './diet'
+import type { DietDay, DietPlan, ExerciseSetting } from '../types'
 
 /**
  * Markdown 내보내기 (DESIGN.md §6).
@@ -23,6 +24,64 @@ import type { ExerciseSetting } from '../types'
 export interface ExportRange {
   from: string
   to: string
+}
+
+/**
+ * 식단 섹션 (D4).
+ *
+ * **대체 텍스트를 그대로 싣는다** — 이게 없으면 LLM이 "회식 다음 날 아침 스킵이 반복"
+ * 같은 패턴을 잡을 수 없다. 앱이 음식을 판단하지 않으므로, 판단의 재료를 그대로 넘기는
+ * 것이 이 경로의 목적이다.
+ *
+ * 운동 섹션과 **같은 날짜 아래** 붙는다 — 훈련 품질과 전날 식단의 상관을 보려면
+ * 날짜가 붙어 있어야 한다.
+ *
+ * 계획서 예시는 깨끗한 슬롯을 한 줄에 묶었는데, 여기서는 마크 요약 한 줄 + 예외만
+ * 상세 줄로 뺀다. 파싱이 쉽고 짧으면서 대체 문구는 그대로 남는다.
+ */
+export function dietSectionMarkdown(plan: DietPlan, day: DietDay): string[] {
+  const slots = slotsFor(plan, day.isTrainingDay)
+  const logged = slots.filter((s) => day.slots[s.id] !== undefined)
+  if (logged.length === 0) return []
+
+  const summary = summarizeDietDay(plan, day)
+  const out: string[] = []
+  out.push(
+    `### 식단 — ${plan.name} · ${day.isTrainingDay ? '훈련일' : '휴식일'} · 준수 ` +
+      `${ADHERENCE_MARK[summary.adherence]} (단백질 추정 ${summary.proteinG}g / ${summary.targetProteinG}g)`,
+  )
+
+  const markOf = (slotId: string, slot: (typeof slots)[number]) => {
+    const score = slotScore(slot, day.slots[slotId])
+    return score === null ? '—' : score >= 1 ? '●' : score > 0 ? '◐' : '✗'
+  }
+  out.push(`- 슬롯: ${logged.map((s) => `${s.name} ${markOf(s.id, s)}`).join(' · ')}`)
+
+  for (const slot of logged) {
+    const record = day.slots[slot.id]
+    if (!record) continue
+    const details: string[] = []
+    if (record.skipped) details.push('안 먹음')
+    const missing = slot.items
+      .filter((i) => !record.checkedItemIds.includes(i.id))
+      .map((i) => i.name)
+    if (!record.skipped && missing.length > 0 && missing.length < slot.items.length) {
+      details.push(`미섭취: ${missing.join(', ')}`)
+    }
+    if (record.substitution) {
+      const label =
+        record.substitution.quality === 'similar'
+          ? '비슷한 구성'
+          : record.substitution.quality === 'other'
+            ? '다른 음식'
+            : '치팅'
+      details.push(`대체: "${record.substitution.text}" — ${label}`)
+    }
+    if (details.length > 0) out.push(`- ${slot.name}: ${details.join(' / ')}`)
+  }
+
+  if (day.note) out.push(`- 메모: ${day.note}`)
+  return out
 }
 
 function fmtWeight(n: number): string {
@@ -180,6 +239,9 @@ export function exportMarkdown(args: {
   range: ExportRange
   /** 종목별 무게 단위 행 (T9). 없으면 루틴 전역 증량폭 */
   exerciseSettings?: ExerciseSetting[]
+  /** 식단 (D4) */
+  dietPlans?: DietPlan[]
+  dietDays?: DietDay[]
 }): string {
   const { sessions, routine, catalog, phase, range } = args
   const scales = buildScaleMap(args.exerciseSettings, routine.rules.weightIncrementKg)
@@ -188,17 +250,41 @@ export function exportMarkdown(args: {
     .filter((s) => s.date >= range.from && s.date <= range.to)
     .reverse()
 
-  const head = `# 운동 기록 ${range.from} ~ ${range.to}`
-  if (inRange.length === 0) return `${head}\n\n(기간 내 기록 없음)\n`
+  const planById = new Map((args.dietPlans ?? []).map((p) => [p.id, p]))
+  const dietInRange = (args.dietDays ?? []).filter(
+    (d) => d.date >= range.from && d.date <= range.to,
+  )
+  const dietByDate = new Map(dietInRange.map((d) => [d.date, d]))
 
-  return [
-    head,
-    '',
-    ...inRange.flatMap((s) => [sessionToMarkdown(s, routine, catalog, phase, scales), '']),
-  ]
-    .join('\n')
-    .trimEnd()
-    .concat('\n')
+  const dietLines = (date: string): string[] => {
+    const day = dietByDate.get(date)
+    const plan = day ? planById.get(day.planId) : undefined
+    return day && plan ? dietSectionMarkdown(plan, day) : []
+  }
+
+  const head = `# 운동 기록 ${range.from} ~ ${range.to}`
+  /*
+   * 식단만 기록한 날도 내보낸다 — 빼면 "회식 다음 날" 같은 패턴을 LLM이 볼 수 없다.
+   * 운동이 있는 날은 운동 섹션 아래에 붙이고, 없는 날은 날짜 헤더만 세워 붙인다.
+   */
+  const dates = [...new Set([...inRange.map((s) => s.date), ...dietByDate.keys()])].sort()
+  if (dates.length === 0) return `${head}\n\n(기간 내 기록 없음)\n`
+
+  const body = dates.flatMap((date) => {
+    const daySessions = inRange.filter((s) => s.date === date)
+    const diet = dietLines(date)
+    if (daySessions.length === 0) {
+      return [`## ${date} (${weekdayKo(date)}) — 운동 없음`, '', ...diet, '']
+    }
+    return daySessions.flatMap((s, i) => [
+      sessionToMarkdown(s, routine, catalog, phase, scales),
+      '',
+      // 같은 날 세션이 여럿이면 식단은 마지막 세션 아래 한 번만 붙인다
+      ...(i === daySessions.length - 1 ? [...diet, ''] : []),
+    ])
+  })
+
+  return [head, '', ...body].join('\n').trimEnd().concat('\n')
 }
 
 /** 보상작용이 기록된 종목 수 — 내보내기 미리보기용 */

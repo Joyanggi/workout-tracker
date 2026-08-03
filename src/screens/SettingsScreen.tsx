@@ -3,7 +3,9 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import ExportPanel from '../components/ExportPanel'
 import GistPanel from '../components/GistPanel'
 import ImportPanel from '../components/ImportPanel'
+import DietIoPanel from '../components/DietIoPanel'
 import RoutineIoPanel from '../components/RoutineIoPanel'
+import { useDiet } from '../lib/useDiet'
 import { db } from '../db'
 import type { SeedResult } from '../db/seed'
 import { phaseReadiness } from '../lib/phaseReadiness'
@@ -21,6 +23,7 @@ const PHASES: { value: Phase; label: string; desc: string }[] = [
 ]
 
 export default function SettingsScreen({ seed }: { seed: SeedResult }) {
+  const diet = useDiet()
   const bundle = useRoutine()
   const { currentPhase, setPhase, setOnboardingDone } = useSettings()
   const sessionCount = useLiveQuery(() => db.sessions.count(), [], 0)
@@ -190,6 +193,7 @@ export default function SettingsScreen({ seed }: { seed: SeedResult }) {
       <ImportPanel />
 
       {bundle && <RoutineIoPanel routine={bundle.routine} catalog={bundle.catalog} />}
+      <DietIoPanel plans={diet.plans} />
 
       <div className="card">
         <div className="card-label">진단</div>

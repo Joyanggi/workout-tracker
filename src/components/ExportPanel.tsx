@@ -3,6 +3,7 @@ import { createBackup } from '../lib/backup'
 import { addDays, addMonths, monthStart, todayLocal } from '../lib/dates'
 import { completedSessions } from '../lib/derive'
 import { useExerciseSettings } from '../lib/useExerciseSettings'
+import { useDiet } from '../lib/useDiet'
 import { exportMarkdown, type ExportRange } from '../lib/exportMarkdown'
 import { OUTCOME_MESSAGE, copyText, shareFile, shareText } from '../lib/share'
 import type { RoutineBundle } from '../lib/useRoutine'
@@ -18,9 +19,24 @@ const PRESETS: { id: PresetId; label: string }[] = [
   { id: 'all', label: '전체' },
 ]
 
-function rangeFor(preset: PresetId, today: string, sessions: Session[]): ExportRange {
+/**
+ * `all`의 시작일은 **운동과 식단 중 더 오래된 것**을 쓴다 (D4).
+ *
+ * 세션만 보면, 식단을 먼저 쓰기 시작했거나 운동 기록이 없는 기간의 식단이 "전체"에서
+ * 통째로 빠진다 — 실측에서 8/1·8/2 식단이 빠졌다. 식단 섹션을 넣은 목적이
+ * LLM 상관 분석이므로 범위가 한쪽만 보면 안 된다.
+ */
+function rangeFor(
+  preset: PresetId,
+  today: string,
+  sessions: Session[],
+  dietDates: string[] = [],
+): ExportRange {
   const done = completedSessions(sessions)
-  const oldest = done.length > 0 ? done[done.length - 1].date : today
+  const oldestSession = done.length > 0 ? done[done.length - 1].date : null
+  const oldestDiet = dietDates.length > 0 ? dietDates.slice().sort()[0] : null
+  const candidates = [oldestSession, oldestDiet].filter((d): d is string => d !== null)
+  const oldest = candidates.length > 0 ? candidates.sort()[0] : today
   switch (preset) {
     case 'w2':
       return { from: addDays(today, -13), to: today }
@@ -53,8 +69,13 @@ export default function ExportPanel({
   const [preview, setPreview] = useState<string | null>(null)
   const today = todayLocal()
   const exerciseSettings = useExerciseSettings()
+  const diet = useDiet()
 
-  const range = useMemo(() => rangeFor(preset, today, sessions), [preset, today, sessions])
+  const dietDates = useMemo(() => diet.days.map((d) => d.date), [diet.days])
+  const range = useMemo(
+    () => rangeFor(preset, today, sessions, dietDates),
+    [preset, today, sessions, dietDates],
+  )
   const inRange = useMemo(
     () => completedSessions(sessions).filter((s) => s.date >= range.from && s.date <= range.to),
     [sessions, range],
@@ -68,6 +89,8 @@ export default function ExportPanel({
       phase,
       range,
       exerciseSettings,
+      dietPlans: diet.plans,
+      dietDays: diet.days,
     })
 
   const onShareMd = async () => {
