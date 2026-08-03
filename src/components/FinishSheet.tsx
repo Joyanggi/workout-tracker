@@ -3,6 +3,7 @@ import { doneSets } from '../lib/derive'
 import { compensationEntriesOf } from '../lib/compensationWatch'
 import type { RoutineBundle } from '../lib/useRoutine'
 import { useSessionStore } from '../store/session'
+import { NO_AUTOFILL } from '../lib/inputProps'
 
 const CARDIO_TYPES = ['마이마운틴', '자전거', '트레드밀', '기타']
 
@@ -112,6 +113,7 @@ export default function FinishSheet({
         {cardioType && (
           <div className="btn-row" style={{ marginTop: 8 }}>
             <input
+              {...NO_AUTOFILL}
               className="field"
               inputMode="numeric"
               value={minutes}
@@ -120,6 +122,7 @@ export default function FinishSheet({
               placeholder="분"
             />
             <input
+              {...NO_AUTOFILL}
               className="field"
               value={cardioNote}
               onChange={(e) => setCardioNote(e.target.value)}
@@ -133,6 +136,7 @@ export default function FinishSheet({
           메모 (선택)
         </div>
         <textarea
+          {...NO_AUTOFILL}
           className="field"
           rows={2}
           value={note}

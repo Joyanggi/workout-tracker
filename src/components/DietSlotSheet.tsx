@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { DietSlot, SlotRecord } from '../types'
+import { NO_AUTOFILL } from '../lib/inputProps'
 
 /** 자가 태그 기준 — 앱이 음식을 판단하지 않으므로 기준을 사용자에게 그대로 보여준다 */
 const QUALITY: { id: 'similar' | 'other' | 'cheat'; label: string; hint: string }[] = [
@@ -90,6 +91,7 @@ export default function DietSlotSheet({
               찾습니다 (앱은 좋고 나쁨을 판단하지 않습니다).
             </p>
             <input
+              {...NO_AUTOFILL}
               className="field"
               value={text}
               onChange={(e) => setText(e.target.value)}

@@ -6,6 +6,7 @@ import {
   round2,
   type WeightScale,
 } from '../lib/weightScale'
+import { NO_AUTOFILL } from '../lib/inputProps'
 
 /**
  * 종목별 무게 단위 설정 (T9).
@@ -104,6 +105,7 @@ export default function WeightScaleSheet({
               ))}
             </div>
             <input
+              {...NO_AUTOFILL}
               className="field"
               style={{ marginTop: 10 }}
               inputMode="decimal"
@@ -119,6 +121,7 @@ export default function WeightScaleSheet({
               머신에 적힌 핀 값을 순서 상관없이 나열하세요. 예: 5, 10, 15, 20, 25, 30, 35, 41, 47
             </p>
             <textarea
+              {...NO_AUTOFILL}
               className="field"
               rows={3}
               value={ladderText}

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { parseCompensation, serializeCompensation } from '../lib/compensation'
 import { NO_COMPENSATION } from '../types'
+import { NO_AUTOFILL } from '../lib/inputProps'
 
 /**
  * 보상작용 입력 (DESIGN.md §5.2).
@@ -66,6 +67,7 @@ export default function CompensationSheet({
           직접 입력
         </div>
         <input
+          {...NO_AUTOFILL}
           className="field"
           value={free}
           onChange={(e) => setFree(e.target.value)}

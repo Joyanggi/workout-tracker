@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { CALIBRATION_RIR, type SubstitutePreview } from '../lib/substitute'
+import { NO_AUTOFILL } from '../lib/inputProps'
 
 /**
  * 대체운동 선택 (T8).
@@ -62,6 +63,7 @@ export default function SubstituteSheet({
                 </p>
                 <div className="setup-edit">
                   <input
+                    {...NO_AUTOFILL}
                     className="field"
                     inputMode="decimal"
                     value={bodyWeightText}

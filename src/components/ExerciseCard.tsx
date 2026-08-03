@@ -11,6 +11,7 @@ import { compensationSummary, hasCompensation } from '../lib/compensation'
 import { doneSetsAll } from '../lib/derive'
 import type { RecordPrefill } from '../lib/prefill'
 import type { RecordKey, RoutineExercise, SessionEntry, SetRecord } from '../types'
+import { NO_AUTOFILL } from '../lib/inputProps'
 
 /** 감각 점수 라벨 (루틴 문서: 목표 부위에 자극이 왔는지) */
 const SENSORY_LABELS: Record<0 | 1 | 2 | 3, string> = {
@@ -238,6 +239,7 @@ export default function ExerciseCard({
           {editingSetup ? (
             <div className="setup-edit">
               <input
+                {...NO_AUTOFILL}
                 className="field"
                 value={setupNote ?? ''}
                 onChange={(e) => setSetupNote(e.target.value)}
@@ -455,6 +457,7 @@ export default function ExerciseCard({
                   : SENSORY_LABELS[entry.sensoryScore]}
               </p>
               <input
+                {...NO_AUTOFILL}
                 className="field"
                 value={entry.sensoryNote ?? ''}
                 onChange={(e) => actions.setSensoryNote(entry.recordKey, e.target.value)}

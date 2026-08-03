@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { stepDown, stepUp } from '../lib/weightScale'
+import { NO_AUTOFILL } from '../lib/inputProps'
 
 /**
  * 입력 중 허용 패턴 (T2).
@@ -118,6 +119,7 @@ export default function NumberStepper({
       </button>
       {/* 정수 필드는 inputMode=numeric — iOS 키패드에서 소수점 키 자체가 사라진다 */}
       <input
+        {...NO_AUTOFILL}
         className="stepper-value"
         inputMode={decimals === 2 ? 'decimal' : 'numeric'}
         aria-label={ariaLabel}

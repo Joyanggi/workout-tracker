@@ -11,6 +11,7 @@ import {
   type SyncState,
 } from '../lib/gistSync'
 import { getGistToken, maskToken, setGistToken } from '../lib/secrets'
+import { NO_AUTOFILL } from '../lib/inputProps'
 
 const TOKEN_HELP = 'https://github.com/settings/tokens/new?scopes=gist&description=workout-tracker'
 
@@ -153,11 +154,10 @@ export default function GistPanel() {
             GitHub에서 토큰 발급하기 ↗
           </a>
           <input
+            {...NO_AUTOFILL}
             className="field"
             style={{ marginTop: 10 }}
             type="password"
-            autoComplete="off"
-            spellCheck={false}
             value={tokenInput}
             onChange={(e) => setTokenInput(e.target.value)}
             placeholder="ghp_… 또는 github_pat_…"

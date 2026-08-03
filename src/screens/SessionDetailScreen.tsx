@@ -7,6 +7,7 @@ import { useSessionEditor } from '../lib/useSessionEditor'
 import { isInverseKey } from '../lib/weightScale'
 import type { RoutineBundle } from '../lib/useRoutine'
 import { parseRecordKey, type RecordKey } from '../types'
+import { NO_AUTOFILL } from '../lib/inputProps'
 
 const CARDIO_TYPES = ['마이마운틴', '자전거', '트레드밀', '기타']
 
@@ -167,6 +168,7 @@ export default function SessionDetailScreen({
               Number('') → 0이 저장되고, 그 0이 다시 value로 내려와 "0"이 지워지지 않는다.
             */}
             <input
+              {...NO_AUTOFILL}
               className="field"
               inputMode="numeric"
               value={minutesText ?? String(session.cardio.minutes)}
@@ -182,6 +184,7 @@ export default function SessionDetailScreen({
               aria-label="유산소 시간(분)"
             />
             <input
+              {...NO_AUTOFILL}
               className="field"
               value={session.cardio.note ?? ''}
               onChange={(e) => editor.setCardio({ ...session.cardio!, note: e.target.value })}
@@ -195,6 +198,7 @@ export default function SessionDetailScreen({
       <div className="card">
         <div className="card-label">메모</div>
         <textarea
+          {...NO_AUTOFILL}
           className="field"
           rows={2}
           value={session.sessionNote ?? ''}
