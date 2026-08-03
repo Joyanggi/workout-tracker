@@ -5,6 +5,7 @@ import { ensureSeed, type SeedResult } from './db/seed'
 import { flushPendingSync, installSyncLifecycle } from './lib/gistSync'
 import { usePwaUpdate } from './lib/usePwaUpdate'
 import { useRoutine } from './lib/useRoutine'
+import DietScreen from './screens/DietScreen'
 import HistoryScreen from './screens/HistoryScreen'
 import HomeScreen from './screens/HomeScreen'
 import Onboarding from './screens/Onboarding'
@@ -115,6 +116,7 @@ export default function App() {
     <div className="app">
       {banner}
       {tab === 'home' && <HomeScreen onEnterSession={() => setView('session')} />}
+      {tab === 'diet' && <DietScreen />}
       {tab === 'history' &&
         (bundle ? <HistoryScreen bundle={bundle} /> : <p className="center-note">불러오는 중…</p>)}
       {tab === 'analyze' &&

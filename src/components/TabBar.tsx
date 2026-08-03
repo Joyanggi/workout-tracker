@@ -1,7 +1,9 @@
-export type TabId = 'home' | 'history' | 'analyze' | 'settings'
+export type TabId = 'home' | 'diet' | 'history' | 'analyze' | 'settings'
 
 const TABS: { id: TabId; label: string; icon: string }[] = [
   { id: 'home', label: '홈', icon: '🔥' },
+  // 식단은 하루 여러 번 열게 되므로 홈 바로 옆에 둔다 (D2)
+  { id: 'diet', label: '식단', icon: '🍽️' },
   { id: 'history', label: '기록', icon: '📅' },
   { id: 'analyze', label: '분석', icon: '📈' },
   { id: 'settings', label: '설정', icon: '⚙️' },
