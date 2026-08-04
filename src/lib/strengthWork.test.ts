@@ -228,14 +228,43 @@ describe('인바리언트 — 날짜별 훈련 판정의 단일 경로', () => {
     ).toEqual([])
   })
 
-  it('훈련일 정규화는 useDiet 한 곳에서만 한다', () => {
-    // `trained || stored.isTrainingDay` 사본이 HomeScreen에 남아 있었다
+  /**
+   * `사실 || 저장값` 형태의 정규화 사본을 막는다.
+   *
+   * HomeScreen에 사본이 하나 남아 있었다 (X3에서 삭제). 첫 버전 정규식은 `\btrained\b`를
+   * 써서 **`trainedThatDay`를 놓쳤다** — 그래서 아래 DietDayEditor를 우연히 통과시켰다.
+   * 우연한 통과는 예외보다 나쁘다. 이름을 넓게 잡고, 남는 한 곳은 근거와 함께 등록한다.
+   *
+   * `DietDayEditor`는 예외다: **기록이 없는 날의 기본값**이 필요하다. 저장된 행이 없으면
+   * `stored`가 undefined이므로 정규화가 손댈 것도 없고, 그 날 근력을 했으면 훈련일이
+   * 기본이어야 한다. (저장된 행이 있는 경우엔 `useDiet`의 정규화 결과와 항상 일치한다 —
+   * 둘 다 `strengthDates`를 원천으로 쓴다)
+   */
+  const NORMALIZE_ALLOWED = ['/src/components/DietDayEditor.tsx']
+
+  it('훈련일 정규화 사본을 두지 않는다 (등록된 예외 외에)', () => {
     const offenders = appFiles
       .filter(([p]) => p !== '/src/lib/diet.ts' && p !== '/src/lib/useDiet.ts')
-      .filter(([, src]) => /isTrainingDay\s*\)?\s*$|\|\|\s*\(?stored\?\.isTrainingDay/.test(src))
-      .filter(([, src]) => /\btrained\b[\s\S]{0,80}isTrainingDay/.test(src))
+      .filter(([p]) => !NORMALIZE_ALLOWED.includes(p))
+      // `trained…` 어떤 이름이든 잡는다 (trained / trainedToday / trainedThatDay …)
+      .filter(([, src]) => /\btrained\w*\s*\|\|\s*\(?\s*stored\??\.?\w*\.?isTrainingDay/.test(src))
       .map(([p]) => p)
-    expect(offenders).toEqual([])
+
+    expect(
+      offenders,
+      `"사실 || 저장값"을 다시 계산하면 정규화가 갈라집니다 — useDiet의 값을 쓰세요:\n` +
+        offenders.map((f) => `  ${f}`).join('\n'),
+    ).toEqual([])
+  })
+
+  it('등록된 예외가 실제로 그 형태를 갖고 있다 (경로만 남고 코드가 바뀌면 알려야 한다)', () => {
+    for (const path of NORMALIZE_ALLOWED) {
+      const src = appFiles.find(([p]) => p === path)?.[1]
+      expect(src, `${path}가 없습니다`).toBeDefined()
+      expect(src, `${path}에 정규화 형태가 없다면 예외를 지워야 합니다`).toMatch(
+        /\btrained\w*\s*\|\|\s*\(?\s*stored\??\.?\w*\.?isTrainingDay/,
+      )
+    }
   })
 
   it('주석 제거가 코드를 지우지는 않는다 (검사가 헛돌지 않게)', () => {
@@ -257,6 +286,8 @@ describe('인바리언트 — 날짜별 훈련 판정의 단일 경로', () => {
       '/src/lib/useDiet.ts',
       '/src/screens/DietScreen.tsx',
       '/src/screens/HistoryScreen.tsx',
+      // X1 — 세션 상세 하단의 그 날짜 식단
+      '/src/screens/SessionDetailScreen.tsx',
     ])
   })
 
@@ -268,5 +299,47 @@ describe('인바리언트 — 날짜별 훈련 판정의 단일 경로', () => {
     ]) {
       expect(sources[path], `${path}가 없습니다`).toMatch(/strengthSessions|strengthDates/)
     }
+  })
+})
+
+/**
+ * X1 — 세션 있는 날의 식단이 **같은 편집기**로 그려진다.
+ *
+ * PLAN-DIET §3이 "세션 상세 아래 식단"을 규정했는데 구현에서 빠져 있었다
+ * (세션이 하나뿐인 날은 기록 탭이 상세로 바로 들어오므로 식단이 사라졌다).
+ *
+ * 고칠 때 요약을 새로 만들지 않는 것이 중요하다 — 식단 상태를 그리는 코드가 세 벌이 되면
+ * 그게 이 프로젝트의 반복 결함(같은 값을 여러 곳에서 계산)이 된다.
+ */
+describe('X1 — 식단 렌더 경로의 단일화', () => {
+  const sources = import.meta.glob('/src/**/*.tsx', {
+    query: '?raw',
+    import: 'default',
+    eager: true,
+  }) as Record<string, string>
+
+  it('세션 상세가 공용 DietDayEditor를 쓴다', () => {
+    const src = sources['/src/screens/SessionDetailScreen.tsx']
+    expect(src, 'SessionDetailScreen을 찾지 못했다').toBeDefined()
+    expect(src).toMatch(/<DietDayEditor/)
+  })
+
+  it('식단 편집기를 쓰는 화면이 셋뿐이다 (오늘·기록·세션 상세)', () => {
+    const users = Object.entries(sources)
+      .filter(([p]) => !p.endsWith('.test.tsx'))
+      .filter(([, src]) => /<DietDayEditor/.test(src))
+      .map(([p]) => p)
+      .sort()
+    expect(users).toEqual([
+      '/src/screens/DietScreen.tsx',
+      '/src/screens/HistoryScreen.tsx',
+      '/src/screens/SessionDetailScreen.tsx',
+    ])
+  })
+
+  it('세션 상세가 식단 요약을 따로 계산하지 않는다', () => {
+    // summarizeDietDay를 직접 부르면 편집기와 다른 숫자가 나올 길이 열린다
+    const src = sources['/src/screens/SessionDetailScreen.tsx']!
+    expect(src).not.toMatch(/summarizeDietDay|ADHERENCE_MARK/)
   })
 })

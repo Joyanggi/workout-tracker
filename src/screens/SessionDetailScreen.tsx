@@ -1,8 +1,13 @@
 import { useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
+import DietDayEditor from '../components/DietDayEditor'
 import ExerciseCard from '../components/ExerciseCard'
+import { db } from '../db'
 import { planDayChange } from '../lib/dayChange'
 import { formatClock, weekdayKo } from '../lib/dates'
-import { doneSets, findDay, totalDoneSets, totalVolume } from '../lib/derive'
+import { doneSets, findDay, strengthDates, totalDoneSets, totalVolume } from '../lib/derive'
+import { todayLocal } from '../lib/dates'
+import { useDiet } from '../lib/useDiet'
 import { useSessionEditor } from '../lib/useSessionEditor'
 import { isInverseKey } from '../lib/weightScale'
 import type { RoutineBundle } from '../lib/useRoutine'
@@ -25,6 +30,8 @@ export default function SessionDetailScreen({
   onBack: () => void
 }) {
   const editor = useSessionEditor(sessionId)
+  const diet = useDiet()
+  const sessions = useLiveQuery(() => db.sessions.toArray(), [], [])
   const [openKey, setOpenKey] = useState<RecordKey | null>(null)
   const [changingDay, setChangingDay] = useState(false)
   const [pendingDayId, setPendingDayId] = useState<string | null>(null)
@@ -309,6 +316,36 @@ export default function SessionDetailScreen({
           </button>
         )}
       </div>
+
+      {/*
+        X1 — 그 **날짜**의 식단 (PLAN-DIET §3이 규정했는데 빠져 있었다).
+        세션이 하나뿐인 날은 기록 탭이 이 화면으로 바로 들어오므로, 여기가 없으면
+        "식단만 있으면 보이고 운동까지 있으면 운동만 보이는" 상태가 된다.
+
+        **오늘 화면·기록 탭과 같은 편집기를 쓴다** (D3 원칙). 요약만 따로 만들면
+        식단 상태를 그리는 코드가 세 벌이 되고, 그게 이 프로젝트의 반복 결함이다.
+        DietDayEditor 자체가 상단에 요약(마크·단백질·슬롯 수)을 갖고 있다.
+
+        계획서와 다르게 한 것: "세션 여러 개인 날은 마지막 세션 상세 하단에만" 규칙을
+        두지 않았다. 한 번에 한 상세 화면만 보이므로 중복 표시가 생기지 않고, 한쪽에만
+        나오면 "왜 여기선 안 보이나"가 된다. 대신 라벨에 날짜를 적어 **세션이 아니라
+        그 날짜의 식단**임을 드러낸다.
+      */}
+      {!diet.loading && diet.plans.length > 0 && (
+        <>
+          <div className="card-label" style={{ marginTop: 4 }}>
+            {session.date} 식단
+          </div>
+          <DietDayEditor
+            date={session.date}
+            today={todayLocal()}
+            plans={diet.plans}
+            days={diet.days}
+            defaultPlanId={diet.defaultPlanId}
+            trainedThatDay={strengthDates(sessions).has(session.date)}
+          />
+        </>
+      )}
 
       <button className="btn" onClick={onBack}>
         기록으로

@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, deleteDietDay } from '../db'
+import { requestSync } from './gistSync'
 import { resolveTrainingDays } from './diet'
 import { emptyDietDay } from './dietOps'
 import { strengthDates } from './derive'
@@ -76,11 +77,31 @@ export function dietDayFor(
   return days.find((d) => d.date === date) ?? emptyDietDay(date, planId, isTrainingDay)
 }
 
+/**
+ * 식단 변경 후 백업 예약 (X7).
+ *
+ * v1.3까지 `requestSync`를 부르는 곳이 **세션 종료 한 곳뿐**이었다. 그래서 식단만 기록한
+ * 날은 백업에 올라가지 않고, 다음 세션을 마쳐야 같이 올라갔다 — 실제로 gist 마지막 갱신이
+ * 이틀 전이었고 그 사이 식단 기록이 백업에 없었다.
+ *
+ * 쓰기 chokepoint 두 곳(`mutateDietDay`·`removeDietDay`)에만 붙인다. 화면마다 부르면
+ * 새 화면을 추가할 때 빠뜨린다 — 세션 종료 경로에서 이미 겪은 형태다.
+ *
+ * **성공한 뒤에 부른다.** 실패한 쓰기로 백업을 올리면 없는 변경을 올리는 셈이다.
+ * 연타는 `requestSync`의 8초 debounce가 흡수한다 (호출마다 타이머를 다시 건다) —
+ * 슬롯 6개를 빠르게 누르면 업로드는 마지막 탭 이후 한 번이다.
+ */
+function scheduleBackup(): void {
+  requestSync()
+}
+
 /** 그 날짜 기록 삭제 (G4). 미기록 상태로 완전히 되돌린다 */
 export function removeDietDay(date: string): void {
-  void deleteDietDay(date).catch((err) => {
-    console.error('[diet] 삭제 실패', err)
-  })
+  void deleteDietDay(date)
+    .then(scheduleBackup)
+    .catch((err) => {
+      console.error('[diet] 삭제 실패', err)
+    })
 }
 
 /**
@@ -99,6 +120,7 @@ export function mutateDietDay(
       const current = (await db.dietDays.get(date)) ?? fallback
       await db.dietDays.put(fn(current))
     })
+    .then(scheduleBackup)
     .catch((err) => {
       console.error('[diet] 저장 실패', err)
     })
