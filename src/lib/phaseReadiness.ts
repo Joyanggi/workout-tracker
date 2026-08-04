@@ -2,7 +2,7 @@ import type { Phase, RecordKey, RoutineTemplate, Session } from '../types'
 import { NO_COMPENSATION, parseRecordKey } from '../types'
 import { keyARecordKeys, phase0Progress } from './dashboard'
 import { addDays, daysBetween, todayLocal } from './dates'
-import { completedSessions, doneSets, routineExerciseOfEntry } from './derive'
+import { doneSets, routineExerciseOfEntry, strengthSessions } from './derive'
 
 /**
  * Phase 전환 조건 감지 (PLAN-v1.1 T3).
@@ -49,6 +49,23 @@ function median(values: number[]): number {
   return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid]
 }
 
+/*
+ * **이 파일은 근력 기록만 본다** (Y1 — 리뷰 후속).
+ *
+ * Phase 승급 조건은 전부 "근력 수행"에 대한 진술이다. 유산소만 기록한 세션도 완료 세션이라
+ * 두 조건이 과대평가됐다:
+ *
+ * - ④ "6개월 내 4주+ 공백 없음": 근력이 창 안에 **하나도 없고** 유산소만 촘촘한 상태에서
+ *   `met: true / "공백 없음"`이 나왔다 (재현 확인)
+ * - ③ "최근 4주 보상작용 없음": 안쪽에서 `doneSets > 0` 엔트리만 세지만 **`recent.length`는
+ *   전 세션을 센다.** 근력 0회 + 유산소 10회에서 `met: true / "10세션 모두 없음"`이 나왔다.
+ *   (리뷰어는 ③을 무해로 판단했는데 재현해 보니 아니었다 — 안쪽 필터가 분자만 지켰다)
+ *
+ * 사이트별로 "여기는 괜찮다"를 따지지 않고 **파일 규칙 하나**로 둔다. 나머지 세 곳은
+ * 어차피 `doneSets > 0` 엔트리만 보므로 결과가 같고, 규칙이 하나면 새 조건을 추가할 때
+ * 판단할 것이 없다. `phaseGate.test.ts`가 `completedSessions` 재유입을 막는다.
+ */
+
 /** B그룹이면서 최근 창 안에 기록이 있는 recordKey */
 function recentBKeys(
   sessions: Session[],
@@ -56,7 +73,7 @@ function recentBKeys(
   from: string,
 ): RecordKey[] {
   const keys = new Set<RecordKey>()
-  for (const session of completedSessions(sessions)) {
+  for (const session of strengthSessions(sessions)) {
     if (session.date < from) continue
     for (const entry of session.entries) {
       if (doneSets(entry).length === 0) continue
@@ -71,7 +88,7 @@ function recentBKeys(
 /** 그 recordKey의 최근 n개 감각 점수 (최신순) */
 function recentSensory(sessions: Session[], recordKey: RecordKey, n: number): number[] {
   const out: number[] = []
-  for (const session of completedSessions(sessions)) {
+  for (const session of strengthSessions(sessions)) {
     const entry = session.entries.find((e) => e.recordKey === recordKey)
     if (!entry || entry.sensoryScore === undefined) continue
     out.push(entry.sensoryScore)
@@ -90,7 +107,7 @@ function recentSensory(sessions: Session[], recordKey: RecordKey, n: number): nu
 export function weightIncreaseCount(sessions: Session[], recordKey: RecordKey): number {
   let running = -Infinity
   let count = 0
-  for (const session of completedSessions(sessions).slice().reverse()) {
+  for (const session of strengthSessions(sessions).slice().reverse()) {
     const entry = session.entries.find((e) => e.recordKey === recordKey)
     if (!entry) continue
     const sets = doneSets(entry)
@@ -110,7 +127,7 @@ export function weightIncreaseCount(sessions: Session[], recordKey: RecordKey): 
 
 /** 최근 기간 안에 GAP_DAYS 이상 공백이 있었는가 */
 export function hasGapWithin(sessions: Session[], from: string, today: string): boolean {
-  const asc = completedSessions(sessions)
+  const asc = strengthSessions(sessions)
     .filter((s) => s.date >= from)
     .slice()
     .reverse()
@@ -186,7 +203,7 @@ export function phaseReadiness(
     const sensory = sensoryCheck(2 / 3, '2/3')
 
     // ③ 최근 4주 전 세션에서 보상작용 없음
-    const recent = completedSessions(sessions).filter((s) => s.date >= recentFrom)
+    const recent = strengthSessions(sessions).filter((s) => s.date >= recentFrom)
     const withComp = recent.filter((s) =>
       s.entries.some((e) => doneSets(e).length > 0 && e.compensation !== NO_COMPENSATION),
     )

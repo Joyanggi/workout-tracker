@@ -12,7 +12,7 @@ import { compensationSummary, hasCompensation } from '../lib/compensation'
 import { doneSetsAll } from '../lib/derive'
 import type { RecordPrefill } from '../lib/prefill'
 import type { RecordKey, RoutineExercise, SessionEntry, SetRecord } from '../types'
-import { AUTOFILL_UNKNOWN_TOKEN, NO_AUTOFILL } from '../lib/inputProps'
+import { NO_AUTOFILL } from '../lib/inputProps'
 
 /** 감각 점수 라벨 (루틴 문서: 목표 부위에 자극이 왔는지) */
 const SENSORY_LABELS: Record<0 | 1 | 2 | 3, string> = {
@@ -248,16 +248,11 @@ export default function ExerciseCard({
                 {...NO_AUTOFILL}
                 /*
                   X5 종결 — **iOS 연락처 제안은 웹으로 막을 수 없다** (README Limitations).
-                  실험대 6칸(대조군 포함)에서 전부 제안이 떴고, 마지막 카드였던
-                  "readOnly로 열고 포커스 시 해제"도 지웠다: 해제가 한 macrotask 뒤라
-                  readOnly 창이 사실상 0이어서 기대 이익이 거의 없는데, 그 경로에
-                  "필드가 영구히 readOnly로 남아 입력 불가"라는 실패 모드가 있었다.
-                  운동 중 유일하게 타이핑하는 필드에 그 위험을 남길 값이 없다.
-
-                  비표준 토큰은 남겨 둔다 — 실험대에서 이것도 무효로 나왔으니 지워도
-                  되지만, 그 판단은 이 수정의 범위가 아니다 (한 단어면 빠진다).
+                  실험대 6칸(대조군 포함)에서 전부 제안이 떴다. 그래서 이 필드만 달랐던
+                  두 처방(비표준 토큰 · readOnly 트릭)을 **둘 다 지웠다** — 무효가 실증된
+                  처방을 남기면 "왜 이 필드만 다르지"가 다음 사람의 조사 대상이 된다 (Y2).
+                  이제 전 입력이 `NO_AUTOFILL` 하나로 통일된다.
                 */
-                autoComplete={AUTOFILL_UNKNOWN_TOKEN}
                 className="field"
                 value={setupNote ?? ''}
                 onChange={(e) => setSetupNote(e.target.value)}

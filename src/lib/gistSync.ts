@@ -1,4 +1,4 @@
-import { createBackup } from './backup'
+import { createBackup, fingerprintPayload } from './backup'
 import { createGist, GistError, updateGist } from './gist'
 import { getGistToken } from './secrets'
 import { daysBetween, todayLocal } from './dates'
@@ -50,6 +50,22 @@ export function isGistConfigured(): boolean {
 }
 
 /**
+ * SHA-256 hex. 실패하면 `null` — 호출부는 그때 **그냥 올린다** (건너뛰지 않는다).
+ *
+ * `crypto.subtle`은 보안 컨텍스트(https·localhost)에서만 있다. 배포는 https이고 개발은
+ * localhost이므로 정상 경로에서는 항상 있지만, 없을 때 조용히 32비트 해시로 떨어지면
+ * 충돌이 "실제 변경을 건너뛰는" 사고가 된다 — 그래서 대체 해시를 두지 않는다.
+ */
+async function sha256(text: string): Promise<string | null> {
+  try {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
+    return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
+  } catch {
+    return null
+  }
+}
+
+/**
  * 실제 업로드. gistId가 없으면 private gist를 새로 만들고 id를 저장한다.
  * 반환값은 성공 여부 — 호출자가 화면 상태를 갱신할 수 있게.
  */
@@ -63,8 +79,35 @@ export async function syncNow(): Promise<SyncState> {
 
   emit({ status: 'syncing' })
   try {
-    const content = JSON.stringify(await createBackup(), null, 2)
+    const file = await createBackup()
+    const content = JSON.stringify(file, null, 2)
     const existingId = await getSetting<string | null>('gistId', null)
+
+    /*
+     * 내용이 직전 업로드와 같으면 건너뛴다 (Y4).
+     *
+     * X7이 식단 쓰기마다 동기화를 예약하면서 업로드 빈도가 크게 올랐다. 같은 내용을 다시
+     * 올리는 것은 순수한 낭비다 — 매 업로드가 전체 백업(수십 KB)이다.
+     *
+     * **건너뛰기는 위험한 방향이므로 보수적으로 만든다:**
+     * - 지문 계산이 실패하면(구형 환경 등) `null`이 되고 **그냥 올린다**
+     * - gist가 아직 없으면(`existingId` 없음) 비교 대상이 없으니 올린다
+     * - 해시는 SHA-256이다. 32비트 해시로는 충돌이 "실제 변경을 건너뛰는" 사고가 된다
+     *
+     * `lastBackupAt`은 갱신하지 않는다 — 올린 게 없으므로 마지막 백업 시각은 그대로가 사실이다.
+     */
+    const fingerprint = await sha256(fingerprintPayload(file))
+    if (existingId && fingerprint !== null) {
+      const lastHash = await getSetting<string | null>('lastBackupHash', null)
+      const lastAt = await getSetting<string | null>('lastBackupAt', null)
+      // 마지막 백업 시각이 없으면 건너뛰지 않는다 — 보고할 사실이 없으면 올리는 쪽이 안전하다
+      if (lastHash === fingerprint && lastAt !== null) {
+        clearSyncPending()
+        const next: SyncState = { status: 'done', at: lastAt }
+        emit(next)
+        return next
+      }
+    }
 
     let info
     if (existingId) {
@@ -83,7 +126,11 @@ export async function syncNow(): Promise<SyncState> {
       info = await createGist(token, content)
     }
 
-    await setSettings({ gistId: info.gistId, lastBackupAt: info.updatedAt })
+    await setSettings({
+      gistId: info.gistId,
+      lastBackupAt: info.updatedAt,
+      ...(fingerprint !== null ? { lastBackupHash: fingerprint } : {}),
+    })
     clearSyncPending()
     const next: SyncState = { status: 'done', at: info.updatedAt }
     emit(next)

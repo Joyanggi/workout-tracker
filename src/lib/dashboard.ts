@@ -192,7 +192,14 @@ export function deloadState(
   routine: RoutineTemplate,
   today: string,
 ): DeloadState {
-  const done = completedSessions(sessions)
+  /*
+   * **근력 기준** (Y1). `counterStartWeek`가 4주+ 공백으로 카운터를 리셋하는데, 전 세션을
+   * 보면 유산소가 그 공백을 메워 **리셋이 안 된다.** 재현: 6월에 근력 주 3회 4주 → 7월부터
+   * 근력 없이 유산소만 주 1회 → 유산소 없을 때 `performedWeeks: 0`(리셋됨)인데
+   * 유산소가 있으면 **4**가 나왔다. 근력 공백 6주를 유산소가 가린 것이다.
+   * `weekCounts`는 X3에서 이미 근력 기준이므로 시작 주만 어긋나 있었다.
+   */
+  const done = strengthSessions(sessions)
   const target = routine.rules.deloadEveryPerformedWeeks
   const early = earlyDeloadSignal(sessions, routine, today)
 

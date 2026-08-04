@@ -89,6 +89,32 @@ function stripSecrets(rows: SettingRow[]): SettingRow[] {
   return rows.filter((r) => !isSecretSettingKey(r.key));
 }
 
+/**
+ * "내용이 같은가" 판정용 지문 원본 (Y4).
+ *
+ * 백업 파일 전체를 해시하면 **영원히 달라진다** — `exportedAt`이 매 호출마다 바뀌고,
+ * `settings`에는 업로드마다 갱신되는 동기화 부기 키(`lastBackupAt`·`gistId`·`lastBackupHash`)가
+ * 들어 있다. 그것들을 빼야 "사용자 데이터가 바뀌었는가"를 물을 수 있다.
+ *
+ * `stripSecrets`와 같은 자리에 두는 이유: 둘 다 "백업 본문에서 무엇을 빼는가"의 규칙이고,
+ * 새 부기 키가 생겼을 때 고칠 곳이 한 군데여야 한다.
+ *
+ * 정렬까지 하는 이유: Dexie가 기본키 순서로 주지만, 순서가 흔들리면 내용이 같아도 지문이
+ * 달라져 **불필요한 업로드**가 생긴다. (반대 방향 — 내용이 달라도 같아 보이는 것 — 만
+ * 위험하므로 순서 흔들림은 안전한 실패지만, 굳이 남길 이유가 없다)
+ */
+const SYNC_BOOKKEEPING_KEYS = ['gistId', 'lastBackupAt', 'lastBackupHash'];
+
+export function fingerprintPayload(file: BackupFile): string {
+  const { exportedAt: _ignored, ...rest } = file;
+  return JSON.stringify({
+    ...rest,
+    settings: [...rest.settings]
+      .filter((r) => !SYNC_BOOKKEEPING_KEYS.includes(r.key))
+      .sort((a, b) => a.key.localeCompare(b.key)),
+  });
+}
+
 export async function createBackup(
   now: Date = new Date(),
 ): Promise<BackupFile> {
