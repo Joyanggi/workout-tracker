@@ -1,7 +1,7 @@
 import type { MuscleKey, RoutineTemplate, Session } from '../types'
 import { parseRecordKey } from '../types'
 import { daysBetween, weekDates, weekStart, weekStartsBetween } from './dates'
-import { completedSessions, doneSets, weeklyVolume } from './derive'
+import { completedSessions, strengthSessions, doneSets, weeklyVolume } from './derive'
 
 /**
  * 홈 대시보드용 파생 계산 (DESIGN.md §5.1 · §7).
@@ -28,11 +28,15 @@ export interface WeekCount {
 }
 
 /**
- * 주별 완료 세션 수. 정규 Day + fallback 모두 카운트한다 (§7).
+ * 주별 **근력** 세션 수. 정규 Day + fallback 모두 카운트한다 (§7).
  * 기록이 없는 주도 count 0으로 포함해서 연속성 판정에 쓸 수 있게 한다.
+ *
+ * 유산소만 한 날은 세지 않는다 (X3) — 문서의 "주 3회"는 근력 세션이고,
+ * 디로드 카운터·Phase 0 진행이 이 값을 쓴다. 주간 도트는 반대로 유산소도 보여준다
+ * (헬스장에 간 것은 사실이다) — **표시와 판정의 기준이 다르다**는 것을 홈에 명시했다.
  */
 export function weekCounts(sessions: Session[], today: string): WeekCount[] {
-  const done = completedSessions(sessions)
+  const done = strengthSessions(sessions)
   if (done.length === 0) return [{ weekStart: weekStart(today), count: 0 }]
 
   const oldest = done[done.length - 1].date
@@ -45,6 +49,18 @@ export function weekCounts(sessions: Session[], today: string): WeekCount[] {
     weekStart: ws,
     count: byWeek.get(ws) ?? 0,
   }))
+}
+
+/**
+ * 이번 주 **근력** 세션 수 (X3).
+ *
+ * 도트 합계와 다를 수 있다 — 도트는 "헬스장에 간 날"이고 이 값은 "근력을 한 날"이다.
+ * 디로드 카운터·Phase 0 진행이 쓰는 기준이 이쪽이므로, 두 숫자가 갈릴 때
+ * 홈에서 그 사실을 한 줄로 알린다 (설명 없이 다른 숫자가 나란히 있으면 버그로 보인다).
+ */
+export function strengthCountThisWeek(sessions: Session[], today: string): number {
+  const ws = weekStart(today)
+  return weekCounts(sessions, today).find((w) => w.weekStart === ws)?.count ?? 0
 }
 
 export interface WeekDot {

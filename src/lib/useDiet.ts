@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, deleteDietDay } from '../db'
 import { resolveTrainingDays } from './diet'
 import { emptyDietDay } from './dietOps'
-import { completedSessions } from './derive'
+import { strengthDates } from './derive'
 import type { DietDay, DietPlan } from '../types'
 
 /**
@@ -39,7 +39,8 @@ export function useDiet(): DietData {
      * 훈련일 여부를 **여기서 한 번** 정규화한다 (diet.resolveTrainingDays 주석 참조).
      * 이 훅이 식단 데이터의 단일 읽기 경로이므로, 화면·캘린더·내보내기가 전부 같은 답을 본다.
      */
-    const trained = new Set(completedSessions(sessions).map((s) => s.date))
+    // 근력 기준 (X3) — 유산소만 한 날은 휴식일로 남는다
+    const trained = strengthDates(sessions)
     return {
       plans,
       days: resolveTrainingDays(rawDays, trained),

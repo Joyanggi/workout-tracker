@@ -6,7 +6,7 @@ import { addMonths, monthStart, todayLocal, weekdayKo } from '../lib/dates'
 import DietDayEditor from '../components/DietDayEditor'
 import { dietMonthStats } from '../lib/diet'
 import { useDiet } from '../lib/useDiet'
-import { completedSessions } from '../lib/derive'
+import { strengthDates } from '../lib/derive'
 import { calendarCells, sessionsInMonth, summarize } from '../lib/history'
 import { isInverseKey } from '../lib/weightScale'
 import type { RoutineBundle } from '../lib/useRoutine'
@@ -167,7 +167,7 @@ export default function HistoryScreen({ bundle }: { bundle: RoutineBundle }) {
                 plans={diet.plans}
                 days={diet.days}
                 defaultPlanId={diet.defaultPlanId}
-                trainedThatDay={completedSessions(sessions).some((x) => x.date === selectedDate)}
+                trainedThatDay={strengthDates(sessions).has(selectedDate)}
               />
             </>
           )}

@@ -10,6 +10,7 @@ import {
   lastSessionOf,
   muscleBars,
   phase0Progress,
+  strengthCountThisWeek,
   weekDots,
 } from '../lib/dashboard'
 import { todayLocal } from '../lib/dates'
@@ -74,11 +75,18 @@ export default function HomeScreen({
     const stored = diet.days.find((d) => d.date === today)
     const plan = findPlan(diet.plans, stored?.planId ?? diet.defaultPlanId)
     if (!plan) return null
-    const trained = completedSessions(sessions).some((s) => s.date === today)
-    const isTrainingDay = trained || (stored?.isTrainingDay ?? false)
+    /*
+     * 훈련일 여부를 **여기서 다시 계산하지 않는다** (X3).
+     * `useDiet`가 읽기 경계에서 이미 정규화한다 (`diet.resolveTrainingDays`).
+     * 이 자리에 `trained || stored` 사본이 남아 있었는데, 그게 바로 B2 결함의 형태다 —
+     * 정규화를 한 곳으로 모았는데 사본 하나가 살아남아 기준이 갈렸다.
+     */
     const summary = summarizeDietDay(plan, stored)
-    return { next: nextUnloggedSlot(plan, stored, isTrainingDay), summary }
-  }, [diet.days, diet.plans, diet.defaultPlanId, sessions, today])
+    return {
+      next: nextUnloggedSlot(plan, stored, stored?.isTrainingDay ?? false),
+      summary,
+    }
+  }, [diet.days, diet.plans, diet.defaultPlanId, today])
 
   const dash = useMemo(() => {
     if (!bundle) return undefined
@@ -87,6 +95,7 @@ export default function HomeScreen({
     return {
       suggestion: suggestNextDay({ sessions, routine, today }),
       dots: weekDots(sessions, today),
+      strengthWeek: strengthCountThisWeek(sessions, today),
       volume: muscleBars(sessions, routine, today),
       deload: deloadState(sessions, routine, today),
       phase0: phase0Progress(sessions, routine, today),
@@ -367,7 +376,7 @@ export default function HomeScreen({
 
       <div style={{ height: 12 }} />
 
-      <WeekDots dots={dots} target={routine.days.length} />
+      <WeekDots dots={dots} target={routine.days.length} strengthCount={dash.strengthWeek} />
 
       <MuscleVolumeBars
         bars={volume.bars}

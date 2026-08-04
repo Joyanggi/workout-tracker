@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import DietDayEditor from '../components/DietDayEditor'
 import { todayLocal } from '../lib/dates'
-import { completedSessions } from '../lib/derive'
+import { strengthDates } from '../lib/derive'
 import { useDiet } from '../lib/useDiet'
 
 /**
@@ -19,7 +19,8 @@ export default function DietScreen() {
   if (loading) return <p className="center-note">불러오는 중…</p>
   if (plans.length === 0) return <p className="center-note">식단 플랜이 없습니다.</p>
 
-  const trainedToday = completedSessions(sessions).some((s) => s.date === today)
+  // 근력 기준 (X3) — 유산소만 한 날은 훈련일로 고정하지 않는다
+  const trainedToday = strengthDates(sessions).has(today)
 
   return (
     <div className="screen">

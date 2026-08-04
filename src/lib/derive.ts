@@ -38,6 +38,48 @@ export function doneSets(entry: SessionEntry) {
   return entry.sets.filter((s) => s.done && !s.warmup)
 }
 
+/**
+ * **근력 수행이 있었는가** (X3 chokepoint).
+ *
+ * 유산소만 기록한 세션(세트를 하나도 체크하지 않은 세션)은 "완료 세션"이지만
+ * **근력 수행이 아니다.** 이 구분이 없어서 두 가지가 동시에 틀렸다:
+ *
+ * - `suggestNextDay`의 회복 감쇠가 오발동했다 — 유산소만 한 다음날 그 Day에 ×0.3이
+ *   걸려 순위가 뒤집혔다 (원점수 D1 26.1 > D4 23.85인데 D1이 7.8로 내려가 D4가 이겼다).
+ *   실제로는 아무 근육도 안 썼으므로 감쇠할 회복이 없다
+ * - 식단 훈련일이 강제 고정됐다 — "완료 세션 존재 = 훈련일"로 봤다
+ *
+ * **작업 세트 기준이다** (`doneSets` — 워밍업 제외). 워밍업만 하고 그만둔 날은 회복 감쇠도
+ * 훈련일 끼니도 근거가 없다. 분석 경로 전부가 `doneSets`를 지나므로 기준을 같이 둔다.
+ */
+export function hasStrengthWork(session: Session): boolean {
+  return session.entries.some((e) => doneSets(e).length > 0)
+}
+
+/**
+ * 완료 + 근력 수행 세션만, 최신순.
+ *
+ * "다음 Day 제안 · 주 몇 회 · 훈련일 판정"은 전부 이것을 써야 한다.
+ * `completedSessions`는 **기록의 사실**(헬스장에 갔다)을 쓰는 곳에 남긴다 —
+ * 주간 도트·streak·기록 목록·내보내기는 유산소만 한 날도 보여야 한다.
+ */
+export function strengthSessions(sessions: Session[]): Session[] {
+  return completedSessions(sessions).filter(hasStrengthWork)
+}
+
+/**
+ * 근력 수행이 있었던 날짜들 (X3).
+ *
+ * "그날 훈련했나"를 묻는 곳이 **네 곳**이었고 (식단 정규화·오늘 식단·과거 식단 편집·홈 칩)
+ * 넷이 각각 `completedSessions(...).some(s => s.date === X)`를 계산하고 있었다.
+ * 같은 질문을 여러 곳에서 계산하면 기준이 바뀔 때 한 곳이 남는다 —
+ * 이 프로젝트에서 이미 두 번 겪은 방식이다 (F6 증량 칩, B2 훈련일).
+ * 그래서 **집합 하나로 모은다.** `strengthWork.test.ts`가 우회를 막는다.
+ */
+export function strengthDates(sessions: Session[]): Set<string> {
+  return new Set(strengthSessions(sessions).map((s) => s.date))
+}
+
 /** 체크된 전 세트 (워밍업 포함). "완료 n세트" 같은 **표시**용 */
 export function doneSetsAll(entry: SessionEntry) {
   return entry.sets.filter((s) => s.done)
@@ -172,7 +214,8 @@ export function daysSinceDay(
   dayId: string,
   today: string,
 ): number | null {
-  const last = completedSessions(sessions).find(
+  // 근력 기준 (X3) — 유산소만 한 하체 날은 "하체를 했다"가 아니다
+  const last = strengthSessions(sessions).find(
     (s) => s.dayId === dayId || findDayIdOfRecord(s) === dayId,
   )
   return last ? daysBetween(last.date, today) : null

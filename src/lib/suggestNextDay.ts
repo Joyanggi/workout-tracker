@@ -1,6 +1,6 @@
 import type { MuscleKey, ReturnProtocolStep, RoutineDay, RoutineTemplate, Session } from '../types'
 import { daysBetween, hoursBetweenIso } from './dates'
-import { completedSessions, daysSinceDay, weeklyVolume } from './derive'
+import { daysSinceDay, strengthSessions, weeklyVolume } from './derive'
 
 /**
  * Day 자동 제안 — DESIGN.md §4 볼륨 예산.
@@ -93,7 +93,12 @@ export function suggestNextDay(args: {
   now?: Date
 }): DaySuggestion {
   const { sessions, routine, today, now = new Date() } = args
-  const done = completedSessions(sessions)
+  /*
+   * **근력 세션만 본다** (X3). 유산소만 기록한 세션을 포함하면 회복 감쇠가 오발동해
+   * 순위가 뒤집힌다 — 실제로는 아무 근육도 안 썼으므로 감쇠할 회복이 없다.
+   * 복귀 gap 판단·하체 가드도 같은 기준을 써야 한다 (기준이 갈리면 제안이 모순된다).
+   */
+  const done = strengthSessions(sessions)
   const candidates = routine.days
   const last = done[0]
 
