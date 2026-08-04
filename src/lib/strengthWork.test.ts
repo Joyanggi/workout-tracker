@@ -117,6 +117,60 @@ describe('#3 — 유산소만 한 다음날 제안', () => {
     expect(suggestion.rule).toBe('returnGap')
   })
 
+  /*
+   * 사용자 질문: "유산소만 하면 **무조건 D1**을 추천하는 건가, 원래 이어서 해야 하는 D를
+   * 추천하는 건가?"
+   *
+   * 답: **원래 하려던 D**다. 유산소만 한 날은 근력 기록에서 보이지 않으므로 제안은
+   * "그 날 아예 안 간 경우"와 **완전히 같다.** D1이 나오는 것은 근력 기록이 하나도 없을 때
+   * (`rule: 'first'`)뿐이고, 그건 유산소와 무관한 별개 규칙이다.
+   *
+   * 이 성질을 여러 주 상태에서 고정한다 — 한 상태만 보면 우연히 같을 수 있다.
+   */
+  it('유산소만 한 날은 "안 간 날"과 같은 제안을 낸다 (여러 주 상태에서)', () => {
+    const S = (dayId: string, date: string) =>
+      completedSession({ dayId, date, fullReps: true, weight: 30 })
+    const states: Session[][] = [
+      [S('d1', '2026-08-03')],
+      [S('d1', '2026-08-03'), S('d2', '2026-08-04')],
+      [S('d1', '2026-08-03'), S('d2', '2026-08-04'), S('d3', '2026-08-05')],
+      [S('d1', '2026-08-03'), S('d2', '2026-08-04'), S('d3', '2026-08-05'), S('d1', '2026-08-06')],
+      [S('d1', '2026-08-03'), S('d2', '2026-08-04'), S('d3', '2026-08-05'), S('d4', '2026-08-06')],
+    ]
+    const day = '2026-08-08'
+    const ask = (sessions: Session[]) =>
+      suggestNextDay({ sessions, routine: ROUTINE, today: day, now: new Date(`${day}T09:00:00Z`) })
+
+    for (const base of states) {
+      const without = ask(base)
+      const withCardio = ask([...base, cardioOnly('d4', '2026-08-07')])
+      expect(withCardio.day.id, `기록: ${base.map((s) => s.dayId).join('+')}`).toBe(without.day.id)
+      expect(withCardio.rule).toBe(without.rule)
+    }
+  })
+
+  it('D1~D3 수행 후 D4 차례일 때, D4에 유산소만 기록해도 여전히 D4다', () => {
+    // 사용자가 물은 정확한 시나리오. "무조건 D1"이 아니라는 것을 눈에 보이게 고정한다
+    const S = (dayId: string, date: string) =>
+      completedSession({ dayId, date, fullReps: true, weight: 30 })
+    const base = [S('d1', '2026-08-03'), S('d2', '2026-08-04'), S('d3', '2026-08-05')]
+    const next = suggestNextDay({
+      sessions: base,
+      routine: ROUTINE,
+      today: '2026-08-08',
+      now: new Date('2026-08-08T09:00:00Z'),
+    })
+    expect(next.day.id).toBe('d4')
+
+    const afterCardio = suggestNextDay({
+      sessions: [...base, cardioOnly('d4', '2026-08-07')],
+      routine: ROUTINE,
+      today: '2026-08-08',
+      now: new Date('2026-08-08T09:00:00Z'),
+    })
+    expect(afterCardio.day.id).toBe('d4')
+  })
+
   it('하체 가드도 근력 기준이다 — 유산소만 한 하체 날은 "했다"가 아니다', () => {
     const lowerId = ROUTINE.rules.lowerBodyDayId
     const gap = ROUTINE.rules.lowerBodyMaxGapDays

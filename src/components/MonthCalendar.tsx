@@ -61,8 +61,17 @@ export default function MonthCalendar({
           const dayNum = parseDateStr(cell.date).getDate()
           const diet = adherenceByDate?.get(cell.date)
           const hasDiet = diet !== undefined && diet !== 'unlogged'
-          // 판정 전이라도 기록이 있으면 회색 링 — "기록이 사라졌다"고 보이지 않게 (X2)
+          // 판정 전이라도 기록이 있으면 표시한다 — "기록이 사라졌다"고 보이지 않게 (X2)
           const dietPartial = !hasDiet && dietPartialDates?.has(cell.date) === true
+          /*
+            식단 표시는 **점**이다 (테두리가 아니다).
+            테두리로 두었더니 `.cal-cell-today`(오렌지 inset 링)와 색·굵기가 거의 같아서
+            "오늘/선택"인지 "식단"인지 구분이 안 됐다 — box-shadow라 식단 링이 오늘 링을
+            덮어버리기까지 했다. 이제 역할을 분리한다:
+              테두리·배경 = 오늘·선택 (내비게이션 상태) / 🔥 = 운동 / 점 = 식단
+            색도 `--accent`를 쓰지 않는다 (그 색이 내비게이션 색이다).
+          */
+          const dietDot = hasDiet ? diet : dietPartial ? 'partial' : null
           return (
             <button
               key={cell.date}
@@ -70,8 +79,6 @@ export default function MonthCalendar({
                 'cal-cell',
                 cell.inMonth ? '' : 'cal-cell-out',
                 hasSession ? 'cal-cell-done' : '',
-                hasDiet ? `cal-cell-diet-${diet}` : '',
-                dietPartial ? 'cal-cell-diet-partial' : '',
                 cell.date === today ? 'cal-cell-today' : '',
                 cell.date === selectedDate ? 'cal-cell-selected' : '',
               ]
@@ -86,6 +93,12 @@ export default function MonthCalendar({
                 <span className="cal-flame">
                   🔥{cell.sessions.length > 1 && <span className="cal-multi">{cell.sessions.length}</span>}
                 </span>
+              )}
+              {dietDot && (
+                <span
+                  className={`cal-diet-dot cal-diet-dot-${dietDot}`}
+                  aria-hidden="true"
+                />
               )}
             </button>
           )

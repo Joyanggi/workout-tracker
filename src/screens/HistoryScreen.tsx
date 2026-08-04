@@ -41,16 +41,18 @@ export default function HistoryScreen({ bundle }: { bundle: RoutineBundle }) {
     )
   }
 
+  /**
+   * 날짜를 고르면 **항상 달력 아래에 펼친다** (상세로 넘어가지 않는다).
+   *
+   * 예전에는 세션이 하나뿐인 날만 곧바로 상세로 들어갔다. 그래서 "식단만 기록한 날은
+   * 달력 아래에 바로 보이는데 운동까지 기록하면 페이지가 넘어가고, 보고 나서 또 뒤로
+   * 나와야 한다"는 마찰이 생겼다 — 같은 탭 안에서 날짜를 훑는 동작이 세션 유무에 따라
+   * 갈렸다. 이제 세션 0개·1개·여러 개가 모두 같게 동작하고, 상세는 **세션 행을 눌러**
+   * 명시적으로 들어간다.
+   */
   const pickDate = (date: string) => {
     const cell = cells.find((c) => c.date === date)
-    // 세션이 없어도 그 달 안이면 선택한다 — 식단만 기록한 날(또는 보정할 날)이 있다 (D3)
-    if (!cell || cell.sessions.length === 0) {
-      setSelectedDate(cell?.inMonth ? date : null)
-      return
-    }
-    // 세션이 하나면 바로 상세로, 여럿이면 아래 목록에서 고르게 한다 (§4 같은 날 두 세션 허용)
-    if (cell.sessions.length === 1) setDetailId(cell.sessions[0].id)
-    else setSelectedDate(date)
+    setSelectedDate(cell?.inMonth ? date : null)
   }
 
   const listed = selectedDate
@@ -97,11 +99,14 @@ export default function HistoryScreen({ bundle }: { bundle: RoutineBundle }) {
 
           {(dietStats.logged > 0 || dietStats.partialDates.size > 0) && (
             <p className="row-sub" style={{ margin: '-6px 0 12px', whiteSpace: 'normal' }}>
+              {/*
+                범례는 **점**을 설명한다 (테두리가 아니다 — 테두리는 오늘·선택 표시다).
+                색만 다르고 설명이 없으면 "왜 이 날은 회색인가"가 된다.
+              */}
               {dietStats.logged > 0 &&
-                `식단 준수 ${dietStats.good}/${dietStats.logged}일 (기록한 날 기준) · 링 색이 그날 준수입니다`}
-              {/* 회색 링의 뜻을 적는다 — 색만 다르고 설명이 없으면 "왜 이 날은 회색인가"가 된다 */}
+                `식단 준수 ${dietStats.good}/${dietStats.logged}일 (기록한 날 기준) · 날짜 아래 점이 그날 준수입니다 (초록·노랑·빨강)`}
               {dietStats.partialDates.size > 0 &&
-                `${dietStats.logged > 0 ? ' · ' : ''}회색 = 기록 있음 / 판정 전 (${MIN_SLOTS_FOR_VERDICT}슬롯부터 판정)`}
+                `${dietStats.logged > 0 ? ' · ' : ''}회색 점 = 기록 있음 / 판정 전 (${MIN_SLOTS_FOR_VERDICT}슬롯부터 판정)`}
             </p>
           )}
 
