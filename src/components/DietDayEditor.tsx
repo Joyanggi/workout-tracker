@@ -4,6 +4,8 @@ import DietSlotSheet from './DietSlotSheet'
 import { addDays } from '../lib/dates'
 import {
   ADHERENCE_MARK,
+  SLOT_MARK,
+  slotGrade,
   LOW_KCAL_STREAK_WARN,
   planStreak,
   slotScore,
@@ -146,7 +148,11 @@ export default function DietDayEditor({
           {summary.kcal.toLocaleString()} / {summary.targetKcal.toLocaleString()}kcal ·{' '}
           {summary.adherence === 'unlogged'
             ? `기록 ${summary.loggedSlots}/${summary.totalSlots}슬롯`
-            : `준수 ${ADHERENCE_MARK[summary.adherence]}`}
+            : /*
+                 퍼센트를 함께 낸다 (Z6) — 마크만으로는 0.86과 1.0이 같아 보인다.
+                 연속 점수를 만들어도 표시가 3단이면 그 정밀도가 화면에 도달하지 않는다.
+               */
+              `준수 ${ADHERENCE_MARK[summary.adherence]} ${Math.round((summary.score ?? 0) * 100)}%`}
         </p>
       </div>
 
@@ -166,8 +172,12 @@ export default function DietDayEditor({
       {slots.map((slot) => {
         const record = day.slots[slot.id]
         const score = slotScore(slot, record)
-        const grade = score === null ? 'none' : score >= 1 ? 'full' : score > 0 ? 'part' : 'zero'
-        const mark = score === null ? '○' : score >= 1 ? '●' : score > 0 ? '◐' : '✗'
+        /*
+          마크·임계값을 화면이 들고 있지 않는다 (Z6) — `diet.ts`의 `slotGrade`·`SLOT_MARK`가
+          단일 기준이다. 화면이 자기 임계값을 가지면 슬롯 마크와 일 요약이 다른 기준으로 말한다.
+        */
+        const grade = slotGrade(score)
+        const mark = SLOT_MARK[grade]
         return (
           <div className="card diet-slot" key={slot.id}>
             <div className="diet-slot-head">

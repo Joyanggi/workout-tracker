@@ -1594,7 +1594,8 @@ textarea.field {
   font-size: 18px;
 }
 
-.diet-mark-btn.diet-mark-full {
+.diet-mark-btn.diet-mark-full,
+.diet-mark-btn.diet-mark-high {
   border-color: var(--ok);
   background: rgba(52, 199, 89, 0.12);
 }
@@ -1608,9 +1609,17 @@ textarea.field {
   font-size: 18px;
 }
 
+/*
+  슬롯 마크 5단 (Z6). 3단에서는 0.86과 1.0이 같아 보였다.
+  색은 전부 기존 토큰이다 — G6에서 대비를 실측한 것들이라 새로 재지 않아도 된다.
+  full/high는 같은 초록 계열로 두고 마크 모양(● vs ◕)이 차이를 말한다 — 색을 다섯 개로
+  쪼개면 어두운 헬스장에서 구분이 안 되고, G6의 대비 검증을 다시 해야 한다.
+*/
 .diet-mark-full { color: var(--ok); }
-.diet-mark-part { color: var(--accent); }
-.diet-mark-zero { color: var(--warn); }
+.diet-mark-high { color: var(--ok); }
+.diet-mark-mid { color: var(--accent); }
+.diet-mark-low { color: var(--warn); }
+.diet-mark-zero { color: var(--danger); }
 .diet-mark-none { color: var(--text-faint); }
 
 .diet-items {

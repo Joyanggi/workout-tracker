@@ -182,12 +182,17 @@ describe('추가 섭취 (G2)', () => {
       해제한다 (안 먹었다면서 더 먹었다는 건 모순이고, 그건 대체로 적을 일이다).
       그래서 상한 검증은 skipped가 아닌 낮은 점수로 한다.
     */
-    // 절반 체크(0.5)에 similar 추가(상한 1) → 0.5 유지
+    /*
+      Z6에서 체크 경로가 연속값이 됐으므로 "절반 체크 = 0.5"를 단정하지 않는다.
+      지켜야 하는 성질은 **추가가 상한으로만 작용한다**는 것이다 —
+      상한(similar = 1)보다 낮은 점수는 추가 후에도 그대로여야 한다.
+    */
     let day = applyToggleItem(base(), LUNCH.id, LUNCH.items[0].id)
     day = applyToggleItem(day, LUNCH.id, LUNCH.items[1].id)
-    expect(slotScore(LUNCH, day.slots[LUNCH.id])).toBe(SCORE.partial)
+    const before = slotScore(LUNCH, day.slots[LUNCH.id])!
+    expect(before).toBeLessThan(ADDITION_CAP.similar)
     day = applyAddition(day, LUNCH.id, goodAdd)
-    expect(slotScore(LUNCH, day.slots[LUNCH.id])).toBe(SCORE.partial)
+    expect(slotScore(LUNCH, day.slots[LUNCH.id])).toBe(before)
 
     // 치팅 대체(0)에 치팅 추가(상한 0.5) → 0 유지
     let worse = applySubstitution(base(), LUNCH.id, { text: 'x', quality: 'cheat' })

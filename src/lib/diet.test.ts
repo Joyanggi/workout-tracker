@@ -1,16 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import {
   ADHERENCE_MARK,
+  CRITICAL_SKIP_SLOTS,
+  ITEM_WEIGHT_FLOOR,
   LOW_KCAL_STREAK_WARN,
   MIN_SLOTS_FOR_VERDICT,
-  formatPlanLabel,
-  CRITICAL_SKIP_SLOTS,
   SCORE,
+  SLOT_MARK,
   dietMonthStats,
+  formatPlanLabel,
+  itemWeight,
   nextUnloggedSlot,
   planStreak,
   planTotals,
   resolveTrainingDays,
+  slotGrade,
   slotScore,
   slotsFor,
   summarizeDietDay,
@@ -121,9 +125,39 @@ describe('slotScore', () => {
     expect(slotScore(lunch, { checkedItemIds: ids })).toBe(1)
   })
 
-  it('절반 이상은 0.5, 절반 미만은 0.25', () => {
-    expect(slotScore(lunch, { checkedItemIds: ids.slice(0, 2) })).toBe(0.5)
-    expect(slotScore(lunch, { checkedItemIds: ids.slice(0, 1) })).toBe(0.25)
+  /*
+    Z6에서 **개수 양자화를 버렸다.** 예전에는 절반 이상 체크 = 0.5, 절반 미만 = 0.25로
+    3단이었는데, 그 탓에 오메가3 1캡슐 누락이 끼니의 절반을 깎았다.
+    이제 영양 기여(`kcal + proteinG × 4`, 최소 10) 비율이다.
+  */
+  it('점수가 영양 기여 비율이다 (개수가 아니다)', () => {
+    const weightOf = (i: number) => itemWeight(lunch.items[i])
+    const total = lunch.items.reduce((n, item) => n + itemWeight(item), 0)
+    expect(slotScore(lunch, { checkedItemIds: ids.slice(0, 2) })).toBeCloseTo(
+      (weightOf(0) + weightOf(1)) / total,
+      6,
+    )
+    expect(slotScore(lunch, { checkedItemIds: ids.slice(0, 1) })).toBeCloseTo(
+      weightOf(0) / total,
+      6,
+    )
+  })
+
+  it('전부 체크는 정확히 1이다 (부동소수 누적으로 0.999가 되지 않는다)', () => {
+    expect(slotScore(lunch, { checkedItemIds: ids })).toBe(1)
+  })
+
+  it('가중은 단백질을 한 번 더 얹는다 (1급 지표이므로)', () => {
+    // 같은 kcal이면 단백질이 많은 쪽이 무겁다
+    expect(itemWeight({ id: 'a', name: '', qty: '', kcal: 100, proteinG: 20 })).toBeGreaterThan(
+      itemWeight({ id: 'b', name: '', qty: '', kcal: 100, proteinG: 0 }),
+    )
+  })
+
+  it('0kcal 보충제도 가중이 0이 아니다 (체크할 이유가 사라지지 않게)', () => {
+    expect(itemWeight({ id: 'o3', name: '오메가3', qty: '1캡슐', kcal: 0, proteinG: 0 })).toBe(
+      ITEM_WEIGHT_FLOOR,
+    )
   })
 
   it('스킵은 0.5 — 감량 문맥에서 덜 먹은 것은 실패가 아니다', () => {
@@ -148,7 +182,8 @@ describe('slotScore', () => {
   })
 
   it('플랜에 없는 항목 id는 세지 않는다 (플랜 교체 후 낡은 기록)', () => {
-    expect(slotScore(lunch, { checkedItemIds: ['ghost-item'] })).toBe(0.25)
+    // 유령 id만 있으면 채운 가중이 0 → 점수 0 (예전에는 scarce 0.25로 떨어졌다)
+    expect(slotScore(lunch, { checkedItemIds: ['ghost-item'] })).toBe(0)
   })
 })
 
@@ -535,5 +570,99 @@ describe('X2 — 판정 보류 날짜 집합', () => {
     const atThreshold = dietMonthStats([dayWith('2026-08-09', MIN_SLOTS_FOR_VERDICT)], [PLAN], month)
     expect(justUnder.partialDates.size).toBe(1)
     expect(atThreshold.partialDates.size).toBe(0)
+  })
+})
+
+// ─── Z6: 보충제 하나가 끼니를 깎지 않는다 ───────────────────
+/**
+ * 실사용 보고: "오메가3 1캡슐만 안 먹어도 주황색."
+ *
+ * 원인이 두 겹이었다 — 점수가 **개수** 기반(오메가3 1표 = 현미밥 150g 1표)이고 표시도 3단.
+ * Z6에서 점수를 영양 기여 가중 연속값으로, 슬롯 마크를 5단으로 바꿨다.
+ *
+ * 이 describe는 **사용자 사례 자체**를 고정한다 — 공식이 바뀌어도 이 시나리오는 유지돼야 한다.
+ */
+describe('Z6 — 보충제 하나 누락은 good을 깨지 않는다', () => {
+  const breakfast = PLAN.slots.find((s) => s.id === 'breakfast')!
+  /** 0kcal에 가까운 보충제 항목들 */
+  const supplements = breakfast.items.filter((i) => i.kcal <= 10 && i.proteinG === 0)
+
+  it('아침에 보충제만 빠진 상태가 실제로 존재한다 (픽스처 전제 확인)', () => {
+    expect(supplements.length).toBeGreaterThan(0)
+    expect(breakfast.items.length).toBeGreaterThan(supplements.length)
+  })
+
+  it('보충제 하나만 빼면 슬롯 점수가 0.9를 넘는다', () => {
+    const dropped = supplements[0]
+    const checked = breakfast.items.filter((i) => i.id !== dropped.id).map((i) => i.id)
+    const score = slotScore(breakfast, { checkedItemIds: checked })!
+    expect(score).toBeGreaterThan(0.9)
+    // 예전 개수 기반이면 (n-1)/n 비율이 3단으로 양자화돼 0.5 또는 1이었다
+    expect(score).toBeLessThan(1)
+  })
+
+  it('보충제 하나만 빼도 슬롯 마크가 ● 또는 ◕다 (◐로 떨어지지 않는다)', () => {
+    const dropped = supplements[0]
+    const checked = breakfast.items.filter((i) => i.id !== dropped.id).map((i) => i.id)
+    const grade = slotGrade(slotScore(breakfast, { checkedItemIds: checked }))
+    expect(['full', 'high']).toContain(grade)
+    expect(SLOT_MARK[grade]).not.toBe('◐')
+  })
+
+  it('하루 전체에서 보충제 하나만 빠지면 판정이 good으로 유지된다', () => {
+    const slots: Record<string, SlotRecord> = {}
+    let droppedOnce = false
+    for (const slot of PLAN.slots) {
+      const supp = slot.items.find((i) => i.kcal <= 10 && i.proteinG === 0)
+      if (!droppedOnce && supp) {
+        slots[slot.id] = { checkedItemIds: slot.items.filter((i) => i.id !== supp.id).map((i) => i.id) }
+        droppedOnce = true
+      } else {
+        slots[slot.id] = { checkedItemIds: slot.items.map((i) => i.id) }
+      }
+    }
+    expect(droppedOnce).toBe(true)
+    const summary = summarizeDietDay(PLAN, day(slots))
+    expect(summary.adherence).toBe('good')
+  })
+
+  it('반대로 단백질원이 빠지면 확실히 깎인다 (가중이 방향을 갖는다)', () => {
+    const protein = breakfast.items.reduce((best, i) => (i.proteinG > best.proteinG ? i : best))
+    expect(protein.proteinG).toBeGreaterThan(0)
+    const checkedWithoutProtein = breakfast.items.filter((i) => i.id !== protein.id).map((i) => i.id)
+    const dropped = supplements[0]
+    const checkedWithoutSupp = breakfast.items.filter((i) => i.id !== dropped.id).map((i) => i.id)
+    expect(slotScore(breakfast, { checkedItemIds: checkedWithoutProtein })!).toBeLessThan(
+      slotScore(breakfast, { checkedItemIds: checkedWithoutSupp })!,
+    )
+  })
+})
+
+describe('Z6 — 마크 5단', () => {
+  it('경계값이 등급으로 정확히 갈린다', () => {
+    expect(slotGrade(null)).toBe('none')
+    expect(slotGrade(1)).toBe('full')
+    expect(slotGrade(0.99)).toBe('high')
+    expect(slotGrade(0.8)).toBe('high')
+    expect(slotGrade(0.79)).toBe('mid')
+    expect(slotGrade(0.45)).toBe('mid')
+    expect(slotGrade(0.44)).toBe('low')
+    expect(slotGrade(0.01)).toBe('low')
+    expect(slotGrade(0)).toBe('zero')
+  })
+
+  it('여섯 등급이 서로 다른 마크를 쓴다', () => {
+    const marks = Object.values(SLOT_MARK)
+    expect(new Set(marks).size).toBe(marks.length)
+  })
+
+  it('대체·스킵 경로의 점수 매핑은 바뀌지 않았다 (Z6은 체크 경로만 건드렸다)', () => {
+    const lunch = PLAN.slots.find((s) => s.id === 'lunch')!
+    expect(slotScore(lunch, { checkedItemIds: [], substitution: { text: 'x', quality: 'similar' } })).toBe(SCORE.full)
+    expect(slotScore(lunch, { checkedItemIds: [], substitution: { text: 'x', quality: 'other' } })).toBe(SCORE.partial)
+    expect(slotScore(lunch, { checkedItemIds: [], substitution: { text: 'x', quality: 'cheat' } })).toBe(SCORE.cheat)
+    expect(slotScore(lunch, { checkedItemIds: [], skipped: true })).toBe(SCORE.skipped)
+    const pre = PLAN.slots.find((s) => CRITICAL_SKIP_SLOTS.includes(s.id))
+    if (pre) expect(slotScore(pre, { checkedItemIds: [], skipped: true })).toBe(SCORE.skippedCritical)
   })
 })

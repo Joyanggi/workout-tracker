@@ -1,4 +1,4 @@
-import type { DietDay, DietPlan, DietSlot, SlotRecord } from '../types'
+import type { DietDay, DietItem, DietPlan, DietSlot, SlotRecord } from '../types'
 import { addDays, isSameMonth } from './dates'
 
 /**
@@ -94,6 +94,26 @@ export function slotScore(slot: DietSlot, record: SlotRecord | undefined): numbe
   return record.addition ? Math.min(base, ADDITION_CAP[record.addition.quality]) : base
 }
 
+/**
+ * 항목의 **영양 기여 가중** (Z6).
+ *
+ * 개수 기반 점수의 문제: 오메가3 1캡슐 = 현미밥 150g 1표였다. 아침에서 오메가3 하나만
+ * 빼면 2/3 체크 → `partial` 0.5로 떨어져 **캡슐 하나가 끼니의 절반을 깎았다.**
+ *
+ * `kcal + proteinG × 4`인 이유: 단백질은 kcal에 이미 포함돼 있지만 한 번 더 얹는다 —
+ * 이 프로그램의 1급 지표가 단백질 160g이므로, 단백질원 누락이 같은 kcal의 탄수 누락보다
+ * 무거워야 한다.
+ *
+ * floor 10인 이유: 0kcal에 가까운 보충제(오메가3·비타민)가 가중 0이 되면 체크 여부가
+ * 점수에 전혀 안 보여 **체크할 이유가 사라진다.** "거의 안 깎이지만 0은 아니다"가 맞는 자리다.
+ */
+export const ITEM_WEIGHT_FLOOR = 10
+export const PROTEIN_WEIGHT_FACTOR = 4
+
+export function itemWeight(item: DietItem): number {
+  return Math.max(ITEM_WEIGHT_FLOOR, item.kcal + item.proteinG * PROTEIN_WEIGHT_FACTOR)
+}
+
 function baseSlotScore(slot: DietSlot, record: SlotRecord): number {
   if (record.substitution) {
     return record.substitution.quality === 'similar'
@@ -106,12 +126,46 @@ function baseSlotScore(slot: DietSlot, record: SlotRecord): number {
     return CRITICAL_SKIP_SLOTS.includes(slot.id) ? SCORE.skippedCritical : SCORE.skipped
   }
 
-  const total = slot.items.length
+  /*
+   * 체크로 채운 슬롯은 **연속값**이다 (Z6) — 개수 양자화를 버렸다.
+   * 대체·스킵·추가 상한(G2)·크리티컬 스킵(H3) 매핑은 위에서 그대로 유지된다.
+   * 바뀌는 것은 이 경로뿐이다.
+   */
+  const total = slot.items.reduce((n, item) => n + itemWeight(item), 0)
   if (total === 0) return SCORE.full
-  const checked = record.checkedItemIds.filter((id) => slot.items.some((i) => i.id === id)).length
-  if (checked >= total) return SCORE.full
-  if (checked === 0) return SCORE.scarce
-  return checked * 2 >= total ? SCORE.partial : SCORE.scarce
+  const checked = slot.items
+    .filter((item) => record.checkedItemIds.includes(item.id))
+    .reduce((n, item) => n + itemWeight(item), 0)
+  return checked / total
+}
+
+/**
+ * 슬롯 마크 5단 (Z6).
+ *
+ * 3단(●◐✗)에서는 0.86과 1.0이 같아 보이고, 0.97과 0.5도 같아 보였다 —
+ * 연속 점수를 만들어도 표시가 3단이면 그 정밀도가 화면에 도달하지 않는다.
+ *
+ * 임계값을 **여기 한 곳**에 두는 이유: 화면이 자기 임계값을 들고 있으면 슬롯 마크와
+ * 일 요약이 다른 기준으로 말하게 된다 (이 프로젝트의 반복 결함).
+ */
+export type SlotGrade = 'none' | 'full' | 'high' | 'mid' | 'low' | 'zero'
+
+export const SLOT_MARK: Record<SlotGrade, string> = {
+  none: '○',
+  full: '●',
+  high: '◕',
+  mid: '◐',
+  low: '◔',
+  zero: '✗',
+}
+
+export function slotGrade(score: number | null): SlotGrade {
+  if (score === null) return 'none'
+  if (score >= 1) return 'full'
+  if (score >= 0.8) return 'high'
+  if (score >= 0.45) return 'mid'
+  if (score > 0) return 'low'
+  return 'zero'
 }
 
 export interface DietDaySummary {
