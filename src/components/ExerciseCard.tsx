@@ -181,6 +181,22 @@ export default function ExerciseCard({
     if (!wasDone) onSetChecked?.(routineExercise)
   }
 
+  /**
+   * 템포 가이드 종료 체인 (Z2) — **자동·수동이 같은 함수를 지난다.**
+   *
+   * 두 경로에 같은 세 동작을 각각 적으면 한쪽만 고쳐져 갈라진다. v1.4의 비대칭이 정확히
+   * 그 형태였다 (자동은 체크까지, 수동은 기록만).
+   *
+   * `onCheck`를 쓰는 이유: 세트 체크 → 휴식 타이머 자동 시작이 그 경로에 있다.
+   * 이미 체크된 세트면 다시 부르지 않는다 (토글이라 풀려 버린다).
+   * 0회는 카운트인 중 취소이므로 아무것도 하지 않는다.
+   */
+  const finishGuideSet = (reps: number) => {
+    if (guideSet === null || reps <= 0) return
+    actions.patchSet(entry.recordKey, guideSet, { reps })
+    if (!entry.sets[guideSet]?.done) onCheck(guideSet, false)
+  }
+
   return (
     <div
       className={`ex-card${complete ? ' ex-card-done' : ''}${entry.skipped ? ' ex-card-skipped' : ''}`}
@@ -520,19 +536,24 @@ export default function ExerciseCard({
           exerciseName={name}
           setNumber={guideSet + 1}
           routineExercise={routineExercise}
-          onDone={(reps) => {
-            // 0회면 기록을 건드리지 않는다 (카운트인 중 취소한 경우)
-            if (reps > 0) actions.patchSet(entry.recordKey, guideSet, { reps })
-          }}
-          onComplete={(reps) => {
-            /*
-             * 상단 도달 자동 종료 (W3) — 탭 0회로 기록·체크·휴식까지 간다.
-             * `onCheck`를 쓰는 이유: 세트 체크 → 휴식 타이머 자동 시작이 그 경로에 있다.
-             * 이미 체크된 세트라면 다시 부르지 않는다 (토글이라 풀려 버린다).
-             */
-            actions.patchSet(entry.recordKey, guideSet, { reps })
-            if (!entry.sets[guideSet]?.done) onCheck(guideSet, false)
-          }}
+          /*
+            수동 종료와 자동 종료가 **같은 체인**을 지난다 (Z2).
+            기록 → 미체크면 세트 체크 → (그 경로가) 휴식 타이머 시작.
+
+            v1.4까지는 수동 종료가 반복수만 적었다. 수동 값이 추정치라 사용자 확인(체크)을
+            남겨둔 설계였는데, **수동 종료의 대다수가 "세트가 거기서 끝났다"다** —
+            루틴 문서 13장의 세트 종료 신호가 "리듬을 못 따라가기 시작하는 순간"이고
+            시트 안내문도 그때 먼저 종료하라고 말한다. 즉 설계된 정상 경로이고,
+            정상 경로가 자동 경로보다 탭이 2회 많을 이유가 없다.
+
+            화장실 같은 진짜 중단은 드문 쪽이고, 잘못 시작된 타이머는 탭 1회로 끄고
+            체크도 탭 1회로 푼다 — **실패의 방향이 현상 유지다** (X5 원칙).
+
+            "약 N회" 라벨과 그 근거(V1)는 유지한다. 값의 신뢰도 구분은 여전히 유효하고,
+            바뀐 것은 "그 값을 적은 뒤 무엇을 더 하는가"다.
+          */
+          onDone={(reps) => finishGuideSet(reps)}
+          onComplete={(reps) => finishGuideSet(reps)}
           onClose={() => setGuideSet(null)}
         />
       )}

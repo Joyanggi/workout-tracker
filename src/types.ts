@@ -251,6 +251,8 @@ export interface Settings {
   seededDietRevision?: number
   /** 템포 가이드 사용 (G7). 기본 꺼짐 — 세트 행에 버튼이 늘어나므로 원할 때만 */
   tempoGuide?: boolean
+  /** 신호 볼륨 (Z1) — 'normal' | 'loud' | 'max' */
+  soundVolume?: string
 }
 
 /**

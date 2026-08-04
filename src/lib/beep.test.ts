@@ -315,3 +315,97 @@ describe('컨텍스트 상태 한 줄 (Y3)', () => {
     expect(() => audioContextState()).not.toThrow()
   })
 })
+
+describe('Z1 — 볼륨 배율', () => {
+  beforeEach(() => {
+    vi.stubGlobal('navigator', {})
+  })
+
+  const gainOf = (i = 0) => recorded[i].gain
+
+  it('배율이 모든 소리에 같이 적용된다 (틱·큐·차임)', async () => {
+    const mod = await freshModule()
+    mod.unlockAudio()
+    mod.setVolumeScale(1)
+    mod.tick()
+    const tickNormal = gainOf()
+    recorded = []
+    mod.chime()
+    const chimeNormal = gainOf()
+    recorded = []
+    mod.lastCycleCue()
+    const cueNormal = gainOf()
+
+    recorded = []
+    mod.setVolumeScale(1.8)
+    mod.tick()
+    const tickLoud = gainOf()
+    recorded = []
+    mod.chime()
+    const chimeLoud = gainOf()
+    recorded = []
+    mod.lastCycleCue()
+    const cueLoud = gainOf()
+
+    // 세 신호 모두 같은 비율로 커진다 — 하나만 커지면 형태 구분이 깨진다
+    expect(tickLoud / tickNormal).toBeCloseTo(1.8, 5)
+    expect(chimeLoud / chimeNormal).toBeCloseTo(1.8, 5)
+    expect(cueLoud / cueNormal).toBeCloseTo(1.8, 5)
+  })
+
+  it('1을 넘지 않게 클램프한다 (클리핑 방지)', async () => {
+    const mod = await freshModule()
+    mod.unlockAudio()
+    mod.setVolumeScale(100)
+    mod.chime()
+    for (const r of recorded) expect(r.gain).toBeLessThanOrEqual(1)
+  })
+
+  it('상한 배율에서도 피크가 1에 닿지 않는다 (여유가 있다)', async () => {
+    const mod = await freshModule()
+    mod.unlockAudio()
+    mod.setVolumeScale(mod.VOLUME_SCALES.max)
+    mod.chime()
+    // 가장 큰 신호가 CHIME 0.26 → 0.468. 인접 톤 램프가 겹쳐도 1을 넘지 않는다
+    expect(Math.max(...recorded.map((r) => r.gain))).toBeLessThan(0.5)
+  })
+
+  it('이상한 배율은 기본값으로 되돌린다 — 소리가 사라지는 방향으로 실패하지 않는다', async () => {
+    const mod = await freshModule()
+    for (const bad of [0, -1, NaN, Infinity]) {
+      mod.setVolumeScale(bad)
+      expect(mod.getVolumeScale()).toBe(mod.VOLUME_SCALES[mod.DEFAULT_SOUND_VOLUME])
+    }
+  })
+
+  it('모르는 설정값도 기본값이 된다 (구버전 백업 복원 대비)', async () => {
+    const mod = await freshModule()
+    expect(mod.volumeScaleFor(undefined)).toBe(mod.VOLUME_SCALES[mod.DEFAULT_SOUND_VOLUME])
+    expect(mod.volumeScaleFor('ludicrous')).toBe(mod.VOLUME_SCALES[mod.DEFAULT_SOUND_VOLUME])
+    expect(mod.volumeScaleFor('normal')).toBe(1)
+  })
+
+  it('기본값이 loud다 — "지금도 들리는데 더 적극적이면"이 피드백이었다', async () => {
+    const mod = await freshModule()
+    expect(mod.DEFAULT_SOUND_VOLUME).toBe('loud')
+    expect(mod.VOLUME_SCALES.loud).toBeGreaterThan(1)
+  })
+
+  it('미리 듣기가 실제 신호를 그대로 낸다 (전용 톤을 만들지 않는다)', async () => {
+    const mod = await freshModule()
+    mod.unlockAudio()
+    mod.previewSignals()
+    const freqs = recorded.map((r) => r.freq)
+    // 틱 3회 + 차임 3음
+    expect(freqs.slice(0, 3)).toEqual([mod.TICK.freq, mod.TICK.freq, mod.TICK.freq])
+    expect(freqs.slice(3)).toEqual(mod.CHIME.map((c) => c.freq))
+  })
+
+  it('미리 듣기가 순서대로 흐른다 (동시에 울리지 않는다)', async () => {
+    const mod = await freshModule()
+    mod.unlockAudio()
+    mod.previewSignals()
+    const starts = recorded.map((r) => r.startAt)
+    for (let i = 1; i < starts.length; i += 1) expect(starts[i]).toBeGreaterThan(starts[i - 1])
+  })
+})

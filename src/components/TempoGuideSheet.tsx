@@ -29,10 +29,13 @@ const FRAME_MS = 80
  * 계속 돌던 것이 실사용 피드백이었다. 자동 종료는 반복수 기록 → 세트 체크 →
  * 휴식 타이머까지 이어지므로 사용자 탭이 0회다.
  *
- * 두 종료 경로의 **기록 신뢰도가 다르다**:
+ * 두 종료 경로의 **기록 신뢰도가 다르다** (동작은 Z2에서 같아졌다):
  * - 자동 = 상단까지 완주했으므로 `repMax`와 정확히 일치한다
  * - 수동 = 사이클 수에서 추정한 값이다. 그래서 라벨에 "약"을 붙인다 (V1).
  *   가이드보다 느리게 하거나 시트를 열어둔 채 쉬면 실제 반복보다 많이 세어진다.
+ *
+ * **신뢰도는 다르지만 이어지는 동작은 같다** — 둘 다 기록·체크·휴식까지 간다.
+ * 수동 종료가 예외 경로가 아니라 문서 13장이 규정한 정상 종료 신호이기 때문이다.
  */
 export default function TempoGuideSheet({
   exerciseName,
@@ -45,9 +48,12 @@ export default function TempoGuideSheet({
   exerciseName: string
   setNumber: number
   routineExercise: RoutineExercise
-  /** 수동 종료 — 사이클 수에서 **추정한** 반복수 */
+  /**
+   * 수동 종료 — 사이클 수에서 **추정한** 반복수.
+   * Z2부터 자동 종료와 **같은 체인**을 탄다 (기록 + 체크 + 휴식). 호출부가 처리한다.
+   */
   onDone: (reps: number) => void
-  /** 상단 도달 자동 종료 (W3) — 반복수 기록 + 세트 체크 + 휴식 시작까지 호출부가 한다 */
+  /** 상단 도달 자동 종료 (W3) — 값이 `repMax`와 정확히 일치한다는 점만 다르다 */
   onComplete: (reps: number) => void
   onClose: () => void
 }) {
@@ -206,7 +212,7 @@ export default function TempoGuideSheet({
             가이드보다 느리게 하거나 시트를 열어둔 채 쉬면 실제보다 많이 세어진다.
             자동 종료(상단 도달)는 정확한 값이므로 이 경로를 지나지 않는다.
           */}
-          {pos.countIn !== null ? '취소' : `종료 — 약 ${rep.reps}회로 기록`}
+          {pos.countIn !== null ? '취소' : `종료 — 약 ${rep.reps}회 기록 · 휴식 시작`}
         </button>
         <div style={{ height: 8 }} />
         <p className="row-sub">

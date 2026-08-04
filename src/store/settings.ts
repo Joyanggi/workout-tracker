@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { getSetting, setSetting } from '../db'
+import { DEFAULT_SOUND_VOLUME, setVolumeScale, volumeScaleFor, type SoundVolume } from '../lib/beep'
 import type { Phase } from '../types'
 
 interface SettingsState {
@@ -14,12 +15,15 @@ interface SettingsState {
   bodyWeightKg?: number
   /** 템포 가이드 사용 (G7) */
   tempoGuide: boolean
+  /** 신호 볼륨 (Z1). 배율은 `beep.ts`가 소유하고 이 값은 그 선택지다 */
+  soundVolume: SoundVolume
 
   load: () => Promise<void>
   setPhase: (phase: Phase) => Promise<void>
   setOnboardingDone: (done: boolean) => Promise<void>
   setBodyWeight: (kg: number) => Promise<void>
   setTempoGuide: (on: boolean) => Promise<void>
+  setSoundVolume: (volume: SoundVolume) => Promise<void>
 }
 
 /**
@@ -31,17 +35,26 @@ export const useSettings = create<SettingsState>((set) => ({
   currentPhase: 0,
   onboardingDone: false,
   tempoGuide: false,
+  soundVolume: DEFAULT_SOUND_VOLUME,
 
   load: async () => {
     // activeRoutineId는 여기 두지 않는다 — 루틴 교체 시 낡은 값이 남고,
     // 실제 소비처인 getActiveRoutine()이 Dexie에서 직접 읽는다
-    const [currentPhase, onboardingDone, bodyWeightKg, tempoGuide] = await Promise.all([
-      getSetting<Phase>('currentPhase', 0),
-      getSetting<boolean>('onboardingDone', false),
-      getSetting<number | undefined>('bodyWeightKg', undefined),
-      getSetting<boolean>('tempoGuide', false),
-    ])
-    set({ loaded: true, currentPhase, onboardingDone, bodyWeightKg, tempoGuide })
+    const [currentPhase, onboardingDone, bodyWeightKg, tempoGuide, soundVolume] =
+      await Promise.all([
+        getSetting<Phase>('currentPhase', 0),
+        getSetting<boolean>('onboardingDone', false),
+        getSetting<number | undefined>('bodyWeightKg', undefined),
+        getSetting<boolean>('tempoGuide', false),
+        getSetting<SoundVolume>('soundVolume', DEFAULT_SOUND_VOLUME),
+      ])
+    /*
+     * 부팅 시 배율을 오디오 모듈에 밀어 넣는다 (Z1).
+     * 저장값이 이상해도 `volumeScaleFor`가 기본값으로 떨어뜨린다 — 소리가 사라지는
+     * 방향으로 실패하지 않는다.
+     */
+    setVolumeScale(volumeScaleFor(soundVolume))
+    set({ loaded: true, currentPhase, onboardingDone, bodyWeightKg, tempoGuide, soundVolume })
   },
 
   setPhase: async (phase) => {
@@ -66,5 +79,12 @@ export const useSettings = create<SettingsState>((set) => ({
   setTempoGuide: async (on) => {
     await setSetting('tempoGuide', on)
     set({ tempoGuide: on })
+  },
+
+  setSoundVolume: async (volume) => {
+    // 저장보다 먼저 배율을 적용한다 — 바로 이어지는 "미리 듣기"가 새 값으로 들려야 한다
+    setVolumeScale(volumeScaleFor(volume))
+    await setSetting('soundVolume', volume)
+    set({ soundVolume: volume })
   },
 }))

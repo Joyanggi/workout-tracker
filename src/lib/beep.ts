@@ -76,6 +76,45 @@ export function resumeAudio(): void {
   if (ctx && ctx.state === 'suspended') void ctx.resume()
 }
 
+/*
+ * ─── 볼륨 배율 (Z1) ───────────────────────────────────────
+ *
+ * "노래 들으면서 쓰니 들리긴 하는데 좀 더 적극적이면 좋겠다"가 피드백이었다.
+ *
+ * **배율을 하나만 둔다.** 모든 소리가 `tone()`을 지나므로(W2에서 만든 초크포인트)
+ * 이 한 곳이면 틱·차임·마지막 큐·템포 페이즈 톤이 전부 같이 커진다. 소리별 배율을
+ * 따로 저장하지 않는 이유: "틱만 커지고 차임은 안 커지는" 갈라짐이 정확히 이 프로젝트가
+ * 반복해서 고쳐 온 형태다.
+ *
+ * 상한 1.8인 이유: 가장 큰 CHIME 0.26 × 1.8 = 0.47이고, 인접 톤의 램프가 겹쳐도
+ * 피크가 1.0을 넘지 않는다 (사인파는 클리핑 전까지 왜곡이 없다).
+ * `tone()`에서 한 번 더 1로 클램프해 두는 것은 미래에 게인을 올릴 때의 방어다.
+ */
+export const VOLUME_SCALES = { normal: 1, loud: 1.4, max: 1.8 } as const
+export type SoundVolume = keyof typeof VOLUME_SCALES
+
+/** 기본값 `loud` — "지금도 들리는데 더 적극적이면 좋겠다"가 피드백이므로 기본 경험을 올린다 */
+export const DEFAULT_SOUND_VOLUME: SoundVolume = 'loud'
+
+let volumeScale: number = VOLUME_SCALES[DEFAULT_SOUND_VOLUME]
+
+export function setVolumeScale(scale: number): void {
+  // 음수·NaN이 들어오면 소리가 사라진다 — 잘못된 입력은 기본값으로 되돌린다
+  volumeScale = Number.isFinite(scale) && scale > 0 ? scale : VOLUME_SCALES[DEFAULT_SOUND_VOLUME]
+}
+
+export function getVolumeScale(): number {
+  return volumeScale
+}
+
+/**
+ * 설정값 → 배율. 모르는 값은 기본값으로 (구버전 백업 복원 대비).
+ * 이름에 `volume`을 붙인 이유: `progression.ts`에 무게 단위용 `scaleFor`가 이미 있다.
+ */
+export function volumeScaleFor(volume: string | undefined): number {
+  return VOLUME_SCALES[(volume ?? '') as SoundVolume] ?? VOLUME_SCALES[DEFAULT_SOUND_VOLUME]
+}
+
 export interface ToneSpec {
   /** Hz */
   freq: number
@@ -96,6 +135,8 @@ export function tone({ freq, duration, delay = 0, gain = 0.22, type = 'sine' }: 
   if (!ctx) return
   if (ctx.state === 'suspended') void ctx.resume()
 
+  // 볼륨 배율은 **여기 한 곳**에서만 적용된다 (Z1 — 위 주석 참조)
+  const level = Math.min(1, gain * volumeScale)
   const at = ctx.currentTime + delay
   const osc = ctx.createOscillator()
   const env = ctx.createGain()
@@ -103,7 +144,7 @@ export function tone({ freq, duration, delay = 0, gain = 0.22, type = 'sine' }: 
   osc.frequency.value = freq
   // 시작·끝을 램프로 감싸 클릭 노이즈를 없앤다
   env.gain.setValueAtTime(0.0001, at)
-  env.gain.linearRampToValueAtTime(gain, at + Math.min(0.02, duration / 4))
+  env.gain.linearRampToValueAtTime(level, at + Math.min(0.02, duration / 4))
   env.gain.exponentialRampToValueAtTime(0.0001, at + duration)
   osc.connect(env).connect(ctx.destination)
   osc.start(at)
@@ -174,6 +215,21 @@ export function lastCycleCue(): void {
 /** 휴식 종료 차임 (G1). 상행 3음 — 틱의 단음 반복과 형태가 다르다 */
 export function chime(): void {
   for (const spec of CHIME) tone(spec)
+}
+
+/**
+ * 볼륨 미리 듣기 (Z1) — **실제 신호를 그대로 낸다** (틱 3회 → 차임).
+ *
+ * 미리 듣기용 톤을 따로 만들지 않는다. 그러면 "미리 듣기는 잘 들리는데 실제는 안 들린다"가
+ * 가능해지고, 그게 이 라운드에서 고치려는 문제와 같은 부류다.
+ *
+ * 휴식 타이머가 끝나기를 기다려 확인하는 구조면 설정을 고치는 데 세트 하나가 든다 —
+ * 헬스장에서 음악 틀어둔 채 바로 고를 수 있어야 한다.
+ */
+export function previewSignals(): void {
+  const spacing = 0.55
+  for (let i = 0; i < 3; i += 1) tone({ ...TICK, delay: i * spacing })
+  for (const spec of CHIME) tone({ ...spec, delay: (spec.delay ?? 0) + 3 * spacing })
 }
 
 /** iOS는 미지원. 지원하는 환경에서는 소리와 함께 진동도 준다 */

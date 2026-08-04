@@ -2,7 +2,13 @@ import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import ExportPanel from '../components/ExportPanel'
 import GistPanel from '../components/GistPanel'
-import { audioContextState } from '../lib/beep'
+import {
+  VOLUME_SCALES,
+  audioContextState,
+  previewSignals,
+  unlockAudio,
+  type SoundVolume,
+} from '../lib/beep'
 import ImportPanel from '../components/ImportPanel'
 import DietIoPanel from '../components/DietIoPanel'
 import RoutineIoPanel from '../components/RoutineIoPanel'
@@ -23,10 +29,25 @@ const PHASES: { value: Phase; label: string; desc: string }[] = [
   { value: 3, label: '3', desc: '피지크 마감' },
 ]
 
+/** 세그먼트 라벨. 배율 자체는 beep.ts가 소유한다 */
+const VOLUME_LABEL: Record<SoundVolume, string> = {
+  normal: '보통',
+  loud: '크게',
+  max: '가장 크게',
+}
+
 export default function SettingsScreen({ seed }: { seed: SeedResult }) {
   const diet = useDiet()
   const bundle = useRoutine()
-  const { currentPhase, setPhase, setOnboardingDone, tempoGuide, setTempoGuide } = useSettings()
+  const {
+    currentPhase,
+    setPhase,
+    setOnboardingDone,
+    tempoGuide,
+    setTempoGuide,
+    soundVolume,
+    setSoundVolume,
+  } = useSettings()
   const sessionCount = useLiveQuery(() => db.sessions.count(), [], 0)
   const sessions = useLiveQuery(() => db.sessions.toArray(), [], [])
   const readiness = bundle
@@ -192,6 +213,45 @@ export default function SettingsScreen({ seed }: { seed: SeedResult }) {
       <GistPanel />
 
       <ImportPanel />
+
+      {/*
+        신호 볼륨 (Z1). 배율은 `beep.ts` 한 곳에 있고 여기는 선택지만 보여준다 —
+        틱·차임·마지막 큐·템포 톤이 전부 같이 커진다 (소리별 배율을 두지 않는다).
+      */}
+      <div className="card">
+        <div className="card-label">소리 크기</div>
+        <div className="segment">
+          {(Object.keys(VOLUME_SCALES) as SoundVolume[]).map((v) => (
+            <button
+              key={v}
+              aria-pressed={soundVolume === v}
+              onClick={() => void setSoundVolume(v)}
+            >
+              {VOLUME_LABEL[v]}
+            </button>
+          ))}
+        </div>
+        {/*
+          미리 듣기 — **실제 신호를 그대로** 낸다 (틱 3회 → 차임).
+          휴식이 끝나기를 기다려 확인하는 구조면 설정을 고치는 데 세트 하나가 든다.
+          탭이 제스처이므로 여기서 컨텍스트를 연다 (iOS 제약).
+        */}
+        <button
+          className="btn btn-sm"
+          style={{ marginTop: 8 }}
+          onClick={() => {
+            unlockAudio()
+            previewSignals()
+          }}
+        >
+          🔊 미리 듣기 (3·2·1 틱 → 종료 차임)
+        </button>
+        <p className="row-sub" style={{ marginTop: 8 }}>
+          카운트다운 틱 · 종료 차임 · 템포 가이드 소리가 함께 조절됩니다.
+          무음 스위치가 켜져 있으면 어떤 크기로도 소리가 나지 않습니다 (음악을 끊지 않기
+          위한 맞바꿈 — README 참조).
+        </p>
+      </div>
 
       {/* 템포 가이드 (G7). 기본 꺼짐 — 세트 행에 버튼이 늘어나므로 원할 때만 켠다 */}
       <div className="card">
