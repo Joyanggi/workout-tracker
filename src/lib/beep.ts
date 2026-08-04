@@ -37,6 +37,25 @@ export function configureAudioSession(): void {
   }
 }
 
+/**
+ * 컨텍스트 상태 한 줄 (설정 → 진단).
+ *
+ * v1.3에 "모든 소리가 안 들린다"는 보고가 있었고, 원인을 가리려고 **진단 화면을 만들어
+ * 배포하고 사용자 확인을 받은 뒤 지우는** 한 라운드를 썼다. 결론은 코드가 아니었다
+ * (배포 순서상 톤 수정은 이미 나가 있었고, 회복 시점에 오디오 동작을 바꾼 커밋이 없다 —
+ * 출력 경로·무음 스위치 쪽이다).
+ *
+ * 그때 필요했던 것은 화면 하나가 아니라 **이 값 하나**였다:
+ *   `null`      — 컨텍스트가 만들어진 적 없다 (제스처가 한 번도 안 닿았다)
+ *   `running`   — 앱의 오디오는 살아 있다 → 무음 스위치·볼륨·출력 경로를 본다
+ *   `suspended` / `interrupted` — 앱 쪽 문제다
+ *
+ * 패널을 되살리지 않고 이 한 줄만 둔다 (X10의 "유지 대상을 늘리지 않는다"와 양립한다).
+ */
+export function audioContextState(): string | null {
+  return ctx?.state ?? null
+}
+
 function audioCtor(): Ctor | undefined {
   const w = window as Window & { webkitAudioContext?: Ctor }
   return window.AudioContext ?? w.webkitAudioContext

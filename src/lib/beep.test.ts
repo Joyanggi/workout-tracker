@@ -286,3 +286,32 @@ describe('G1 카운트다운 틱 · 종료 차임', () => {
     expect(created).toBe(1)
   })
 })
+
+describe('컨텍스트 상태 한 줄 (Y3)', () => {
+  beforeEach(() => {
+    vi.stubGlobal('navigator', {})
+  })
+
+  it('제스처 전에는 null이다 (컨텍스트가 만들어진 적 없다)', async () => {
+    const { audioContextState } = await freshModule()
+    expect(audioContextState()).toBeNull()
+  })
+
+  it('unlock 후에는 상태를 보고한다', async () => {
+    const { audioContextState, unlockAudio } = await freshModule()
+    unlockAudio()
+    expect(audioContextState()).toBe('running')
+  })
+
+  it('suspended도 그대로 보고한다 — 이 값이 1차 분류의 근거다', async () => {
+    const { audioContextState, unlockAudio } = await freshModule()
+    unlockAudio()
+    ctxState = 'suspended'
+    expect(audioContextState()).toBe('suspended')
+  })
+
+  it('던지지 않는다 (설정 화면이 매 렌더에 부른다)', async () => {
+    const { audioContextState } = await freshModule()
+    expect(() => audioContextState()).not.toThrow()
+  })
+})

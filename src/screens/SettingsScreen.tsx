@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import ExportPanel from '../components/ExportPanel'
 import GistPanel from '../components/GistPanel'
+import { audioContextState } from '../lib/beep'
 import ImportPanel from '../components/ImportPanel'
 import DietIoPanel from '../components/DietIoPanel'
 import RoutineIoPanel from '../components/RoutineIoPanel'
@@ -244,6 +245,18 @@ export default function SettingsScreen({ seed }: { seed: SeedResult }) {
             <div className="row-title">저장 공간</div>
           </div>
           <div className="row-meta">{quota ?? '—'}</div>
+        </div>
+        {/*
+          소리 문제 1차 분류용 한 줄 (Y3). "running인데 안 들린다" = 무음 스위치·볼륨·출력 경로,
+          "suspended/없음" = 앱 쪽. v1.3에 이 한 줄이 없어서 진단 화면을 만들고 지우는
+          라운드를 한 번 썼다.
+        */}
+        <div className="row">
+          <div className="row-main">
+            <div className="row-title">오디오</div>
+            <div className="row-sub">running인데 안 들리면 무음 스위치·볼륨·출력 기기 확인</div>
+          </div>
+          <div className="row-meta">{audioContextState() ?? '아직 안 열림'}</div>
         </div>
         <div className="row">
           <div className="row-main">
