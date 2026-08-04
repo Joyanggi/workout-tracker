@@ -135,3 +135,15 @@ export function formatClock(iso: string): string {
   const d = new Date(iso)
   return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
 }
+
+/**
+ * 초 → `M:SS` (휴식 표시 공용).
+ *
+ * 휴식 타이머 바와 재개 스트립이 각자 이 3줄을 갖고 있었다 — 같은 사실을 두 곳에서
+ * 포맷하는 형태이고, 이 프로젝트가 반복해서 고쳐 온 부류다. 지금은 둘 다 같은
+ * `timer.remainingSec`을 받으므로 무해했지만, 표시 형식을 바꾸려면 두 곳을 고쳐야 했다.
+ */
+export function mmss(totalSec: number): string {
+  const safe = Math.max(0, Math.floor(totalSec))
+  return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, '0')}`
+}

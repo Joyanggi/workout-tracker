@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { mmss } from '../lib/dates'
 import type { RestTimer } from '../lib/useRestTimer'
 
 /**
@@ -52,8 +53,4 @@ export default function SessionResumeStrip({
 
 function minutesSince(iso: string): number {
   return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60_000))
-}
-
-function mmss(totalSec: number): string {
-  return `${Math.floor(totalSec / 60)}:${String(totalSec % 60).padStart(2, '0')}`
 }

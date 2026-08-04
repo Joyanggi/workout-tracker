@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { stripComments } from './sourceScan'
+import { mmss } from './dates'
 
 /**
  * Z5 — **휴식 타이머는 App이 단일 인스턴스로 소유한다.**
@@ -76,5 +77,39 @@ describe('최소화 경로 (Z5)', () => {
   it('홈 배너를 스트립으로 통합했다 (같은 정보가 두 줄 뜨지 않게)', () => {
     const home = stripComments(sources['/src/screens/HomeScreen.tsx']!)
     expect(home).not.toMatch(/진행 중: /)
+  })
+})
+
+/**
+ * §8.3 — 휴식 표시 포맷이 한 곳에 있다.
+ *
+ * 타이머 바와 재개 스트립이 각자 `mmss`를 갖고 있었다. 같은 사실을 두 곳에서 포맷하는
+ * 형태이고, 이 프로젝트가 반복해서 고쳐 온 부류다 (둘 다 같은 값을 받으므로 무해했지만,
+ * 표시 형식을 바꾸려면 두 곳을 고쳐야 했다).
+ */
+describe('휴식 표시 포맷의 단일 정의', () => {
+  it('mmss를 자체 정의하는 컴포넌트가 없다', () => {
+    const offenders = appFiles
+      .filter(([p]) => p !== '/src/lib/dates.ts')
+      .filter(([, src]) => /function mmss\s*\(/.test(src))
+      .map(([p]) => p)
+    expect(offenders).toEqual([])
+  })
+
+  it('두 표시가 같은 함수를 쓴다', () => {
+    for (const path of [
+      '/src/components/RestTimerBar.tsx',
+      '/src/components/SessionResumeStrip.tsx',
+    ]) {
+      const src = sources[path]
+      expect(src, `${path}를 찾지 못했다`).toBeDefined()
+      expect(stripComments(src!)).toMatch(/import \{ mmss \} from '\.\.\/lib\/dates'/)
+    }
+  })
+
+  it('음수·소수 초에도 형식이 깨지지 않는다', () => {
+    expect(mmss(-5)).toBe('0:00')
+    expect(mmss(65.7)).toBe('1:05')
+    expect(mmss(0)).toBe('0:00')
   })
 })

@@ -1,10 +1,5 @@
+import { mmss } from '../lib/dates'
 import type { RestTimer } from '../lib/useRestTimer'
-
-function mmss(totalSec: number): string {
-  const m = Math.floor(totalSec / 60)
-  const s = totalSec % 60
-  return `${m}:${String(s).padStart(2, '0')}`
-}
 
 /**
  * 하단 고정 휴식 타이머 바 (DESIGN.md §5.2).
