@@ -91,15 +91,23 @@ export default function CompensationSheet({
         </button>
         <div style={{ height: 8 }} />
         <div className="btn-row">
-          <button
-            className="btn"
-            onClick={() => {
-              setSelected([])
-              setFree('')
-            }}
-          >
-            없음으로 비우기
-          </button>
+          {/*
+            X9 — **지울 것이 있을 때만** 보인다. 이미 '없음'인 상태에서 "없음으로 비우기"는
+            아무 일도 하지 않는 버튼이고, 그런 버튼이 있으면 자기 존재를 설명하지 못한다.
+            기준은 저장된 현재 값이다 (편집 중인 선택이 아니다) — 편집 중 값으로 판단하면
+            체크를 다 풀자마자 버튼이 사라져서 "되돌리기"를 못 한다.
+          */}
+          {current.trim() !== '' && current !== NO_COMPENSATION && (
+            <button
+              className="btn"
+              onClick={() => {
+                setSelected([])
+                setFree('')
+              }}
+            >
+              없음으로 비우기
+            </button>
+          )}
           <button className="btn" onClick={onClose}>
             취소
           </button>

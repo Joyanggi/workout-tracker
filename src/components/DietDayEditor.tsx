@@ -279,7 +279,7 @@ export default function DietDayEditor({
               </div>
             </>
           ) : (
-            <button className="btn btn-sm" onClick={() => setConfirmDelete(true)}>
+            <button className="btn btn-sm btn-danger" onClick={() => setConfirmDelete(true)}>
               이 날 식단 기록 지우기
             </button>
           )}

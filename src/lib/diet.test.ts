@@ -15,6 +15,7 @@ import {
   slotsFor,
   summarizeDietDay,
 } from './diet'
+import { applyCheckAllItems, emptyDietDay } from './dietOps'
 import { validateDietPlan } from '../db/validateDietPlan'
 import { BUNDLED_DIET_PLANS, BUNDLED_DIET_REVISION } from '../db/seed'
 import dietPlansJson from '../data/diet-plans.json'
@@ -478,5 +479,61 @@ describe('훈련 전·직후 스킵은 더 무겁다 (H3)', () => {
   it('체크한 경우는 슬롯 종류와 무관하다 (스킵에만 적용되는 규칙)', () => {
     const pre = PLAN.slots.find((s) => s.id === 'pre')!
     expect(slotScore(pre, { checkedItemIds: pre.items.map((i) => i.id) })).toBe(SCORE.full)
+  })
+})
+
+// ─── X2: 기록 있으나 판정 보류인 날 ─────────────────────────────
+// 아침만 적은 날이 캘린더에서 "아무것도 없는 날"과 같아 보였다 (실사용 보고 #2).
+// 판정 기준(3슬롯)은 그대로 두고, "기록이 있다"는 사실만 따로 낸다.
+
+describe('X2 — 판정 보류 날짜 집합', () => {
+  const PLAN = BUNDLED_DIET_PLANS.find((p) => p.id === 'cut-1800')!
+  const month = '2026-08-10'
+  const dayWith = (date: string, slotCount: number): DietDay => {
+    let day = emptyDietDay(date, PLAN.id, true)
+    for (const slot of PLAN.slots.slice(0, slotCount)) day = applyCheckAllItems(day, slot)
+    return day
+  }
+
+  it('1~2슬롯만 기록한 날은 판정 보류 집합에 든다', () => {
+    const stats = dietMonthStats([dayWith('2026-08-01', 1), dayWith('2026-08-02', 2)], [PLAN], month)
+    expect([...stats.partialDates].sort()).toEqual(['2026-08-01', '2026-08-02'])
+    expect(stats.logged).toBe(0) // 판정 기준은 그대로다
+  })
+
+  it('3슬롯부터는 판정되고 보류 집합에 들지 않는다', () => {
+    const stats = dietMonthStats([dayWith('2026-08-03', 3)], [PLAN], month)
+    expect(stats.partialDates.size).toBe(0)
+    expect(stats.logged).toBe(1)
+  })
+
+  it('행은 있지만 슬롯을 하나도 안 적은 날은 보류도 아니다', () => {
+    // 플랜만 고르거나 훈련일만 토글한 날 — "미기록"과 구분해 온 상태다
+    const stats = dietMonthStats([emptyDietDay('2026-08-04', PLAN.id, true)], [PLAN], month)
+    expect(stats.partialDates.size).toBe(0)
+    expect(stats.logged).toBe(0)
+  })
+
+  it('판정된 날과 보류된 날이 섞여도 각각 센다', () => {
+    const stats = dietMonthStats(
+      [dayWith('2026-08-05', 6), dayWith('2026-08-06', 1), dayWith('2026-08-07', 3)],
+      [PLAN],
+      month,
+    )
+    expect(stats.logged).toBe(2)
+    expect([...stats.partialDates]).toEqual(['2026-08-06'])
+  })
+
+  it('다른 달은 섞이지 않는다', () => {
+    const stats = dietMonthStats([dayWith('2026-07-31', 1), dayWith('2026-08-01', 1)], [PLAN], month)
+    expect([...stats.partialDates]).toEqual(['2026-08-01'])
+  })
+
+  it('판정 기준이 상수에서 온다 (여기서 세지 않는다)', () => {
+    // 3슬롯 미만이 보류라는 규칙은 MIN_SLOTS_FOR_VERDICT 하나에서 나와야 한다
+    const justUnder = dietMonthStats([dayWith('2026-08-08', MIN_SLOTS_FOR_VERDICT - 1)], [PLAN], month)
+    const atThreshold = dietMonthStats([dayWith('2026-08-09', MIN_SLOTS_FOR_VERDICT)], [PLAN], month)
+    expect(justUnder.partialDates.size).toBe(1)
+    expect(atThreshold.partialDates.size).toBe(0)
   })
 })

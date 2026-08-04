@@ -20,6 +20,7 @@ export default function MonthCalendar({
   onPickDate,
   selectedDate,
   adherenceByDate,
+  dietPartialDates,
 }: {
   cells: CalendarCell[]
   month: string
@@ -29,6 +30,8 @@ export default function MonthCalendar({
   selectedDate: string | null
   /** 날짜 → 식단 준수 등급 (D3). 없으면 링을 그리지 않는다 */
   adherenceByDate?: Map<string, Adherence>
+  /** 기록은 있으나 판정 보류인 날 (X2) — 회색 링 */
+  dietPartialDates?: Set<string>
 }) {
   const today = todayLocal()
 
@@ -58,6 +61,8 @@ export default function MonthCalendar({
           const dayNum = parseDateStr(cell.date).getDate()
           const diet = adherenceByDate?.get(cell.date)
           const hasDiet = diet !== undefined && diet !== 'unlogged'
+          // 판정 전이라도 기록이 있으면 회색 링 — "기록이 사라졌다"고 보이지 않게 (X2)
+          const dietPartial = !hasDiet && dietPartialDates?.has(cell.date) === true
           return (
             <button
               key={cell.date}
@@ -66,6 +71,7 @@ export default function MonthCalendar({
                 cell.inMonth ? '' : 'cal-cell-out',
                 hasSession ? 'cal-cell-done' : '',
                 hasDiet ? `cal-cell-diet-${diet}` : '',
+                dietPartial ? 'cal-cell-diet-partial' : '',
                 cell.date === today ? 'cal-cell-today' : '',
                 cell.date === selectedDate ? 'cal-cell-selected' : '',
               ]

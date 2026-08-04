@@ -286,6 +286,18 @@ export interface DietMonthStats {
   logged: number
   /** ● 인 날 수 */
   good: number
+  /**
+   * **기록은 있으나 판정을 보류한 날** (X2) — 1슬롯 이상, `MIN_SLOTS_FOR_VERDICT` 미만.
+   *
+   * 왜 `Adherence`에 값을 더하지 않았나: 판정 기준을 3슬롯으로 유지하라는 것이 요구였고
+   * (`good/mid/poor`의 의미가 바뀌면 과거 날의 마크가 전부 흔들린다), 이 정보는 판정이
+   * 아니라 **"기록이 있다"는 사실**이다. 종류가 다른 것을 같은 열거형에 넣으면
+   * 마크·내보내기·칩까지 전부 새 값을 처리해야 한다.
+   *
+   * 캘린더가 이것으로 회색 링을 그린다 — 아침만 적은 날이 "아무것도 없는 날"과 같아 보이면
+   * 기록한 사람이 기록이 사라졌다고 느낀다 (실사용 보고 #2).
+   */
+  partialDates: Set<string>
 }
 
 export function dietMonthStats(
@@ -295,12 +307,23 @@ export function dietMonthStats(
 ): DietMonthStats {
   const inMonth = days.filter((d) => isSameMonth(d.date, anyDateInMonth))
   const byDate = adherenceByDate(inMonth, plans)
+  const byId = new Map(plans.map((p) => [p.id, p]))
   let logged = 0
   let good = 0
-  for (const grade of byDate.values()) {
-    if (grade === 'unlogged') continue
+  const partialDates = new Set<string>()
+  for (const [date, grade] of byDate) {
+    if (grade === 'unlogged') {
+      /*
+       * 판정은 못 하지만 기록이 있는 날을 골라낸다 (X2).
+       * 슬롯 수는 `summarizeDietDay`에서 가져온다 — 여기서 세면 판정과 다른 기준이 생긴다.
+       */
+      const day = inMonth.find((d) => d.date === date)
+      const plan = day ? byId.get(day.planId) : undefined
+      if (day && plan && summarizeDietDay(plan, day).loggedSlots > 0) partialDates.add(date)
+      continue
+    }
     logged += 1
     if (grade === 'good') good += 1
   }
-  return { byDate, logged, good }
+  return { byDate, logged, good, partialDates }
 }

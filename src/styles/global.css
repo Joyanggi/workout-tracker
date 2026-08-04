@@ -841,6 +841,12 @@ select {
 .btn-sm {
   padding: 10px 12px;
   font-size: 14px;
+  /*
+    X8 — 줄바꿈 금지. 세트 행의 작은 버튼이 두 줄이 되면 행 높이가 흔들려
+    옆 버튼들의 탭 위치가 밀린다 (운동 중에는 그게 오탭이 된다).
+    라벨을 짧게 유지하는 것이 1차 방어이고, 이건 2차 방어다.
+  */
+  white-space: nowrap;
 }
 
 /* ─── 휴식 타이머 바 (하단 고정) ───────────────────────── */
@@ -1646,6 +1652,8 @@ textarea.field {
 .cal-cell-diet-good { box-shadow: inset 0 0 0 2px var(--ok); }
 .cal-cell-diet-mid { box-shadow: inset 0 0 0 2px var(--accent); }
 .cal-cell-diet-poor { box-shadow: inset 0 0 0 2px var(--warn); }
+/* 기록은 있으나 판정 보류 (X2) — 색이 아니라 "아직 판정 안 함"을 뜻한다 */
+.cal-cell-diet-partial { box-shadow: inset 0 0 0 2px var(--text-faint); }
 
 /*
   홈의 식단 한 줄 칩 (D5). 카드가 아니라 슬림 스트립이다 — 홈이 이미 뷰포트 1.7배라

@@ -4,7 +4,7 @@ import MonthCalendar from '../components/MonthCalendar'
 import { db } from '../db'
 import { addMonths, monthStart, todayLocal, weekdayKo } from '../lib/dates'
 import DietDayEditor from '../components/DietDayEditor'
-import { dietMonthStats } from '../lib/diet'
+import { MIN_SLOTS_FOR_VERDICT, dietMonthStats } from '../lib/diet'
 import { useDiet } from '../lib/useDiet'
 import { strengthDates } from '../lib/derive'
 import { calendarCells, sessionsInMonth, summarize } from '../lib/history'
@@ -92,11 +92,16 @@ export default function HistoryScreen({ bundle }: { bundle: RoutineBundle }) {
             onPickDate={pickDate}
             selectedDate={selectedDate}
             adherenceByDate={dietStats.byDate}
+            dietPartialDates={dietStats.partialDates}
           />
 
-          {dietStats.logged > 0 && (
-            <p className="row-sub" style={{ margin: '-6px 0 12px' }}>
-              식단 준수 {dietStats.good}/{dietStats.logged}일 (기록한 날 기준) · 링 색이 그날 준수입니다
+          {(dietStats.logged > 0 || dietStats.partialDates.size > 0) && (
+            <p className="row-sub" style={{ margin: '-6px 0 12px', whiteSpace: 'normal' }}>
+              {dietStats.logged > 0 &&
+                `식단 준수 ${dietStats.good}/${dietStats.logged}일 (기록한 날 기준) · 링 색이 그날 준수입니다`}
+              {/* 회색 링의 뜻을 적는다 — 색만 다르고 설명이 없으면 "왜 이 날은 회색인가"가 된다 */}
+              {dietStats.partialDates.size > 0 &&
+                `${dietStats.logged > 0 ? ' · ' : ''}회색 = 기록 있음 / 판정 전 (${MIN_SLOTS_FOR_VERDICT}슬롯부터 판정)`}
             </p>
           )}
 

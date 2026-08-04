@@ -430,8 +430,9 @@ export default function ExerciseCard({
             <button
               className="btn btn-sm"
               onClick={() => actions.addSet(entry.recordKey, { warmup: true })}
+              aria-label="워밍업 세트 추가"
             >
-              + 워밍업
+              워밍업
             </button>
             {entry.sets.length > 1 && (
               <button
@@ -452,8 +453,17 @@ export default function ExerciseCard({
               거부하지만 누를 수 있는 버튼을 두면 "왜 안 되지"가 된다 — 아예 감춘다.
             */}
             {onRequestSubstitute && done.length === 0 && (
-              <button className="btn btn-sm" onClick={onRequestSubstitute}>
-                자리 없음 · 대체
+              /*
+                X8 — 라벨을 "대체"로 줄였다. "자리 없음 · 대체"가 375px에서 줄바꿈됐고,
+                줄바꿈된 버튼은 세트 행 높이를 흔들어 옆 버튼들의 탭 위치를 밀어낸다.
+                시트를 열면 "머신이 사용 중일 때" 설명이 나오므로 라벨에 사유까지 담지 않는다.
+              */
+              <button
+                className="btn btn-sm"
+                onClick={onRequestSubstitute}
+                aria-label="자리 없음 — 대체운동 고르기"
+              >
+                대체
               </button>
             )}
           </div>
