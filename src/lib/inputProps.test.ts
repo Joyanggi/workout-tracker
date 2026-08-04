@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AUTOFILL_UNKNOWN_TOKEN, NO_AUTOFILL } from './inputProps'
+import { NO_AUTOFILL } from './inputProps'
 
 /**
  * 모든 텍스트 입력에 자동완성 억제가 적용돼 있는지 (G5).
@@ -26,20 +26,9 @@ const sources = import.meta.glob('/src/**/*.tsx', {
 
 const files = Object.keys(sources).sort()
 
-/**
- * 실험대는 이 불변식의 **의도적 예외**다 (W1).
- *
- * `AutofillLab`은 처방마다 다른 속성 조합을 주는 것이 목적이고, 특히 **대조군(F)** 은
- * 억제 속성을 하나도 주지 않아야 한다 — F에서만 제안이 뜨는지가 "현행 억제가 일하고
- * 있는가"를 가르는 유일한 관측이다. spread를 강제하면 그 관측이 불가능해진다.
- *
- * 목록에 두는 이유: 예외를 조용히 두면 다음에 진짜 누락이 이 파일에 생겨도 안 걸린다.
- */
-const AUTOFILL_LAB = '/src/components/AutofillLab.tsx'
-
 describe('자동완성 억제 전수 적용', () => {
   it('input·textarea 개수와 NO_AUTOFILL spread 개수가 같다', () => {
-    const counts = files.filter((f) => f !== AUTOFILL_LAB).map((f) => {
+    const counts = files.map((f) => {
       const src = sources[f]
       return {
         file: f,
@@ -57,12 +46,6 @@ describe('자동완성 억제 전수 적용', () => {
 
     // 스캔 자체가 헛돌지 않는지 (입력이 하나도 안 잡히면 정규식이 깨진 것)
     expect(counts.reduce((n, c) => n + c.fields, 0)).toBeGreaterThan(10)
-  })
-
-  it('실험대는 예외 목록에 있고 실제로 존재한다 (경로 오타로 검사가 헛돌지 않게)', () => {
-    expect(files, `${AUTOFILL_LAB}가 없습니다`).toContain(AUTOFILL_LAB)
-    // 실험대에는 대조군이 있어야 한다 — 없으면 예외를 둘 이유도 없다
-    expect(sources[AUTOFILL_LAB]).toMatch(/대조군/)
   })
 
   it('name 속성을 쓰지 않는다 — iOS가 그 이름으로 필드 종류를 추측한다', () => {
@@ -89,26 +72,67 @@ describe('자동완성 억제 전수 적용', () => {
  * 이 테스트가 지키는 것은 "고쳤다"가 아니라 **"한 곳만 바꿨다"**다.
  * 여러 곳에 동시에 넣으면 실기기에서 효과가 있어도 무엇이 들었는지 알 수 없다.
  */
-describe('W1 1차 실험 — 한 필드만 다르게 둔다', () => {
+/**
+ * X5 종결 — 실험은 끝났고, **남은 처방의 범위**만 지킨다.
+ *
+ * 실험대(6칸) 결과: 대조군을 포함해 여섯 칸 모두 제안이 떴다. `autocomplete` 값을
+ * 무엇으로 두든, `type`을 무엇으로 두든 이 iOS 버전은 연락처 제안을 붙인다.
+ * **속성 레벨 처방은 전부 무효로 확정**됐다 (README Limitations에 기록).
+ *
+ * `NO_AUTOFILL`을 걷어내지 않는 이유: 자동완성 억제는 실패했지만 `autoCorrect`·
+ * `spellCheck` 끄기는 **한글 메모 입력에서 여전히 유용**하고 데스크톱 브라우저에는
+ * `autoComplete="off"`가 실제로 듣는다. 실패한 것은 "iOS 연락처 제안 억제"라는 목표이지
+ * 이 속성들의 다른 효용이 아니다.
+ */
+describe('X5 — 남은 처방의 범위', () => {
   const overrides = files.flatMap((f) =>
     (sources[f].match(/autoComplete=\{AUTOFILL_UNKNOWN_TOKEN\}/g) ?? []).map(() => f),
   )
 
-  it('덮어쓴 필드가 정확히 하나다', () => {
+  it('비표준 토큰을 쓰는 필드가 여전히 하나뿐이다', () => {
+    // 무효로 확정됐으므로 넓히지 않는다 — 넓히면 "고쳤다"는 착각만 퍼진다
     expect(overrides).toEqual(['/src/components/ExerciseCard.tsx'])
   })
 
-  it('비표준 토큰이다 — 표준 값이면 iOS가 필드 종류를 추론한다', () => {
-    const STANDARD = ['off', 'on', 'name', 'username', 'email', 'tel', 'new-password']
-    expect(STANDARD).not.toContain(AUTOFILL_UNKNOWN_TOKEN)
+  it('readOnly 트릭도 그 한 필드에만 있다', () => {
+    const users = files.filter((f) => /readOnly=\{setupLocked\}/.test(sources[f]))
+    expect(users).toEqual(['/src/components/ExerciseCard.tsx'])
   })
 
-  it('spread를 대체하지 않고 뒤에서 덮는다 (개수 불변식 유지)', () => {
+  it('readOnly 해제 후 다시 포커스한다 (키보드가 올라오게)', () => {
     const src = sources['/src/components/ExerciseCard.tsx']
-    const spreadAt = src.indexOf('{...NO_AUTOFILL}')
-    const overrideAt = src.indexOf('autoComplete={AUTOFILL_UNKNOWN_TOKEN}')
-    expect(spreadAt).toBeGreaterThan(-1)
-    // JSX는 뒤에 온 prop이 이긴다 — 순서가 뒤바뀌면 실험이 무효다
-    expect(overrideAt).toBeGreaterThan(spreadAt)
+    expect(src).toMatch(/setSetupLocked\(false\)/)
+    expect(src).toMatch(/setTimeout\(\(\) => el\.focus\(\), 0\)/)
+  })
+
+  it('재포커스에 rAF를 쓰지 않는다 — 화면이 안 보이면 호출되지 않는다', () => {
+    // rAF는 배경 탭에서 아예 안 돈다 (검증 중 실제로 걸렸다). 타이머는 지연될 뿐 실행된다
+    const src = sources['/src/components/ExerciseCard.tsx']
+    expect(src).not.toMatch(/requestAnimationFrame\(\(\) => el\.focus/)
+  })
+
+  it('편집을 다시 열면 잠금이 초기화된다 (두 번째 편집도 같은 조건)', () => {
+    expect(sources['/src/components/ExerciseCard.tsx']).toMatch(/setSetupLocked\(true\)/)
+  })
+
+  /*
+   * 이 검사가 이 실험에서 가장 중요하다.
+   *
+   * 처음 구현은 `onFocus`에서만 해제했고, 검증에서 필드가 **영구히 readOnly로 남는 것**을
+   * 실제로 봤다 — 창에 OS 포커스가 없으면 activeElement는 설정되지만 focus 이벤트가
+   * 배달되지 않는다. 그 상태의 사용자는 **아무것도 입력할 수 없다.**
+   *
+   * 실험이 실패하는 방향은 "제안이 계속 뜬다"(현상 유지)여야 한다.
+   * "입력이 안 된다"는 실패 방향으로 허용되지 않는다.
+   */
+  it('포커스 이벤트와 무관한 해제 경로가 있다', () => {
+    const src = sources['/src/components/ExerciseCard.tsx']
+    // 편집이 열리면 이펙트가 타이머로 무조건 해제한다
+    expect(src).toMatch(/if \(!editingSetup\) return[\s\S]{0,140}setSetupLocked\(false\)/)
+  })
+
+  it('해제 경로가 둘이다 (이펙트 + onFocus 보조)', () => {
+    const src = sources['/src/components/ExerciseCard.tsx']
+    expect((src.match(/setSetupLocked\(false\)/g) ?? []).length).toBe(2)
   })
 })

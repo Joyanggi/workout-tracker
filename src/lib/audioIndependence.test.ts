@@ -41,10 +41,9 @@ describe('소리 경로의 설정 독립성 (W2)', () => {
      * 검사 대상에서 빠진 채로 통과한다.
      *   useRestTimer — 틱·차임
      *   TempoGuideSheet — 카운트인·페이즈 톤·마지막 큐
-     *   AudioDiagnosticsPanel — 진단용 수동 재생 (실기기 조사 도구)
+     * (v1.3의 소리 진단 패널은 역할을 마치고 X10에서 삭제했다 — git 이력에 있다)
      */
     expect(emitters.map(([p]) => p).sort()).toEqual([
-      '/src/components/AudioDiagnosticsPanel.tsx',
       '/src/components/TempoGuideSheet.tsx',
       '/src/lib/useRestTimer.ts',
     ])

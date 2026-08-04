@@ -102,16 +102,16 @@ describe('G8 오디오 세션', () => {
   it('지원하면 ambient로 설정한다 — 다른 앱 음악을 끊지 않기 위해', async () => {
     const session = { type: 'auto' }
     vi.stubGlobal('navigator', { audioSession: session })
-    const { configureAudioSession, audioSessionSupported } = await freshModule()
-    expect(audioSessionSupported()).toBe(true)
+    const { configureAudioSession } = await freshModule()
     configureAudioSession()
+    // 지원 판정을 별도 술어로 확인하지 않는다 — 그건 configureAudioSession의 판정을
+    // 복제한 두 번째 사본이 된다. 효과(type이 ambient가 되는가)가 지켜야 할 성질이다
     expect(session.type).toBe('ambient')
   })
 
   it('미지원 브라우저에서는 아무 일도 하지 않는다 (현행 동작 유지)', async () => {
     vi.stubGlobal('navigator', {})
-    const { configureAudioSession, audioSessionSupported, unlockAudio, tick } = await freshModule()
-    expect(audioSessionSupported()).toBe(false)
+    const { configureAudioSession, unlockAudio, tick } = await freshModule()
     expect(() => configureAudioSession()).not.toThrow()
     // 소리는 여전히 나야 한다
     unlockAudio()

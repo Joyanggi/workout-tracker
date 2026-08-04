@@ -110,6 +110,19 @@ export default function ExerciseCard({
   // recordKey에 붙는 값이라 세션 상태와 별도로 읽고 쓴다. 한 행이므로 한 번만 읽는다.
   const [setupNote, setSetupNote] = useState<string | null>(null)
   const [editingSetup, setEditingSetup] = useState(false)
+  /** X5 — 머신 세팅 메모를 readOnly로 열고 곧바로 해제한다 (아래 input 주석 참조) */
+  const [setupLocked, setSetupLocked] = useState(true)
+
+  /*
+   * X5 — **무조건 해제 경로.** 이것이 없으면 focus 이벤트가 배달되지 않는 환경에서
+   * 필드가 영구히 readOnly로 남아 입력이 아예 불가능해진다 (검증 중 실제로 재현했다).
+   * 실험이 실패하는 방향은 "제안이 계속 뜬다"여야 하고, "입력이 안 된다"는 안 된다.
+   */
+  useEffect(() => {
+    if (!editingSetup) return
+    const id = window.setTimeout(() => setSetupLocked(false), 0)
+    return () => window.clearTimeout(id)
+  }, [editingSetup])
   const [scaleRow, setScaleRow] = useState<{
     weightStepKg?: number
     weightLadderKg?: number[]
@@ -247,10 +260,35 @@ export default function ExerciseCard({
               <input
                 {...NO_AUTOFILL}
                 /*
-                  W1 1차 실험 — 이 필드만 연락처 제안이 남는다는 보고가 있었다.
-                  spread 뒤에 두어 `autoComplete`만 덮는다 (JSX는 뒤에 온 prop이 이긴다).
-                  다른 필드는 그대로 두어 **변수를 하나만** 바꾼다.
+                  X5 — **마지막 실험**: readOnly로 시작해 포커스 순간 해제한다.
+
+                  실험대(6칸) 결과로 속성 레벨 처방은 전부 무효로 확정됐다 —
+                  대조군까지 포함해 여섯 칸 모두 제안이 떴다. `autocomplete` 값을 무엇으로
+                  두든(표준 `off`, 비표준 토큰), `type`을 무엇으로 두든 이 iOS 버전은
+                  연락처 제안을 붙인다. 남은 카드가 이것 하나다.
+
+                  원리: iOS는 **편집 가능한 필드에만** 제안을 붙인다. 필드가 뜨는 순간에는
+                  읽기 전용이라 제안 계산 대상이 아니고, 포커스가 들어온 뒤 해제한다.
+
+                  **해제를 포커스 이벤트에 의존하지 않는다.** 처음엔 `onFocus`에서만 풀었는데,
+                  검증 중 필드가 **영구히 readOnly로 남는 것**을 실제로 봤다 — 창에 OS 포커스가
+                  없으면 `activeElement`는 설정되지만 focus 이벤트가 배달되지 않는다.
+                  그 상태면 사용자가 **아무것도 입력할 수 없다.** 연락처 제안보다 훨씬 나쁜 실패다.
+                  그래서 마운트 직후 타이머로 무조건 해제하고(아래 useEffect), `onFocus`는
+                  보조 경로로만 남긴다. 실패해도 "제안이 계속 뜬다"(현상 유지)로 끝나야 한다.
+
+                  키보드가 한 박자 늦게 오를 수 있어 해제 직후 다시 `focus()`를 건다.
+                  `requestAnimationFrame`이 아니라 `setTimeout`을 쓴다 — rAF는 화면이 보이지
+                  않으면 아예 호출되지 않아 재포커스가 영구히 유실된다 (검증 중 실제로 밟았다).
                 */
+                readOnly={setupLocked}
+                onFocus={(event) => {
+                  if (!setupLocked) return
+                  const el = event.currentTarget
+                  setSetupLocked(false)
+                  // readOnly가 풀린 뒤 다시 포커스해야 iOS가 키보드를 올린다
+                  window.setTimeout(() => el.focus(), 0)
+                }}
                 autoComplete={AUTOFILL_UNKNOWN_TOKEN}
                 className="field"
                 value={setupNote ?? ''}
@@ -270,7 +308,13 @@ export default function ExerciseCard({
               </button>
             </div>
           ) : (
-            <button className="setup-row" onClick={() => setEditingSetup(true)}>
+            <button
+              className="setup-row"
+              onClick={() => {
+                setSetupLocked(true) // 두 번째 편집에서도 같은 조건이어야 한다
+                setEditingSetup(true)
+              }}
+            >
               <span aria-hidden="true">🔧</span>
               <span className={setupNote ? 'setup-value' : 'setup-empty'}>
                 {setupNote || '머신 세팅 메모 추가'}

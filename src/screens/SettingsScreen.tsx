@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import ExportPanel from '../components/ExportPanel'
-import AudioDiagnosticsPanel from '../components/AudioDiagnosticsPanel'
-import AutofillLab from '../components/AutofillLab'
 import GistPanel from '../components/GistPanel'
 import ImportPanel from '../components/ImportPanel'
 import DietIoPanel from '../components/DietIoPanel'
@@ -263,14 +261,6 @@ export default function SettingsScreen({ seed }: { seed: SeedResult }) {
           </div>
         ))}
       </div>
-
-      {/*
-        실기기에서만 재현되는 두 문제의 조사 도구 (v1.3 피드백).
-        개발 브라우저는 오디오 세션 API가 없고 창이 항상 hidden이라 소리를 확인할 수 없고,
-        iOS 키보드 제안은 데스크톱에서 재현되지 않는다 — 사실을 기기가 보고하게 만든다.
-      */}
-      <AudioDiagnosticsPanel />
-      <AutofillLab />
 
       <div className="card">
         <div className="card-label">위험 구역</div>
