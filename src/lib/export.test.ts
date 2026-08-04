@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import exercisesJson from '../data/exercises.json'
 import { APP_ID, SCHEMA_VERSION, parseBackup, summarizeBackup, type BackupFile } from './backup'
-import { exportMarkdown, sessionToMarkdown } from './exportMarkdown'
+import { exportMarkdown, sessionToMarkdown, setGaps } from './exportMarkdown'
 import { objectParticle, withObjectParticle } from './korean'
 import { isSecretSettingKey } from './secrets'
 import { ROUTINE, completedSession } from './testFixtures'
@@ -342,5 +342,50 @@ describe('T4 머신 세팅 메모 백업', () => {
 
   it('스키마 버전이 3다 (식단 테이블 도입 — 파괴적 변경)', () => {
     expect(SCHEMA_VERSION).toBe(3)
+  })
+})
+
+// ─── Z3: 세트 간 간격 (파생만, 입력 UI 없음) ─────────────────
+describe('Z3 — 세트 간 간격', () => {
+  const at = (min: number, sec = 0) =>
+    new Date(Date.UTC(2026, 7, 4, 18, min, sec)).toISOString()
+
+  it('첫 세트는 생략하고 이후 간격만 낸다', () => {
+    expect(setGaps([{ doneAt: at(0) }, { doneAt: at(2, 30) }, { doneAt: at(5) }])).toEqual([
+      '2:30',
+      '2:30',
+    ])
+  })
+
+  it('세트가 하나면 간격이 없다', () => {
+    expect(setGaps([{ doneAt: at(0) }])).toEqual([])
+    expect(setGaps([])).toEqual([])
+  })
+
+  it('타임스탬프가 없는 옛 기록은 —로 둔다 (자리를 비우면 순서가 어긋난다)', () => {
+    const gaps = setGaps([{ doneAt: at(0) }, {}, { doneAt: at(6) }])
+    expect(gaps).toEqual(['—', '—'])
+    expect(gaps).toHaveLength(2)
+  })
+
+  it('음수 간격은 —다 (시계 되감김·수동 편집은 신뢰할 수 없다)', () => {
+    expect(setGaps([{ doneAt: at(5) }, { doneAt: at(2) }])).toEqual(['—'])
+  })
+
+  it('초를 두 자리로 채운다 (1:05가 1:5로 나오지 않게)', () => {
+    expect(setGaps([{ doneAt: at(0) }, { doneAt: at(1, 5) }])).toEqual(['1:05'])
+  })
+
+  it('문서 캡션이 "순수 휴식이 아니다"를 말한다', () => {
+    // 이 문장이 없으면 LLM이 휴식 시간으로 읽고 엉뚱한 조언을 한다
+    const md = exportMarkdown({
+      sessions: [completedSession({ dayId: 'd1', date: '2026-08-04', fullReps: true, weight: 30 })],
+      routine: ROUTINE,
+      catalog: new Map(),
+      phase: 0,
+      range: { from: '2026-08-01', to: '2026-08-31' },
+    })
+    expect(md).toMatch(/순수 휴식이 아니다/)
+    expect(md).toMatch(/앞 세트 체크 ~ 이 세트 체크/)
   })
 })

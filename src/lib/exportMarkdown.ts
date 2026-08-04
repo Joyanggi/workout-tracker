@@ -129,6 +129,22 @@ function entryLine(
   )
   lines.push(sets.map((s) => s.reps).join(' / '))
 
+  /*
+   * 세트 간 간격 (Z3) — **파생값만 낸다. 입력 UI는 만들지 않는다.**
+   *
+   * 계획서가 "세트 간 휴식 기록·차등"을 운동학 근거로 기각했다: 비대 목적에서 휴식 단축은
+   * 이 프로그램의 과부하 축이 아니고(짧은 휴식은 다음 세트 반복수를 깎아 세션 볼륨을 줄인다),
+   * 종목별 차등은 이미 `restSec`으로 있다. 기록해서 줄이도록 유도하면 프로그램을 해친다.
+   *
+   * 다만 데이터는 이미 있다 (`doneAt`). 월간 분석에서 "휴식이 점점 길어지는 드리프트"를
+   * 잡을 수 있으므로 내보내기에만 한 줄 낸다. 앱 화면에는 아무것도 추가하지 않는다.
+   *
+   * **순수 휴식이 아니다** — 앞 세트 체크 ~ 이 세트 체크이므로 수행 시간이 포함된다.
+   * 그 사실을 캡션에 적어야 LLM 해석이 망가지지 않는다.
+   */
+  const gaps = setGaps(sets)
+  if (gaps.length > 0) lines.push(`간격: ${gaps.join(' / ')}`)
+
   if (entry.sensoryScore !== undefined) {
     lines.push(
       entry.sensoryNote
@@ -239,6 +255,27 @@ export function sessionToMarkdown(
   return out.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd()
 }
 
+/**
+ * 같은 종목 안의 세트 간 간격 (Z3). 첫 세트는 앞이 없으므로 생략한다.
+ *
+ * `doneAt`이 없는 옛 기록은 `—`로 둔다 — 자리를 비우면 몇 번째 세트의 간격인지 어긋난다.
+ * 음수(시계 되감김·수동 편집)는 신뢰할 수 없으므로 `—`로 처리한다.
+ */
+export function setGaps(sets: { doneAt?: string }[]): string[] {
+  const out: string[] = []
+  for (let i = 1; i < sets.length; i += 1) {
+    const prev = sets[i - 1].doneAt
+    const cur = sets[i].doneAt
+    if (!prev || !cur) {
+      out.push('—')
+      continue
+    }
+    const sec = Math.round((new Date(cur).getTime() - new Date(prev).getTime()) / 1000)
+    out.push(sec >= 0 ? `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}` : '—')
+  }
+  return out
+}
+
 export function exportMarkdown(args: {
   sessions: Session[]
   routine: RoutineTemplate
@@ -270,7 +307,17 @@ export function exportMarkdown(args: {
     return day && plan ? dietSectionMarkdown(plan, day) : []
   }
 
-  const head = `# 운동 기록 ${range.from} ~ ${range.to}`
+  /*
+   * 캡션 (Z3) — "간격"이 순수 휴식이 아니라는 것을 문서 자체가 말해야 한다.
+   * LLM이 이걸 휴식 시간으로 읽으면 "휴식을 줄여 밀도를 올리자" 같은 엉뚱한 조언이 나오고,
+   * 그건 이 프로그램의 과부하 축(더블 프로그레션)과 경쟁한다.
+   */
+  const head = [
+    `# 운동 기록 ${range.from} ~ ${range.to}`,
+    '',
+    '> 간격 = 앞 세트 체크 ~ 이 세트 체크. **수행 시간이 포함되므로 순수 휴식이 아니다.**',
+    '> (`—`는 그 세트에 타임스탬프가 없는 옛 기록)',
+  ].join('\n')
   /*
    * 식단만 기록한 날도 내보낸다 — 빼면 "회식 다음 날" 같은 패턴을 LLM이 볼 수 없다.
    * 운동이 있는 날은 운동 섹션 아래에 붙이고, 없는 날은 날짜 헤더만 세워 붙인다.
