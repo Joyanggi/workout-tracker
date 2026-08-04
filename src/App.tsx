@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useState } from 'react'
 import TabBar, { type TabId } from './components/TabBar'
+import SessionResumeStrip from './components/SessionResumeStrip'
 import UpdatePrompt from './components/UpdatePrompt'
 import { ensureSeed, type SeedResult } from './db/seed'
 import { configureAudioSession } from './lib/beep'
@@ -13,6 +14,7 @@ import Onboarding from './screens/Onboarding'
 import SessionScreen from './screens/SessionScreen'
 import SettingsScreen from './screens/SettingsScreen'
 import SummaryScreen from './screens/SummaryScreen'
+import { useRestTimer } from './lib/useRestTimer'
 import { useSessionStore } from './store/session'
 import { useSettings } from './store/settings'
 
@@ -36,6 +38,18 @@ export default function App() {
   const [view, setView] = useState<View>('tabs')
   const { loaded, onboardingDone, load } = useSettings()
   const restoreSession = useSessionStore((s) => s.restore)
+  const openSession = useSessionStore((s) => s.session)
+  /*
+   * 휴식 타이머를 **App이 단일 인스턴스로 소유한다** (Z5 — 이 항목의 핵심 함정).
+   *
+   * SessionScreen이 소유하면 최소화로 탭에 나갈 때 훅이 언마운트되어 차임·카운트다운 틱이
+   * 죽는다. endTime은 localStorage에 있어 복귀 시 표시는 정확하지만, 다른 탭을 보는 동안
+   * 휴식이 끝나면 소리가 안 난다 — 최소화 기능을 만드는 이유와 정확히 충돌한다.
+   *
+   * **인스턴스 두 개 금지**: localStorage는 load 시점에만 읽으므로 라이브 동기화가 안 되고,
+   * 두 개면 알림이 두 번 울리거나 한쪽이 낡는다. `timerOwnership.test.ts`가 잠근다.
+   */
+  const timer = useRestTimer()
   const bundle = useRoutine()
 
   useEffect(() => {
@@ -109,6 +123,8 @@ export default function App() {
     return (
       <SessionScreen
         bundle={bundle}
+        timer={timer}
+        onMinimize={() => setView('tabs')}
         onFinished={() => setView('summary')}
         onDiscarded={() => setView('tabs')}
       />
@@ -137,6 +153,22 @@ export default function App() {
           <p className="center-note">불러오는 중…</p>
         ))}
       {tab === 'settings' && <SettingsScreen seed={seed} />}
+      {/*
+        최소화된 세션의 재개 스트립 (Z5) — 어느 탭에 있든 보인다.
+        홈의 "진행 중" 배너를 이것으로 통합했다 (같은 정보가 두 줄 뜨지 않게).
+      */}
+      {openSession && bundle && (
+        <SessionResumeStrip
+          dayName={
+            [...bundle.routine.days, ...bundle.routine.fallbackDays].find(
+              (d) => d.id === openSession.dayId,
+            )?.name ?? openSession.dayId
+          }
+          startedAt={openSession.startedAt}
+          timer={timer}
+          onResume={() => setView('session')}
+        />
+      )}
       <TabBar active={tab} onChange={setTab} />
     </div>
   )

@@ -14,7 +14,7 @@ import { compensationWatches, watchFor } from '../lib/compensationWatch'
 import SubstituteSheet from '../components/SubstituteSheet'
 import { buildScaleMap, isInverseKey } from '../lib/weightScale'
 import { useExerciseSettings } from '../lib/useExerciseSettings'
-import { useRestTimer } from '../lib/useRestTimer'
+import type { RestTimer } from '../lib/useRestTimer'
 import type { RoutineBundle } from '../lib/useRoutine'
 import { useSessionStore } from '../store/session'
 import { useSettings } from '../store/settings'
@@ -22,17 +22,28 @@ import { parseRecordKey, type RecordKey } from '../types'
 
 export default function SessionScreen({
   bundle,
+  timer,
+  onMinimize,
   onFinished,
   onDiscarded,
 }: {
   bundle: RoutineBundle
   onFinished: () => void
+  /** App이 소유한 단일 인스턴스 (Z5) */
+  timer: RestTimer
+  /** 세션을 열어둔 채 탭으로 나간다 (Z5) */
+  onMinimize: () => void
   onDiscarded: () => void
 }) {
   const session = useSessionStore((s) => s.session)
   const actions = useSessionStore()
   const phase = useSettings((s) => s.currentPhase)
-  const timer = useRestTimer()
+  /*
+   * 타이머를 **App이 소유한다** (Z5). 여기서 `useRestTimer()`를 부르면 최소화로 탭에
+   * 나갈 때 훅이 언마운트되어 **차임·카운트다운 틱이 죽는다** — endTime은 localStorage에
+   * 있어 복귀 시 표시는 정확하지만, 식단 체크하러 나가 있는 동안 휴식이 끝나면 소리가 안 난다.
+   * 그건 최소화 기능을 만드는 이유와 정확히 충돌한다.
+   */
   const [openKey, setOpenKey] = useState<RecordKey | null>(null)
   const [finishing, setFinishing] = useState(false)
   const [elapsed, setElapsed] = useState(0)
@@ -129,6 +140,14 @@ export default function SessionScreen({
   return (
     <div className="session">
       <header className="session-header">
+        {/*
+          최소화 (Z5) — 세션을 열어둔 채 탭으로 나간다. 파괴적 동작이 아니므로
+          종료 버튼과 시각적으로 구분한다. 세션 상태는 store + Dexie에 있어
+          화면을 떠나는 것 자체는 데이터에 아무 위험이 없다.
+        */}
+        <button className="session-minimize" onClick={onMinimize} aria-label="세션 최소화">
+          ‹
+        </button>
         <div>
           <div className="session-day">{day.name}</div>
           <div className="session-meta">

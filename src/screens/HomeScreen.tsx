@@ -175,8 +175,6 @@ export default function HomeScreen({
     onEnterSession()
   }
 
-  const openDay = openSession ? findDay(routine, openSession.dayId) : undefined
-
   // §5.1 상태 배너는 우선순위 순. 복귀와 디로드는 **동시에 띄우지 않는다** —
   // 복귀는 이미 볼륨을 줄인 상태이므로 디로드 권고가 중복이고, 두 배너가 서로 다른
   // 숫자를 말하면 어느 쪽을 따라야 하는지 알 수 없다.
@@ -211,15 +209,11 @@ export default function HomeScreen({
         <span className="chip">누적 {done.length}세션</span>
       </p>
 
-      {/* §11 리스크 대응: 세션 도중 앱이 죽어도 이어서 진행할 수 있게 한다 */}
-      {openSession && (
-        <div className="banner banner-info">
-          <span>진행 중: {openDay?.name ?? openSession.dayId}</span>
-          <button onClick={onEnterSession}>
-            <span>이어하기</span>
-          </button>
-        </div>
-      )}
+      {/*
+        §11 리스크 대응(세션 도중 앱이 죽어도 이어서 진행)은 **재개 스트립**이 대신한다 (Z5).
+        스트립은 탭바 위에 고정되어 어느 탭에서든 보이므로 홈 전용 배너보다 넓게 커버하고,
+        같은 정보가 홈에서만 두 줄로 뜨는 것을 피한다.
+      */}
 
       {showReturn && suggestion.returnStep && (
         <div className="banner banner-info" style={{ alignItems: 'flex-start' }}>

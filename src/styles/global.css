@@ -849,6 +849,69 @@ select {
   white-space: nowrap;
 }
 
+/*
+  재개 스트립 (Z5) — 탭바 바로 위. 세션이 열려 있는 동안 어느 탭에서든 보인다.
+  파괴적 동작이 아니므로 accent 배경을 쓰지 않고 정보 톤으로 둔다 (종료·버리기와 구분).
+  휴식 타이머 바(z-index 30)보다 아래에 둬서 휴식 중에는 타이머가 우선 보이게 한다.
+*/
+.resume-strip {
+  position: fixed;
+  bottom: calc(var(--tabbar-h, 56px) + var(--safe-b));
+  left: 0;
+  right: 0;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 14px;
+  background: rgba(38, 38, 46, 0.96);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  font-size: 13px;
+  text-align: left;
+}
+
+.resume-main {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.resume-rest {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+
+.resume-rest-done {
+  color: var(--ok);
+}
+
+.resume-cta {
+  flex-shrink: 0;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* 최소화 (Z5) — 종료(파괴적)와 시각적으로 구분한다 */
+.session-minimize {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  margin-right: 4px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  font-size: 20px;
+  line-height: 1;
+}
+
 /* ─── 휴식 타이머 바 (하단 고정) ───────────────────────── */
 
 .rest-bar {
