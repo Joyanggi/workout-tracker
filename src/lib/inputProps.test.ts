@@ -94,45 +94,18 @@ describe('X5 — 남은 처방의 범위', () => {
     expect(overrides).toEqual(['/src/components/ExerciseCard.tsx'])
   })
 
-  it('readOnly 트릭도 그 한 필드에만 있다', () => {
-    const users = files.filter((f) => /readOnly=\{setupLocked\}/.test(sources[f]))
-    expect(users).toEqual(['/src/components/ExerciseCard.tsx'])
-  })
+  it('readOnly 트릭이 남아 있지 않다', () => {
+    /*
+      마지막 카드였고 지웠다. 해제가 한 macrotask 뒤라 readOnly 창이 사실상 0이어서
+      기대 이익이 거의 없는데, 그 경로에는 **필드가 영구히 readOnly로 남아 입력이
+      불가능해지는** 실패 모드가 있었다 (검증에서 실제로 재현했다 — 창에 OS 포커스가
+      없으면 activeElement는 설정되지만 focus 이벤트가 배달되지 않는다).
+      운동 중 유일하게 타이핑하는 필드에 그 위험을 남길 값이 없다.
 
-  it('readOnly 해제 후 다시 포커스한다 (키보드가 올라오게)', () => {
+      되살리려면 이 테스트를 지워야 하는데, 그때 위 이유를 다시 읽게 된다.
+    */
     const src = sources['/src/components/ExerciseCard.tsx']
-    expect(src).toMatch(/setSetupLocked\(false\)/)
-    expect(src).toMatch(/setTimeout\(\(\) => el\.focus\(\), 0\)/)
-  })
-
-  it('재포커스에 rAF를 쓰지 않는다 — 화면이 안 보이면 호출되지 않는다', () => {
-    // rAF는 배경 탭에서 아예 안 돈다 (검증 중 실제로 걸렸다). 타이머는 지연될 뿐 실행된다
-    const src = sources['/src/components/ExerciseCard.tsx']
-    expect(src).not.toMatch(/requestAnimationFrame\(\(\) => el\.focus/)
-  })
-
-  it('편집을 다시 열면 잠금이 초기화된다 (두 번째 편집도 같은 조건)', () => {
-    expect(sources['/src/components/ExerciseCard.tsx']).toMatch(/setSetupLocked\(true\)/)
-  })
-
-  /*
-   * 이 검사가 이 실험에서 가장 중요하다.
-   *
-   * 처음 구현은 `onFocus`에서만 해제했고, 검증에서 필드가 **영구히 readOnly로 남는 것**을
-   * 실제로 봤다 — 창에 OS 포커스가 없으면 activeElement는 설정되지만 focus 이벤트가
-   * 배달되지 않는다. 그 상태의 사용자는 **아무것도 입력할 수 없다.**
-   *
-   * 실험이 실패하는 방향은 "제안이 계속 뜬다"(현상 유지)여야 한다.
-   * "입력이 안 된다"는 실패 방향으로 허용되지 않는다.
-   */
-  it('포커스 이벤트와 무관한 해제 경로가 있다', () => {
-    const src = sources['/src/components/ExerciseCard.tsx']
-    // 편집이 열리면 이펙트가 타이머로 무조건 해제한다
-    expect(src).toMatch(/if \(!editingSetup\) return[\s\S]{0,140}setSetupLocked\(false\)/)
-  })
-
-  it('해제 경로가 둘이다 (이펙트 + onFocus 보조)', () => {
-    const src = sources['/src/components/ExerciseCard.tsx']
-    expect((src.match(/setSetupLocked\(false\)/g) ?? []).length).toBe(2)
+    expect(src).not.toMatch(/readOnly=\{/)
+    expect(src).not.toMatch(/setSetupLocked/)
   })
 })
