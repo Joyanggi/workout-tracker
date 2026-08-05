@@ -171,12 +171,20 @@ export default function ExerciseCard({
 
   /*
     대체운동 캘리브레이션 (T8).
-    처음 하는 대체 종목(prefill.best 없음)은 시작 무게가 검증되지 않은 계수 추정이다.
+    **처음 하는** 대체 종목은 시작 무게가 검증되지 않은 계수 추정이다.
     첫 세트를 RIR 3~4로 수행한 실측에서 e1RM을 역산해 남은 세트 무게를 다시 계산한다 —
     2세트부터는 추정이 아니라 그날의 실제 능력이 기준이 된다.
     자동으로 바꾸지 않는다: "앱은 판단을 대신하지 않고 제안만 한다"(§1).
+
+    **판정을 `prefill.best` 부재에서 `hasHistory` 부재로 옮겼다** (v1.8 후속).
+    `best`는 "최근 3세션 최고 기록"이라는 **프리필 내부 사정**이고, 여기서 물어야 하는 것은
+    "이 라인에 기록이 있는가"다. v1.8까지는 대체의 프리필이 아예 비어 있어서 두 질문의
+    답이 우연히 같았다 — 그 프리필을 채우자 차이가 벌어진다.
+
+    결과: 첫 대체는 칩이 그대로 뜨고(기록이 없으니 캘리브레이션이 본체),
+    **재대체는 "지난 20×12" 고스트가 보이고 칩이 사라진다** (그날 능력의 기준이 이미 있다).
   */
-  const firstExposure = Boolean(entry.substituteFor) && !prefill?.best
+  const firstExposure = Boolean(entry.substituteFor) && prefill?.hasHistory !== true
   const firstWork = entry.sets.find((set) => !set.warmup)
   const pending = entry.sets
     .map((set, i) => ({ set, i }))

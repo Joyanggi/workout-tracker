@@ -94,17 +94,20 @@ export default function SessionScreen({
     if (!day) return map
     for (const entry of session.entries) {
       /*
-        얹은 종목(CC15)은 **다른 Day의 recordKey**를 갖는다 — 이 Day의 exercises에서
-        찾으면 못 찾아서 프리필이 비고, 그러면 카드가 "기준 기록 없음"을 띄운다
-        (추정 시작 무게도, 지난 기록도 안 보인다). 실측에서 확인한 뒤 고쳤다.
+        **entry 기준으로 계획을 되짚는다** (v1.8 후속).
 
-        대체 수행(T8)의 프리필 부재는 **기존 동작이라 건드리지 않는다** —
-        `firstExposure`·캘리브레이션 칩이 "prefill.best가 없다"를 신호로 쓰고 있어서,
-        여기서 채우면 그 판정이 바뀐다. 이 라운드의 범위가 아니다.
+        이 Day의 `exercises`에서만 찾으면 두 부류가 빠진다:
+          - 얹은 종목 (CC15) — 다른 Day의 recordKey다
+          - 대체 수행 (T8) — 대체 종목 자신의 recordKey라 이 Day 목록에 없다
+        둘 다 프리필이 비어 카드가 "기준 기록 없음"을 띄웠다 (추정 무게도, 지난 기록도,
+        증량 칩도 화면에 닿지 않는다). `routineExerciseOfEntry`가 이미 그 되짚기의
+        초크포인트이므로 여기서 그것을 쓴다 — 예외 목록을 손으로 관리하지 않는다.
+
+        대체를 채우면서 `firstExposure` 판정을 함께 옮겼다 (아래 ExerciseCard 주석 참조):
+        "prefill.best 부재"는 프리필 내부 사정이고, 물어야 하는 것은 "이 라인에 기록이
+        있는가"다. 첫 대체는 여전히 캘리브레이션 칩이 뜨고, 재대체는 지난 기록이 보인다.
       */
-      const routineExercise =
-        day.exercises.find((e) => entry.recordKey.startsWith(`${e.exerciseId}@`)) ??
-        (entry.extra ? routineExerciseOfEntry(bundle.routine, entry) : undefined)
+      const routineExercise = routineExerciseOfEntry(bundle.routine, entry)
       if (!routineExercise) continue
       map.set(
         entry.recordKey,

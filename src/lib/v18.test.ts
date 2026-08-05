@@ -13,7 +13,7 @@ import { adjustTotalSec, extendEndTime } from './useRestTimer'
 import { TAP_SLOP_PX, isTap } from './tapJudge'
 import { homeCardState } from './dayChoice'
 import { lastNote, noteHistory, noteLineText } from './noteHistory'
-import { startWeightEstimate } from './prefill'
+import { buildPrefill, startWeightEstimate } from './prefill'
 import { snapDownToScale } from './weightScale'
 import { applyAddExercise } from './sessionOps'
 import { zeroWeightHint } from './setRowState'
@@ -590,6 +590,101 @@ describe('CC15 — 세션에 종목 얹기', () => {
   })
 })
 
+// ─── v1.8 후속: 대체 수행 프리필 ─────────────────────────
+
+/**
+ * 대체 수행의 프리필 (v1.8 후속 — 판정 5).
+ *
+ * **첫 대체는 지금이 맞고 재대체부터가 결함이었다.** 첫 대체는 기록이 없으니 캘리브레이션
+ * 칩(첫 세트 RIR 3~4 → 남은 세트 재계산)이 본체다. 두 번째부터는 그 라인에 기록이 있는데
+ * 화면에 안 보였다 — prefills가 대체 recordKey를 못 찾았기 때문이다.
+ */
+describe('대체 프리필 — 첫 대체와 재대체가 갈린다', () => {
+  const SUB_KEY = 'smith-incline-press@d1'
+  const routineExercise = routine.days[0].exercises[0]
+
+  const subSession = (date: string, weight: number, reps: number): Session => {
+    const s = completedSession({ dayId: 'd1', date })
+    return {
+      ...s,
+      entries: [
+        {
+          recordKey: SUB_KEY,
+          plannedOrder: 1,
+          performedOrder: 1,
+          sets: [{ weight, reps, done: true }],
+          compensation: NO_COMPENSATION,
+          skipped: false,
+          substituteFor: 'incline-chest-press@d1',
+        },
+      ],
+    }
+  }
+
+  const build = (sessions: Session[]) =>
+    buildPrefill({
+      sessions,
+      routine,
+      recordKey: SUB_KEY,
+      routineExercise,
+      phase: 1,
+    })
+
+  it('첫 대체: 기록이 없으므로 hasHistory가 false다 (칩이 뜬다)', () => {
+    const p = build([])
+    expect(p.hasHistory).toBe(false)
+    expect(p.best).toBeUndefined()
+    expect(p.lastSets).toEqual([])
+  })
+
+  it('재대체: 지난 기록이 프리필에 들어온다 ("지난 20×12" 고스트)', () => {
+    const p = build([subSession('2026-08-01', 20, 12)])
+    expect(p.hasHistory).toBe(true)
+    expect(p.lastSets).toEqual([{ weight: 20, reps: 12 }])
+    expect(p.best).toEqual({ weight: 20, reps: 12 })
+  })
+
+  it('hasHistory는 "이 라인의 완료 기록"이다 — prefill.best와 다른 질문이다', () => {
+    /*
+      두 값이 우연히 같이 움직이던 것이 이전 판정의 근거였다. 물어야 하는 것은
+      "기록이 있는가"이므로 그 질문을 그대로 담는 필드를 본다.
+    */
+    const p = build([subSession('2026-08-01', 20, 12)])
+    expect(p.hasHistory).toBe(true)
+    // 진행 중 세션(미완료)은 기록이 아니다
+    const open = { ...subSession('2026-08-03', 30, 10), endedAt: undefined }
+    expect(build([open]).hasHistory).toBe(false)
+  })
+
+  it('세트를 하나도 체크하지 않은 세션은 기록이 아니다', () => {
+    const none: Session = {
+      ...subSession('2026-08-01', 20, 12),
+      entries: [
+        {
+          ...subSession('2026-08-01', 20, 12).entries[0],
+          sets: [{ weight: 20, reps: 12, done: false }],
+        },
+      ],
+    }
+    expect(build([none]).hasHistory).toBe(false)
+  })
+
+  it('대체 후보 종목에는 CC13 계수를 두지 않았다 (무게 출처가 섞이면 안 된다)', () => {
+    /*
+      대체의 시작 무게는 `startFactor`(원 종목 실적 환산)가 정한다. 같은 종목에 체중 계수가
+      있으면 고스트가 "추정 시작 무게"라고 말하는데 실제 숫자는 startFactor 산출값이 되어
+      **출처를 잘못 말하게 된다.** 지금은 겹치는 종목이 없고, 이 테스트가 그것을 유지한다.
+    */
+    const targets = new Set(
+      BUNDLED_EXERCISES.flatMap((e) => (e.substitutes ?? []).map((s) => s.exerciseId)),
+    )
+    expect(targets.size).toBeGreaterThan(0)
+    for (const id of targets) {
+      expect(catalog.get(id)?.startWeightPctBW, id).toBeUndefined()
+    }
+  })
+})
+
 // ─── 화면 배선 (2층 잠금) ──────────────────────────────────
 
 describe('화면 배선', () => {
@@ -671,14 +766,32 @@ describe('화면 배선', () => {
     expect(src).toMatch(/actions\.addExercise\(/)
   })
 
-  it('CC15 — 얹은 종목도 프리필을 받는다 (다른 Day의 recordKey다)', () => {
+  it('프리필 맵이 entry 기준으로 계획을 되짚는다 (CC15 + v1.8 후속)', () => {
     /*
       실측에서 발견: 얹은 카드의 고스트가 "기준 기록 없음"이었다. prefills가
-      `day.exercises`에서만 찾으므로 다른 Day 키는 못 찾았고, 추정 시작 무게도
-      지난 기록도 화면에 닿지 않았다.
+      `day.exercises`에서만 찾으므로 다른 Day 키(얹은 종목)와 대체 종목 키를 못 찾았고,
+      추정 시작 무게도 지난 기록도 증량 칩도 화면에 닿지 않았다.
+
+      **예외 목록을 손으로 관리하지 않는다** — `routineExerciseOfEntry`가 이미 그
+      되짚기의 초크포인트다 (대체·다른 Day를 둘 다 해석한다).
     */
     const src = file('/src/screens/SessionScreen.tsx')
-    expect(src).toMatch(/entry\.extra \? routineExerciseOfEntry\(bundle\.routine, entry\) : undefined/)
+    const memo = /const prefills = useMemo\(\(\) => \{[\s\S]*?\n  \}, \[/.exec(src)?.[0]
+    expect(memo, 'prefills useMemo를 찾지 못했다 — 이 검사가 헛돌고 있다').toBeDefined()
+    expect(memo).toMatch(/routineExerciseOfEntry\(bundle\.routine, entry\)/)
+    // day.exercises에서만 찾던 옛 경로가 남아 있으면 대체·얹기가 다시 빠진다
+    expect(memo).not.toMatch(/day\.exercises\.find/)
+    expect(memo).not.toMatch(/entry\.extra \?/)
+  })
+
+  it('v1.8 후속 — firstExposure가 hasHistory로 판정한다', () => {
+    /*
+      `prefill.best` 부재는 프리필 내부 사정(최근 3세션 최고 기록)이고, 물어야 하는 것은
+      "이 라인에 기록이 있는가"다. 대체 프리필을 채운 뒤로는 두 질문의 답이 갈린다.
+    */
+    const src = file('/src/components/ExerciseCard.tsx')
+    expect(src).toMatch(/const firstExposure = Boolean\(entry\.substituteFor\) && prefill\?\.hasHistory !== true/)
+    expect(src).not.toMatch(/Boolean\(entry\.substituteFor\) && !prefill\?\.best/)
   })
 
   it('CC10 — 편집 화면도 같은 플래그를 넘긴다 (한쪽만 오탐이 남으면 갈라진다)', () => {

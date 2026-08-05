@@ -60,6 +60,15 @@ export interface RecordPrefill {
    * 본체는 첫 세트 RIR 3~4 캘리브레이션이다. 그래서 화면이 "추정"이라고 말한다.
    */
   startEstimate?: number
+  /**
+   * 이 recordKey에 **완료 세션 기록이 있는가** (v1.8 후속).
+   *
+   * 화면이 "처음 하는 종목인가"를 물을 때 쓴다. 이전에는 `prefill.best`의 부재로
+   * 그 질문에 답했는데, 그건 **프리필 내부 사정**(최근 3세션 최고 기록의 유무)이지
+   * "기록이 있는가"가 아니다. 대체 프리필을 채운 뒤로는 그 차이가 실제로 벌어진다 —
+   * 질문을 그대로 담는 필드를 둔다.
+   */
+  hasHistory: boolean
 }
 
 /**
@@ -168,6 +177,7 @@ export function buildPrefill(args: {
     bestBySet,
     best,
     lastSets,
+    hasHistory: history.length > 0,
     startEstimate: startWeightEstimate({
       hasHistory: history.length > 0,
       bodyWeightKg,

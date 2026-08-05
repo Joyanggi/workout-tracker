@@ -172,6 +172,7 @@ describe('프리필', () => {
       bestBySet: [{ weight: 47, reps: routineExercise.repMax }],
       best: { weight: 47, reps: routineExercise.repMax },
       lastSets,
+      hasHistory: true,
       progression,
     }
     // to가 null이면 기준 무게(47)를 그대로 쓴다 — "null kg"이 새어나오지 않는다
