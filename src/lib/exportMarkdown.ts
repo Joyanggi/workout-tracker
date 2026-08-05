@@ -6,7 +6,7 @@ import { withObjectParticle } from './korean'
 import { completedSessions, doneSets, routineExerciseOfEntry, orderDeviations } from './derive'
 import { progressionSuggestions } from './progression'
 import { buildScaleMap, type WeightScaleMap } from './weightScale'
-import { ADHERENCE_MARK, slotScore, slotsFor, summarizeDietDay } from './diet'
+import { ADHERENCE_MARK, QUALITY_LABEL, slotScore, slotsFor, summarizeDietDay } from './diet'
 import type { DietDay, DietPlan, ExerciseSetting } from '../types'
 
 /**
@@ -39,12 +39,6 @@ export interface ExportRange {
  * 계획서 예시는 깨끗한 슬롯을 한 줄에 묶었는데, 여기서는 마크 요약 한 줄 + 예외만
  * 상세 줄로 뺀다. 파싱이 쉽고 짧으면서 대체 문구는 그대로 남는다.
  */
-const QUALITY_LABEL: Record<'similar' | 'other' | 'cheat', string> = {
-  similar: '비슷한 구성',
-  other: '다른 음식',
-  cheat: '치팅',
-}
-
 export function dietSectionMarkdown(plan: DietPlan, day: DietDay): string[] {
   const slots = slotsFor(plan, day.isTrainingDay)
   const logged = slots.filter((s) => day.slots[s.id] !== undefined)

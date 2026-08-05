@@ -319,6 +319,15 @@ export interface DietPlan {
   seedRevision: number
 }
 
+/**
+ * 자가 태그. `similar`는 "단백질원이 있었고 튀김·설탕 위주가 아님" —
+ * 기준을 입력 시트에 그대로 띄운다 (앱이 판단하지 않으므로 기준은 사용자가 적용한다).
+ *
+ * 대체와 추가가 **같은 태그 집합**을 쓴다. 이름을 붙여 둬야 표시 문구
+ * (`diet.QUALITY_LABEL`)와 점수 상한(`ADDITION_CAP`)이 같은 3값을 두고 갈라지지 않는다.
+ */
+export type SlotQuality = 'similar' | 'other' | 'cheat'
+
 /** 슬롯 하나의 기록 */
 export interface SlotRecord {
   checkedItemIds: string[]
@@ -328,11 +337,7 @@ export interface SlotRecord {
    */
   substitution?: {
     text: string // "회사 근처 서브웨이 15cm 터키"
-    /**
-     * 자가 태그. `similar`는 "단백질원이 있었고 튀김·설탕 위주가 아님" —
-     * 기준을 입력 시트에 그대로 띄운다 (앱이 판단하지 않으므로 기준은 사용자가 적용한다).
-     */
-    quality: 'similar' | 'other' | 'cheat'
+    quality: SlotQuality
   }
   /**
    * 계획 외로 **더 먹은** 것 (G2). `substitution`과 별개이고 동시에 존재할 수 있다.
@@ -345,7 +350,7 @@ export interface SlotRecord {
    */
   addition?: {
     text: string
-    quality: 'similar' | 'other' | 'cheat'
+    quality: SlotQuality
   }
   /** 그 끼니 자체를 안 먹음 */
   skipped?: boolean

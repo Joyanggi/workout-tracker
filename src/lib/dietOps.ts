@@ -105,6 +105,17 @@ export function applyClearAddition(day: DietDay, slotId: string): DietDay {
   return patchSlot(day, slotId, (record) => ({ ...record, addition: undefined }))
 }
 
+/**
+ * 대체 기록만 지운다 (체크·추가는 유지) — `applyClearAddition`의 거울 (AA3).
+ *
+ * 이것이 없어서 **대체를 걷어내는 유일한 방법이 슬롯 전체 삭제**(`applyClearSlot`)였다.
+ * 대체와 추가가 공존할 수 있는데 한쪽만 지울 수 있으면, 잘못 적은 대체를 고치려고
+ * 추가 기록까지 다시 입력해야 한다 — 지우기가 비대칭이면 조작이 데이터 모델보다 좁다.
+ */
+export function applyClearSubstitution(day: DietDay, slotId: string): DietDay {
+  return patchSlot(day, slotId, (record) => ({ ...record, substitution: undefined }))
+}
+
 /** 기록 취소 — 슬롯을 미기록 상태로 되돌린다 (잘못 누른 것을 없앨 수 있어야 한다) */
 export function applyClearSlot(day: DietDay, slotId: string): DietDay {
   return patchSlot(day, slotId, () => undefined)

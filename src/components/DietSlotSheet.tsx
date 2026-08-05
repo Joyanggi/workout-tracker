@@ -1,16 +1,18 @@
 import { useState } from 'react'
-import type { DietSlot, SlotRecord } from '../types'
+import type { DietSlot, SlotQuality, SlotRecord } from '../types'
+import { additionNote, QUALITY_LABEL, substitutionNote } from '../lib/diet'
 import { NO_AUTOFILL } from '../lib/inputProps'
 
-/** 자가 태그 기준 — 앱이 음식을 판단하지 않으므로 기준을 사용자에게 그대로 보여준다 */
-const QUALITY: { id: 'similar' | 'other' | 'cheat'; label: string; hint: string }[] = [
-  {
-    id: 'similar',
-    label: '비슷한 구성',
-    hint: '단백질원이 있었고 튀김·설탕 위주가 아니면 이쪽',
-  },
-  { id: 'other', label: '다른 음식', hint: '계획과 다르지만 치팅은 아님' },
-  { id: 'cheat', label: '치팅', hint: '치팅인 걸 알고 먹음' },
+/**
+ * 자가 태그 기준 — 앱이 음식을 판단하지 않으므로 기준을 사용자에게 그대로 보여준다.
+ *
+ * 라벨은 `diet.QUALITY_LABEL`에서 가져온다 (AA3) — 카드·내보내기와 같은 말이어야 한다.
+ * 기준 문구(hint)는 입력 시점에만 필요하므로 여기 둔다.
+ */
+const QUALITY: { id: SlotQuality; hint: string }[] = [
+  { id: 'similar', hint: '단백질원이 있었고 튀김·설탕 위주가 아니면 이쪽' },
+  { id: 'other', hint: '계획과 다르지만 치팅은 아님' },
+  { id: 'cheat', hint: '치팅인 걸 알고 먹음' },
 ]
 
 /**
@@ -45,6 +47,7 @@ export default function DietSlotSheet({
   onSkip,
   onSubstitute,
   onAddition,
+  onClearSubstitution,
   onClearAddition,
   onClear,
   onClose,
@@ -55,17 +58,26 @@ export default function DietSlotSheet({
   onSkip: () => void
   onSubstitute: (sub: NonNullable<SlotRecord['substitution']>) => void
   onAddition: (add: NonNullable<SlotRecord['addition']>) => void
+  onClearSubstitution: () => void
   onClearAddition: () => void
   onClear: () => void
   onClose: () => void
 }) {
-  const [mode, setMode] = useState<EditMode | null>(
-    record?.substitution ? 'substitution' : null,
-  )
-  const [text, setText] = useState(record?.substitution?.text ?? '')
-  const [quality, setQuality] = useState<'similar' | 'other' | 'cheat'>(
-    record?.substitution?.quality ?? 'similar',
-  )
+  /*
+   * **시트는 항상 메뉴로 연다** (AA3).
+   *
+   * 예전엔 `record?.substitution ? 'substitution' : null`이었다 — 대체 기록이 있으면
+   * 대체 편집 폼으로 바로 열려서 "추가로 먹었어요"가 화면에서 사라졌다. 모델은 대체와
+   * 추가의 공존을 완전히 지원하는데(독립 필드 + `slotScore`의 합산) **시트가 경로를
+   * 가린 것**이다. "뒤로"를 누르면 메뉴가 나오지만, 편집 폼으로 열린 시트에서 뒤로가
+   * 메뉴로 간다는 것을 알 방법이 없다 — 사용자는 "무조건 대체에 기록해야 한다"고 읽었다.
+   *
+   * 초기 mode가 record에 의존하면 안 된다는 것이 이 항목의 규칙이고, 그래서
+   * 소스 스캔이 그 의존을 금지한다 (uiConsistency.test.ts).
+   */
+  const [mode, setMode] = useState<EditMode | null>(null)
+  const [text, setText] = useState('')
+  const [quality, setQuality] = useState<SlotQuality>('similar')
   const canSave = text.trim().length > 0
 
   const openMode = (next: EditMode) => {
@@ -95,17 +107,37 @@ export default function DietSlotSheet({
 
         {mode === null ? (
           <>
+            {/*
+              지금 기록 상태를 메뉴가 말한다 (AA3) — 무엇이 이미 적혀 있는지 모르면
+              "수정"과 "지우기" 버튼이 무엇에 대한 것인지 알 수 없다.
+              문구는 카드와 공유한다 (`diet.substitutionNote`) — 같은 사실은 같은 말로.
+            */}
+            {(record?.substitution || record?.addition || record?.skipped) && (
+              <div className="row-sub diet-sheet-state">
+                {record.skipped && <div>안 먹음</div>}
+                {record.substitution && <div>{substitutionNote(record.substitution)}</div>}
+                {record.addition && <div>{additionNote(record.addition)}</div>}
+              </div>
+            )}
+
             <button className="btn btn-primary" style={{ marginTop: 8 }} onClick={() => act(onCheckAll)}>
               전부 먹음 ({slot.items.length}개)
             </button>
             <div style={{ height: 8 }} />
+            {/*
+              대체와 추가가 **같은 모양의 행**을 갖는다 (AA3): [기록/수정] + [지우기].
+              예전엔 추가만 지우기가 있었고 대체는 슬롯 전체 삭제밖에 없었다 —
+              지우기가 비대칭이면 대체를 고치려고 추가까지 다시 적어야 한다.
+            */}
             <div className="btn-row">
               <button className="btn" onClick={() => openMode('substitution')}>
-                대체했어요
+                {record?.substitution ? '대체 수정' : '대체했어요'}
               </button>
-              <button className="btn" onClick={() => act(onSkip)}>
-                안 먹음
-              </button>
+              {record?.substitution && (
+                <button className="btn" onClick={() => act(onClearSubstitution)}>
+                  대체 지우기
+                </button>
+              )}
             </div>
             <div style={{ height: 8 }} />
             {/*
@@ -123,6 +155,10 @@ export default function DietSlotSheet({
                 </button>
               )}
             </div>
+            <div style={{ height: 8 }} />
+            <button className="btn" onClick={() => act(onSkip)}>
+              안 먹음
+            </button>
             {record && (
               <>
                 <div style={{ height: 8 }} />
@@ -167,7 +203,7 @@ export default function DietSlotSheet({
                     {quality === q.id ? '✓' : ''}
                   </span>
                   <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <span className="row-title">{q.label}</span>
+                    <span className="row-title">{QUALITY_LABEL[q.id]}</span>
                     <span className="row-sub">{q.hint}</span>
                   </span>
                 </button>

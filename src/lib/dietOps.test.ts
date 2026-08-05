@@ -4,6 +4,7 @@ import {
   applyCheckAllItems,
   applyClearAddition,
   applyClearSlot,
+  applyClearSubstitution,
   applyNote,
   applyPlan,
   applySkipSlot,
@@ -204,5 +205,86 @@ describe('추가 섭취 (G2)', () => {
     const legacy = applyCheckAllItems(base(), LUNCH)
     expect(legacy.slots[LUNCH.id].addition).toBeUndefined()
     expect(slotScore(LUNCH, legacy.slots[LUNCH.id])).toBe(1)
+  })
+})
+
+/**
+ * 대체와 추가는 **지우기까지 대칭**이어야 한다 (AA3).
+ *
+ * 피드백: "대체했는데 단백질을 따로 추가했으면 추가 버튼으로 추가할 수 있어야 하는 것
+ * 아닌가?" — 모델은 이미 공존을 지원했고 시트가 경로를 가렸다. 그 시트를 고치면서
+ * 드러난 두 번째 비대칭이 이것이다: 추가만 따로 지울 수 있고 대체는 슬롯 전체 삭제뿐이었다.
+ */
+describe('대체만 지우기 (AA3)', () => {
+  const add = { text: '단백질 쉐이크', quality: 'similar' as const }
+  const sub = { text: '회사 근처 서브웨이', quality: 'other' as const }
+
+  it('대체만 지우고 추가·체크는 남긴다', () => {
+    let day = applyToggleItem(base(), LUNCH.id, LUNCH.items[0].id)
+    day = applySubstitution(day, LUNCH.id, sub)
+    day = applyAddition(day, LUNCH.id, add)
+    day = applyClearSubstitution(day, LUNCH.id)
+
+    const record = day.slots[LUNCH.id]
+    expect(record.substitution).toBeUndefined()
+    expect(record.addition).toEqual(add)
+    expect(record.checkedItemIds).toEqual([LUNCH.items[0].id])
+  })
+
+  it('applyClearAddition의 거울이다 — 반대쪽을 지워도 같은 성질', () => {
+    let day = applySubstitution(base(), LUNCH.id, sub)
+    day = applyAddition(day, LUNCH.id, add)
+    expect(applyClearAddition(day, LUNCH.id).slots[LUNCH.id].substitution).toEqual(sub)
+    expect(applyClearSubstitution(day, LUNCH.id).slots[LUNCH.id].addition).toEqual(add)
+  })
+
+  it('슬롯 키를 지우지 않는다 — 기록 지우기와 다른 동작이다', () => {
+    let day = applySubstitution(base(), LUNCH.id, sub)
+    day = applyClearSubstitution(day, LUNCH.id)
+    // 대체만 걷어낸 "미섭취 기록"은 남는다 (판정 분모에 계속 들어간다)
+    expect(day.slots[LUNCH.id]).toBeDefined()
+    expect(applyClearSlot(day, LUNCH.id).slots[LUNCH.id]).toBeUndefined()
+  })
+
+  it('안 먹음은 건드리지 않는다 (대체가 아닌 사실이다)', () => {
+    let day = applySkipSlot(base(), LUNCH.id)
+    day = applyClearSubstitution(day, LUNCH.id)
+    expect(day.slots[LUNCH.id].skipped).toBe(true)
+  })
+})
+
+/**
+ * 피드백에 이름 붙인 시나리오 — "대체했는데 단백질 쉐이크를 추가로 마셨다" (AA3).
+ *
+ * G2 테스트가 점수 규칙을 이미 잠갔지만, 그 규칙이 **사용자가 실제로 밟는 조작 순서**로
+ * 재현되는지는 별개다 (시트가 막고 있던 것이 정확히 그 순서였다).
+ */
+describe('시나리오: 대체 + 추가 공존 (AA3)', () => {
+  it('대체를 적은 뒤 추가를 적어도 둘 다 남고 점수가 합산된다', () => {
+    // 1) 점심을 서브웨이로 대체 (비슷한 구성 → base 1.0)
+    let day = applySubstitution(base(), LUNCH.id, {
+      text: '회사 근처 서브웨이 15cm 터키',
+      quality: 'similar',
+    })
+    expect(slotScore(LUNCH, day.slots[LUNCH.id])).toBe(SCORE.full)
+
+    // 2) 그 위에 단백질 쉐이크를 추가 — 건강한 추가는 무벌점(상한 1.0)
+    day = applyAddition(day, LUNCH.id, { text: '단백질 쉐이크', quality: 'similar' })
+    expect(day.slots[LUNCH.id].substitution?.quality).toBe('similar')
+    expect(slotScore(LUNCH, day.slots[LUNCH.id])).toBe(SCORE.full)
+
+    // 3) 치팅을 추가했다면 대체 점수에 상한이 걸린다 (base는 그대로)
+    day = applyAddition(day, LUNCH.id, { text: '라면 반 개', quality: 'cheat' })
+    expect(day.slots[LUNCH.id].substitution?.text).toContain('서브웨이')
+    expect(slotScore(LUNCH, day.slots[LUNCH.id])).toBe(ADDITION_CAP.cheat)
+  })
+
+  it('전부 먹음은 대체를 지우지만 추가는 남긴다 (기존 의미 유지)', () => {
+    // AA3에서 조작을 넓혔어도 이 규칙은 바뀌지 않는다 — 잠가 둔다
+    let day = applySubstitution(base(), LUNCH.id, { text: '서브웨이', quality: 'other' })
+    day = applyAddition(day, LUNCH.id, { text: '단백질 쉐이크', quality: 'similar' })
+    day = applyCheckAllItems(day, LUNCH)
+    expect(day.slots[LUNCH.id].substitution).toBeUndefined()
+    expect(day.slots[LUNCH.id].addition?.text).toBe('단백질 쉐이크')
   })
 })

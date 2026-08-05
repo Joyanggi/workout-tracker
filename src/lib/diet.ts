@@ -1,4 +1,4 @@
-import type { DietDay, DietItem, DietPlan, DietSlot, SlotRecord } from '../types'
+import type { DietDay, DietItem, DietPlan, DietSlot, SlotQuality, SlotRecord } from '../types'
 import { addDays, isSameMonth } from './dates'
 
 /**
@@ -171,6 +171,35 @@ export function slotGrade(score: number | null): SlotGrade {
   if (score >= 0.45) return 'mid'
   if (score > 0) return 'low'
   return 'zero'
+}
+
+/**
+ * 자가 태그 표시 문구 — **카드·시트·내보내기가 같은 말을 써야 한다.**
+ *
+ * 세 곳에 같은 사본이 따로 있었다 (DietDayEditor·DietSlotSheet·exportMarkdown).
+ * AA3에서 시트에 상태 요약을 추가하며 네 번째 사본을 만들 자리였고, 그게 이 프로젝트가
+ * 반복해서 만든 결함 B(같은 값을 두 경로가 각자 계산)의 형태다. 마크 상수들과 같은
+ * 이유로 여기 둔다: 표시 문구도 규칙이다.
+ */
+export const QUALITY_LABEL: Record<SlotQuality, string> = {
+  similar: '비슷한 구성',
+  other: '다른 음식',
+  cheat: '치팅',
+}
+
+/**
+ * 대체·추가 한 줄 표기 (AA3).
+ *
+ * 카드(DietDayEditor)와 시트(DietSlotSheet)가 **같은 사실을 같은 문구로** 말한다 —
+ * 시트에서 상태를 확인하고 카드로 돌아왔을 때 표기가 다르면 다른 기록처럼 읽힌다.
+ * 내보내기는 문장 형식이 달라 별도로 둔다 (LLM이 읽는 마크다운 vs 화면 한 줄).
+ */
+export function substitutionNote(sub: NonNullable<SlotRecord['substitution']>): string {
+  return `대체: “${sub.text}” · ${QUALITY_LABEL[sub.quality]}`
+}
+
+export function additionNote(add: NonNullable<SlotRecord['addition']>): string {
+  return `+ 추가: “${add.text}” · ${QUALITY_LABEL[add.quality]}`
 }
 
 export interface DietDaySummary {

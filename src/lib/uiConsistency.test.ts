@@ -141,6 +141,69 @@ describe('캘린더 신호 분리 (식단 = 점)', () => {
   })
 })
 
+/**
+ * AA3 — 시트가 경로를 가리지 않는다.
+ *
+ * 결함은 초기 상태 한 줄이었다: `useState(record?.substitution ? 'substitution' : null)`.
+ * 대체 기록이 있으면 편집 폼으로 바로 열려 "추가로 먹었어요" 버튼이 화면에서 사라졌고,
+ * 사용자는 "무조건 대체에 기록해야 한다"고 읽었다. 단위 테스트로는 잡히지 않는다 —
+ * 데이터 모델과 점수는 처음부터 공존을 지원했고 **화면만** 좁았다.
+ */
+describe('AA3 — 식단 시트는 항상 메뉴로 연다', () => {
+  const sheet = () => file('/src/components/DietSlotSheet.tsx')
+
+  it('초기 mode가 record에 의존하지 않는다', () => {
+    const init = /useState<EditMode \| null>\(([^)]*)\)/.exec(sheet())?.[1]
+    expect(init, '초기 mode를 찾지 못했다 — 이 검사가 헛돌고 있다').toBeDefined()
+    expect(init).not.toMatch(/record/)
+    expect(init!.trim()).toBe('null')
+  })
+
+  it('편집 폼의 초기 입력값도 record를 읽지 않는다', () => {
+    // 여기서 record를 읽으면 "무엇을 여는지"가 다시 기록에 따라 갈린다.
+    // 값 프리필은 openMode()가 담당한다 (무엇을 열지 이미 정해진 뒤에).
+    const src = sheet()
+    const states = src.match(/useState[^\n]*\n?[^\n]*\)/g) ?? []
+    const initial = states.filter((s) => !s.includes('openMode'))
+    expect(initial.length).toBeGreaterThan(0)
+    for (const s of initial) expect(s, s).not.toMatch(/record\?/)
+    expect(src).toMatch(/const openMode = \(next: EditMode\) => \{/)
+  })
+
+  it('대체와 추가가 같은 모양의 행을 갖는다 (기록/수정 + 지우기)', () => {
+    const src = sheet()
+    for (const label of ['대체 수정', '대체 지우기', '추가 기록 수정', '추가 지우기']) {
+      expect(src, `"${label}"`).toContain(label)
+    }
+    // 대체 지우기가 슬롯 전체 삭제로 이어지면 안 된다 (그게 고치기 전 상태였다)
+    const around = src.slice(src.indexOf('대체 지우기') - 200, src.indexOf('대체 지우기'))
+    expect(around).toMatch(/onClearSubstitution/)
+    expect(around).not.toMatch(/onClear\b/)
+  })
+})
+
+describe('대체·추가 표기가 화면마다 같다 (AA3)', () => {
+  it('카드와 시트가 같은 함수를 쓴다', () => {
+    for (const path of ['/src/components/DietDayEditor.tsx', '/src/components/DietSlotSheet.tsx']) {
+      expect(file(path), path).toMatch(/substitutionNote|additionNote/)
+    }
+  })
+
+  it('표시 문구 사본이 lib/diet.ts 하나뿐이다', () => {
+    // 세 곳에 사본이 있었다 (카드·시트·내보내기). 네 번째를 만들 자리에서 모았다
+    const all = import.meta.glob('/src/**/*.{ts,tsx}', {
+      query: '?raw',
+      import: 'default',
+      eager: true,
+    }) as Record<string, string>
+    const owners = Object.entries(all)
+      .filter(([p]) => !p.includes('.test.'))
+      .filter(([, src]) => /similar:\s*'비슷한 구성'/.test(stripComments(src)))
+      .map(([p]) => p)
+    expect(owners).toEqual(['/src/lib/diet.ts'])
+  })
+})
+
 describe('기록 탭 — 날짜 선택이 세션 유무와 무관하게 같다', () => {
   const history = () => file('/src/screens/HistoryScreen.tsx')
 

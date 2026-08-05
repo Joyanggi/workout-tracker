@@ -3,6 +3,7 @@ import DietPlanSheet from './DietPlanSheet'
 import DietSlotSheet from './DietSlotSheet'
 import { addDays } from '../lib/dates'
 import {
+  additionNote,
   ADHERENCE_MARK,
   SLOT_MARK,
   slotGrade,
@@ -10,6 +11,7 @@ import {
   planStreak,
   slotScore,
   slotsFor,
+  substitutionNote,
   summarizeDietDay,
 } from '../lib/diet'
 import {
@@ -17,6 +19,7 @@ import {
   applyCheckAllItems,
   applyClearAddition,
   applyClearSlot,
+  applyClearSubstitution,
   applyNote,
   applyPlan,
   applySkipSlot,
@@ -40,13 +43,6 @@ import { NO_AUTOFILL } from '../lib/inputProps'
  * 곧 "전부 먹음"이다 (훈련일 6슬롯 × 1탭). 슬롯 이름을 누르면 시트가 열리고
  * 거기서 대체·안 먹음 같은 예외를 처리한다.
  */
-/** 자가 태그 표시 문구 — 카드·시트·내보내기가 같은 말을 써야 한다 */
-const QUALITY_LABEL: Record<'similar' | 'other' | 'cheat', string> = {
-  similar: '비슷한 구성',
-  other: '다른 음식',
-  cheat: '치팅',
-}
-
 export default function DietDayEditor({
   date,
   plans,
@@ -229,16 +225,13 @@ export default function DietDayEditor({
               })}
             </div>
 
+            {/* 문구는 시트의 상태 요약과 공유한다 (AA3) — 같은 사실은 같은 말 */}
             {record?.skipped && <p className="row-sub diet-note">안 먹음</p>}
             {record?.substitution && (
-              <p className="row-sub diet-note">
-                대체: “{record.substitution.text}” · {QUALITY_LABEL[record.substitution.quality]}
-              </p>
+              <p className="row-sub diet-note">{substitutionNote(record.substitution)}</p>
             )}
             {record?.addition && (
-              <p className="row-sub diet-note">
-                + 추가: “{record.addition.text}” · {QUALITY_LABEL[record.addition.quality]}
-              </p>
+              <p className="row-sub diet-note">{additionNote(record.addition)}</p>
             )}
           </div>
         )
@@ -304,6 +297,7 @@ export default function DietDayEditor({
           onSkip={() => mutate((d) => applySkipSlot(d, openSlot.id))}
           onSubstitute={(sub) => mutate((d) => applySubstitution(d, openSlot.id, sub))}
           onAddition={(add) => mutate((d) => applyAddition(d, openSlot.id, add))}
+          onClearSubstitution={() => mutate((d) => applyClearSubstitution(d, openSlot.id))}
           onClearAddition={() => mutate((d) => applyClearAddition(d, openSlot.id))}
           onClear={() => mutate((d) => applyClearSlot(d, openSlot.id))}
           onClose={() => setSlotSheet(null)}
