@@ -18,7 +18,8 @@
         "startFactor": 0.16,
         "perSide": true
       }
-    ]
+    ],
+    "startWeightPctBW": 0.3
   },
   {
     "id": "pec-deck-fly",
@@ -39,7 +40,8 @@
         "startFactor": 0.14,
         "perSide": true
       }
-    ]
+    ],
+    "startWeightPctBW": 0.2
   },
   {
     "id": "flat-chest-press",
@@ -57,7 +59,8 @@
         "startFactor": 0.16,
         "perSide": true
       }
-    ]
+    ],
+    "startWeightPctBW": 0.35
   },
   {
     "id": "shoulder-press",
@@ -71,7 +74,8 @@
         "startFactor": 0.15,
         "perSide": true
       }
-    ]
+    ],
+    "startWeightPctBW": 0.2
   },
   {
     "id": "lateral-raise",
@@ -82,7 +86,8 @@
       "어깨가 귀 쪽으로 올라감",
       "무릎 반동",
       "몸통 좌우 흔들림"
-    ]
+    ],
+    "startWeightPctBW": 0.045
   },
   {
     "id": "lat-pulldown",
@@ -98,14 +103,16 @@
         "exerciseId": "assisted-pullup",
         "assisted": true
       }
-    ]
+    ],
+    "startWeightPctBW": 0.45
   },
   {
     "id": "neutral-lat-pulldown",
     "name": "뉴트럴그립 랫풀다운",
     "shortName": "뉴트럴 랫풀",
     "cueTip": "팔꿈치를 몸통 옆구리로 끌어내린다는 느낌, 수축 지점에서 1초",
-    "compensationSigns": []
+    "compensationSigns": [],
+    "startWeightPctBW": 0.45
   },
   {
     "id": "seated-cable-row",
@@ -126,14 +133,16 @@
         "startFactor": 0.3,
         "perSide": true
       }
-    ]
+    ],
+    "startWeightPctBW": 0.4
   },
   {
     "id": "arm-pulldown",
     "name": "암 풀다운",
     "shortName": "암 풀다운",
     "cueTip": "팔꿈치를 편 채 광배로 눌러 내린다 — 이 동작에서 느껴지는 곳이 광배다. 랫풀 전에 그 위치를 기억해둘 것",
-    "compensationSigns": []
+    "compensationSigns": [],
+    "startWeightPctBW": 0.15
   },
   {
     "id": "rear-delt-fly",
@@ -150,7 +159,8 @@
         "startFactor": 0.25,
         "perSide": true
       }
-    ]
+    ],
+    "startWeightPctBW": 0.05
   },
   {
     "id": "curl",
@@ -160,14 +170,16 @@
     "compensationSigns": [
       "팔꿈치가 앞으로 나감",
       "어깨 같이 올라감"
-    ]
+    ],
+    "startWeightPctBW": 0.12
   },
   {
     "id": "pushdown",
     "name": "케이블 푸쉬다운",
     "shortName": "푸쉬다운",
     "cueTip": "팔꿈치를 옆구리에 붙여 고정하고 마지막 지점에서 삼두를 1초 짜낸다",
-    "compensationSigns": []
+    "compensationSigns": [],
+    "startWeightPctBW": 0.15
   },
   {
     "id": "leg-extension",
@@ -176,21 +188,52 @@
     "cueTip": "올릴 때 허벅지 앞이 조이는 걸 확인하고, 내릴 때 무게에 끌려가지 말고 버틴다",
     "compensationSigns": [
       "반동"
-    ]
+    ],
+    "startWeightPctBW": 0.4
   },
   {
     "id": "leg-curl",
     "name": "시티드/라잉 레그 컬",
     "shortName": "레그 컬",
     "cueTip": "엉덩이가 들리지 않게 — 수축 지점에서 1초 정지",
-    "compensationSigns": []
+    "compensationSigns": [],
+    "tempo": [
+      {
+        "kind": "concentric",
+        "seconds": 1
+      },
+      {
+        "kind": "squeeze",
+        "seconds": 1
+      },
+      {
+        "kind": "eccentric",
+        "seconds": 2
+      }
+    ],
+    "startWeightPctBW": 0.3
   },
   {
-    "id": "hip-abduction",
-    "name": "힙 어브덕션 머신",
-    "shortName": "힙 어브덕션",
-    "cueTip": "상체 반동 없이, 엉덩이 옆이 조이는 지점에서 1초",
-    "compensationSigns": []
+    "id": "monster-glute",
+    "name": "몬스터 글루트 머신",
+    "shortName": "몬스터 글루트",
+    "cueTip": "골반을 패드에 고정하고 뒤꿈치로 민다 — 허리를 젖혀 미는 순간 요추가 대신 든다",
+    "compensationSigns": [
+      "요추 반동(허리 젖힘)",
+      "골반 회전"
+    ],
+    "startWeightPctBW": 0.25
+  },
+  {
+    "id": "hip-adduction",
+    "name": "힙 어덕션 머신",
+    "shortName": "힙 어덕션",
+    "cueTip": "시작 폭은 통증 없는 범위의 80% — 스트레치 끝을 쫓지 않는다. 모을 때 1초 짜내기",
+    "compensationSigns": [
+      "시작 폭 과다(과이완)",
+      "골반 앞 기울임"
+    ],
+    "startWeightPctBW": 0.25
   },
   {
     "id": "crunch",
@@ -199,14 +242,17 @@
     "cueTip": "허리를 접는 게 아니라 갈비뼈를 골반 쪽으로 만다는 느낌",
     "compensationSigns": [
       "허리 과신전"
-    ]
+    ],
+    "allowZeroWeight": true,
+    "startWeightPctBW": 0.15
   },
   {
     "id": "dead-bug",
     "name": "데드버그",
     "shortName": "데드버그",
     "cueTip": "허리로 바닥을 누른 상태를 유지 — 허리가 뜨면 팔다리 가동범위를 줄인다",
-    "compensationSigns": []
+    "compensationSigns": [],
+    "allowZeroWeight": true
   },
   {
     "id": "smith-incline-press",

@@ -17,7 +17,7 @@ describe('§4 동작 검증 표', () => {
   const cases: { history: string[]; expected: string; note: string }[] = [
     { history: [], expected: 'd1', note: '기록 없음' },
     { history: ['d1'], expected: 'd2', note: '광배·후면어깨 0' },
-    { history: ['d1', 'd2'], expected: 'd4', note: 'D4=10.5 > D3=5.55' },
+    { history: ['d1', 'd2'], expected: 'd4', note: 'D4=10.5 > D3=6.45 (CC9 후)' },
     { history: ['d1', 'd2', 'd4'], expected: 'd3', note: '상체 충족, 하체·코어만 남음' },
   ]
 
@@ -37,7 +37,17 @@ describe('§4 동작 검증 표', () => {
     })
   }
 
-  it('3행 점수는 문서에 적힌 10.5 / 5.55와 정확히 일치한다', () => {
+  /*
+   * ⚠ **CC9로 D3 점수가 바뀌었다** (소급 효과 — DEV-RECORD 기재 항목).
+   *
+   * 내전근 목표(target 3 · weight 0.3)가 신설되면서 D3가 제공하는 부위가 하나 늘었다:
+   *   하체 0.45×9 = 4.05 · 내전근 0.3×3 = 0.90 · 코어 0.3×5 = 1.50 → **6.45** (이전 5.55)
+   *
+   * 문서 §4 표 3행의 숫자 "5.55"는 이제 시드와 어긋난다. **그 행의 결론(D4 > D3 이므로
+   * 3행은 D4)은 그대로 성립한다** (10.5 > 9.675) — 바뀐 것은 D3의 값 하나다.
+   * 문서 쪽 갱신이 필요한 자리이므로 DEV-RECORD §리뷰어 질의에 올렸다.
+   */
+  it('3행 점수: D4는 문서값 10.5, D3는 내전근 신설 후 6.45다', () => {
     // 이 행은 문서가 계산 과정을 명시한 유일한 행이라 수식 구현의 기준점이 된다.
     // (첫 노출 보너스는 이 행에서 발동하지 않는다: 상체는 전부 노출됨, D3는 하체·코어라
     //  보너스가 걸리지만 그래도 D4가 이긴다 — 아래에서 rawScore로 문서값을 확인한다)
@@ -53,9 +63,11 @@ describe('§4 동작 검증 표', () => {
     })
     const d4 = result.scores.find((s) => s.dayId === 'd4')!
     const d3 = result.scores.find((s) => s.dayId === 'd3')!
+    // D4는 내전근을 제공하지 않으므로 문서값 그대로다
     expect(d4.rawScore).toBeCloseTo(10.5, 5)
-    // D3는 하체·코어가 이번 주 첫 노출이라 보너스가 곱해진다
-    expect(d3.rawScore).toBeCloseTo(5.55 * FIRST_EXPOSURE_BONUS, 5)
+    // D3는 하체·내전근·코어가 이번 주 첫 노출이라 보너스가 곱해진다
+    expect(d3.rawScore).toBeCloseTo(6.45 * FIRST_EXPOSURE_BONUS, 5)
+    // **문서 3행의 결론**은 그대로다 — 점수가 올라도 D4가 이긴다
     expect(d4.score).toBeGreaterThan(d3.score)
   })
 })

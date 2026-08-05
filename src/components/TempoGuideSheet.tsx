@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { lastCycleCue, tick, tone, unlockAudio } from '../lib/beep'
+import { cancelTag, glide, lastCycleCue, tick, unlockAudio } from '../lib/beep'
 import {
+  BREATH_LABEL,
   PHASE_LABEL,
-  TEMPO,
   cycleSeconds,
-  phaseTone,
+  phaseGlide,
   tempoPositionAt,
   tempoRepState,
   type TempoPhase,
@@ -41,6 +41,7 @@ export default function TempoGuideSheet({
   exerciseName,
   setNumber,
   routineExercise,
+  phases,
   onDone,
   onComplete,
   onClose,
@@ -48,6 +49,12 @@ export default function TempoGuideSheet({
   exerciseName: string
   setNumber: number
   routineExercise: RoutineExercise
+  /**
+   * 이 세트의 템포 (CC5·CC16). **호출부가 정한다** — 종목 오버라이드(레그 컬 1-1-2)와
+   * A그룹 이완 설정(1.5/2초)이 갈리는 자리를 한 곳으로 모으기 위해서다.
+   * 시트가 `TEMPO[group]`을 직접 읽으면 그 갈림이 두 곳이 된다.
+   */
+  phases: TempoPhase[]
   /**
    * 수동 종료 — 사이클 수에서 **추정한** 반복수.
    * Z2부터 자동 종료와 **같은 체인**을 탄다 (기록 + 체크 + 휴식). 호출부가 처리한다.
@@ -57,7 +64,6 @@ export default function TempoGuideSheet({
   onComplete: (reps: number) => void
   onClose: () => void
 }) {
-  const phases: TempoPhase[] = TEMPO[routineExercise.group]
   const [startedAt] = useState(() => Date.now())
   const [elapsed, setElapsed] = useState(0)
   const lastIndex = useRef<number | null>(null)
@@ -65,9 +71,17 @@ export default function TempoGuideSheet({
   /** 자동 종료·마지막 큐를 각각 한 번만 발화시킨다 (프레임마다 재발화 금지) */
   const fired = useRef({ complete: false, lastCycle: false })
 
-  // 시트를 여는 탭이 제스처다 — 여기서 컨텍스트를 열어야 이후 톤이 울린다
+  /*
+   * 시트를 여는 탭이 제스처다 — 여기서 컨텍스트를 열어야 이후 톤이 울린다.
+   *
+   * 언마운트에서 **예약된 템포 소리를 취소한다** (CC2). `tone()`/`glide()`는 오디오
+   * 그래프에 예약하므로 React가 정리해도 이미 올라간 소리는 그대로 울린다 —
+   * "가이드를 내린 뒤에도 1틱 남는다"가 그 증상이었다.
+   * 태그가 'tempo'라 **동시에 울릴 수 있는 휴식 차임은 건드리지 않는다.**
+   */
   useEffect(() => {
     unlockAudio()
+    return () => cancelTag('tempo')
   }, [])
 
   useEffect(() => {
@@ -129,10 +143,15 @@ export default function TempoGuideSheet({
     if (pos.countIn !== null) {
       // 휴식 타이머 카운트다운과 **같은 함수**를 쓴다. v1.2는 여기에 톤 규격을 손으로
       // 베껴 적어 뒀는데, W2에서 틱 주파수를 고치자 이쪽만 옛 소리로 남을 상황이었다
-      tick()
+      tick('tempo')
       return
     }
-    if (pos.phase) tone(phaseTone(pos.phase))
+    /*
+      페이즈 길이만큼 이어지는 글라이드 (CC7). 경계에서 한 번 울리는 소리는 "방금
+      바뀌었다"만 말하고 "언제 바뀔지"를 말하지 못한다 — 반 박자 늦던 이유다.
+      화면 잠금 복귀 시에도 **다음 경계부터** 시작한다 (phaseIndex가 바뀌는 순간이므로).
+    */
+    if (pos.phase) glide(phaseGlide(pos.phase), 'tempo')
   }, [pos.phaseIndex, pos.countIn, pos.phase])
 
   /**
@@ -184,6 +203,13 @@ export default function TempoGuideSheet({
             ) : (
               <>
                 <span className="tempo-phase">{pos.phase ? PHASE_LABEL[pos.phase.kind] : ''}</span>
+                {/*
+                  호흡 안내 (CC4). 원리는 "힘쓸 때 내쉰다" 하나 — 원본은 문서 3장 표의
+                  호흡 열이다. 대칭 호흡(3초 들숨/3초 날숨)이 아니라는 것이 요점이다.
+                */}
+                <span className="tempo-breath">
+                  {pos.phase ? BREATH_LABEL[pos.phase.kind] : ''}
+                </span>
                 {/*
                   진행 회차를 보여준다 (완료 수가 아니다) — 완료 수만 보여주면 10회짜리에서
                   마지막에 보이는 숫자가 9다. "회째"로 적어 종료 라벨의 "약 N회"와 구분한다.

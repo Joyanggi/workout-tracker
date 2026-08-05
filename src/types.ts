@@ -131,6 +131,44 @@ export interface Exercise {
    * 판정은 weightScale.nextWeightForProgression 한 곳에서 갈린다.
    */
   inverseWeight?: boolean
+  /**
+   * 종목별 템포 예외 (CC5). 없으면 그룹 템포(`tempoFor`)를 쓴다.
+   *
+   * 레그 컬의 cue가 "수축 지점에서 1초 정지"인데 A그룹 템포에는 정지가 없었다 —
+   * **문서 3장 표에 예외 행(1-1-2)이 추가되어** 그것을 담는 자리다.
+   * 갈림은 `tempo.tempoPhasesFor` 한 곳에서만 일어난다.
+   */
+  tempo?: TempoPhaseSeed[]
+  /**
+   * 맨몸 수행이 정상인 종목 (CC10). 0kg 체크가 실수가 아니다.
+   *
+   * 오늘 실데이터에서 크런치가 `weight: 0`으로 3세트 체크됐다 — BB6의 "무게 미입력"
+   * 힌트가 뜨는 상태이고, 그건 **오탐**이다. 데드버그는 애초에 무게를 얹을 수 없다.
+   * `setRowState.zeroWeightHint`가 inverse와 함께 이 플래그를 제외한다.
+   */
+  allowZeroWeight?: true
+  /**
+   * 첫 기록 시작 무게 추정 — **체중 대비 비율** (CC13).
+   *
+   * **검증된 공식이 아니라 코칭 관행 휴리스틱이다** (`SubstituteOption.startFactor`와
+   * 같은 표기 수준). 머신 표시 무게는 브랜드·지렛대 구조에 따라 실제 부하가 달라
+   * 정밀도가 원리적으로 무의미하고, 본체는 어차피 첫 세트 RIR 3~4 캘리브레이션이다.
+   *
+   * 값은 **실제보다 가볍게** 잡는다 — 남는 것(올리기)이 부족한 것(내리고 자존심 상하기)
+   * 보다 낫고, 문서의 강도 진단 절차와도 맞는다.
+   */
+  startWeightPctBW?: number
+}
+
+/**
+ * 시드 JSON에 담기는 템포 페이즈 (CC5).
+ *
+ * `tempo.ts`의 `TempoPhase`와 같은 모양이지만 타입을 여기 둔다 — `types.ts`가
+ * `lib/`를 import하면 의존 방향이 뒤집힌다. 두 타입이 같은 모양임을 테스트가 잠근다.
+ */
+export interface TempoPhaseSeed {
+  kind: 'concentric' | 'squeeze' | 'eccentric' | 'stretch'
+  seconds: number
 }
 
 /** 대체 종목 후보 (T8) */
@@ -203,6 +241,24 @@ export interface SessionEntry {
    * 각 호출부에서 풀면 한 군데만 빠뜨려도 대체한 세트의 볼륨이 조용히 사라진다.
    */
   substituteFor?: RecordKey
+  /**
+   * 이 세션에 **얹은** 종목 (CC15). 계획에 없던 것이다.
+   *
+   * 피드백: "그 Day 머신이 다 차 있으면 루틴의 다른 운동이라도 가볍게 하고 싶다."
+   * 대체(T8)와 다른 경로다 — 대체는 "이 종목 **대신**", 이것은 "**얹기**".
+   *
+   * `recordKey`는 **원소속 Day의 라인**이다 (`pec-deck@d1`). 기록 라인 연속성 원칙
+   * 그대로여서 프리필·PR·증량 판단이 그 종목의 본 라인에 이어진다.
+   *
+   * 주간 볼륨은 **정상 산입한다** — 실제로 수행한 자극이고 제안 점수·회복 감쇠도 사실
+   * 기반이어야 한다. "몸 풀기 수준이라 빼고 싶다"는 기존 **워밍업 토글**이 세트 단위로
+   * 이미 하는 일이다 (`doneSets` 초크포인트가 자동 처리). 새 규칙을 만들지 않는다.
+   *
+   * 백업은 additive 추가라 `SCHEMA_VERSION`을 올리지 않는다 (필드 추가는 하위 호환 —
+   * `backup.ts`의 원칙). 구버전 백업을 복원하면 이 필드가 없고, 그건 "얹은 것 아님"으로
+   * 읽혀 정확하다.
+   */
+  extra?: true
 }
 
 export interface CardioRecord {

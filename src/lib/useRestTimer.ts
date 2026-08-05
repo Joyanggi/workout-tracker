@@ -69,9 +69,26 @@ export function dismissIfUnchanged(prev: Persisted | null, endTime: number): Per
  * 이미 끝난 타이머에 +30초를 누르면 **지금부터** 30초여야 한다.
  * 지나간 endTime에 그냥 더하면 (예: 2분 전에 끝난 타이머 + 30초) 여전히 과거라
  * 누르는 순간 다시 "휴식 완료"가 된다.
+ *
+ * **감산도 같은 함수를 지난다** (CC6, `addSec < 0`). 규칙 하나:
+ *   `endTime = max(endTime, now) + addSec` 를 **now 아래로는 내리지 않는다.**
+ *
+ * 남은 시간이 30초 미만일 때 −30초를 누르면 0이 되어 **정상 종료 플로우**(차임 +
+ * 자동 닫힘)를 탄다 — 건너뛰기와 같은 결과이고, "휴식을 지금 끝낸다"라는 뜻이 같다.
+ * 종료 경로를 하나로 두면 차임·자동 닫힘이 한쪽에만 붙는 갈라짐이 없다.
  */
 export function extendEndTime(endTime: number, now: number, addSec: number): number {
-  return Math.max(endTime, now) + addSec * 1000
+  return Math.max(now, Math.max(endTime, now) + addSec * 1000)
+}
+
+/**
+ * 표시용 총 시간의 감산 클램프 (CC6).
+ *
+ * 진행 바가 `remaining / totalSec`이므로 음수가 되면 폭 계산이 뒤집힌다.
+ * 0으로 막되, 0이면 호출부가 나누지 않도록 이미 방어돼 있다.
+ */
+export function adjustTotalSec(totalSec: number, addSec: number): number {
+  return Math.max(0, totalSec + addSec)
 }
 
 /**
@@ -216,7 +233,7 @@ export function useRestTimer(): RestTimer {
         ? {
             ...prev,
             endTime: extendEndTime(prev.endTime, Date.now(), seconds),
-            totalSec: prev.totalSec + seconds,
+            totalSec: adjustTotalSec(prev.totalSec, seconds),
           }
         : prev,
     )

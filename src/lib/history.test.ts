@@ -71,8 +71,9 @@ describe('세션 요약', () => {
     })
     const out = summarize(s, ROUTINE)
     expect(out.dayName).toBe('Day 3 — 하체 + 코어')
-    expect(out.setCount).toBe(14) // §8 검산표
-    expect(out.volume).toBe(14 * 50 * 10)
+    // CC9로 D3가 6종목 17세트가 됐다 (§8 검산표도 함께 갱신) — 소급 효과 기재 항목
+    expect(out.setCount).toBe(17)
+    expect(out.volume).toBe(17 * 50 * 10)
     expect(out.durationMin).toBe(72)
   })
 })

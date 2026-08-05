@@ -112,6 +112,22 @@ export function stepDown(current: number, scale: WeightScale): number {
 }
 
 /**
+ * 이 스택에서 실제로 걸 수 있는 무게로 내림 (CC13).
+ *
+ * **내림이다.** 추정 시작 무게는 "실제보다 가볍게"가 규칙이므로(남는 것이 부족한 것보다
+ * 낫다) 반올림도 같은 방향이어야 한다 — 사다리 [35, 41]에서 40을 추정했으면 41이 아니라
+ * 35다. 사다리 최하단보다 작으면 최하단을 준다 (핀을 안 꽂는 것은 이 함수의 답이 아니다).
+ */
+export function snapDownToScale(target: number, scale: WeightScale): number {
+  if (scale.ladder?.length) {
+    const below = scale.ladder.filter((v) => v <= target)
+    return below.length > 0 ? below[below.length - 1] : scale.ladder[0]
+  }
+  if (scale.step <= 0) return round2(target)
+  return round2(Math.max(0, Math.floor(target / scale.step) * scale.step))
+}
+
+/**
  * 증량 제안 무게. **사다리 최상단이면 `null`** — 스택을 다 쓴 것이므로
  * "존재하지 않는 다음 무게"를 제안하는 대신 그 사실을 알린다 (루틴 문서 10장의
  * "스택이 부족하면 템포·정지 시간으로" 판단은 사용자 몫).

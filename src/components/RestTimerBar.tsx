@@ -26,6 +26,16 @@ export default function RestTimerBar({ timer }: { timer: RestTimer }) {
           <div className="rest-time">{timer.finished ? '휴식 완료' : mmss(timer.remainingSec)}</div>
           <div className="rest-label">{timer.finished ? `${timer.label} · 탭하면 닫기` : timer.label}</div>
         </div>
+        {/*
+          −30초 (CC6). 진행 중에만 보여준다 — 이미 끝난 타이머에서 뺄 시간이 없다.
+          남은 시간이 30초 미만이면 0이 되어 **정상 종료 플로우**(차임 + 자동 닫힘)를 탄다:
+          건너뛰기와 같은 결과이고 "휴식을 지금 끝낸다"라는 뜻이 같다.
+        */}
+        {!timer.finished && (
+          <button className="rest-btn" onClick={() => timer.addSeconds(-30)}>
+            −30초
+          </button>
+        )}
         <button className="rest-btn" onClick={() => timer.addSeconds(30)}>
           +30초
         </button>

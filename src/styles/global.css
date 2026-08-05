@@ -566,6 +566,20 @@ select {
   margin-top: 1px;
 }
 
+/*
+  휴식 타이머 단독 시작 (CC3). 종료 버튼 옆이지만 **아이콘만** 둔다 —
+  헤더에 글자 버튼이 둘이면 "종료"의 무게가 희석되고, 375px에서 Day 이름이 밀린다.
+*/
+.session-timer-btn {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  font-size: 18px;
+  color: var(--text-dim);
+}
+
 .session-end {
   flex-shrink: 0;
   padding: 8px 16px;
@@ -752,6 +766,16 @@ select {
   font-size: 20px;
   font-weight: 600;
   color: var(--text-dim);
+}
+
+/*
+  눌림 표시 (CC12). **뗄 때 값이 바뀌므로** 누르는 동안 눌렸다는 것이 보여야 한다 —
+  안 그러면 "눌렀는데 반응이 없다"로 읽히고, 그건 손을 떼기 전까지 사실이다.
+*/
+.stepper button.stepper-btn-pressed {
+  background: var(--line);
+  border-radius: var(--r-sm);
+  color: var(--text);
 }
 
 .stepper-value {
@@ -1594,6 +1618,23 @@ button.chip {
 */
 .set-row-done-warmup .set-no {
   font-size: 12px;
+}
+
+/*
+  직전 메모 줄 (CC14). 입력칸 위에 붙으므로 입력값과 구분돼야 한다 —
+  들여쓰기 대신 왼쪽 선으로 "지난 것"임을 표시한다.
+*/
+.note-prev {
+  margin: 6px 0;
+  padding-left: 8px;
+  border-left: 2px solid var(--line);
+  white-space: normal;
+}
+
+/* 호흡 안내 (CC4) — 페이즈 라벨 아래 한 줄 */
+.tempo-breath {
+  font-size: 13px;
+  color: var(--text-dim);
 }
 
 /* 무게 미입력 경고 (BB6) — 막지 않고 표시만 한다 */

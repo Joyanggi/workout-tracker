@@ -51,9 +51,9 @@ function fnv1a(text: string): string {
  * 해시만 갱신하고 revision을 올리지 않으면 기존 설치본에 변경이 전달되지 않는다.
  */
 const SNAPSHOT = {
-  seedRevision: 1,
-  routineHash: 'af6d7b05',
-  exerciseCount: 28,
+  seedRevision: 2,
+  routineHash: '0a8dddb4',
+  exerciseCount: 29,
   dietSeedRevision: 1,
   dietHash: 'f05ea468',
 }

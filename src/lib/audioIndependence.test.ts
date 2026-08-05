@@ -95,8 +95,15 @@ describe('소리 경로의 설정 독립성 (W2)', () => {
  * 같은 값을 두 곳에서 적는 것이 이 프로젝트의 반복 결함(패턴 A)이다.
  */
 describe('톤 규격의 단일 정의', () => {
-  /** beep.ts = 신호 규격 · tempo.ts = 페이즈 톤 팔레트 (둘 다 정의하는 곳) */
-  const ALLOWED = ['/src/lib/beep.ts', '/src/lib/tempo.ts']
+  /**
+   * beep.ts = 신호 규격 (틱·차임·큐).
+   *
+   * **tempo.ts는 더 이상 `freq:` 리터럴을 갖지 않는다** (CC7): 페이즈 소리가 단발 톤에서
+   * 연속 글라이드로 바뀌면서 대역이 `GLIDE_LOW`/`GLIDE_HIGH` 상수 두 개로 모였다.
+   * 그래서 허용 목록에서 뺐다 — **없는 리터럴을 "허용"으로 두면 그 항목이 검사를
+   * 헛돌게 만든다** (아래 자기검증이 그것을 잡았다).
+   */
+  const ALLOWED = ['/src/lib/beep.ts']
 
   it('주파수 리터럴은 정의 파일에만 있다', () => {
     const offenders = appFiles
@@ -107,7 +114,7 @@ describe('톤 규격의 단일 정의', () => {
     expect(
       offenders,
       `톤 규격을 베껴 적으면 한쪽만 고쳐졌을 때 소리가 갈라집니다.\n` +
-        `beep.ts의 tick()/chime()이나 tempo.ts의 phaseTone()을 호출하세요:\n` +
+        `beep.ts의 tick()/chime()이나 tempo.ts의 phaseGlide()를 호출하세요:\n` +
         offenders.map((f) => `  ${f}`).join('\n'),
     ).toEqual([])
   })
@@ -121,7 +128,20 @@ describe('톤 규격의 단일 정의', () => {
   it('템포 가이드 카운트인이 휴식 타이머와 같은 함수를 쓴다', () => {
     const src = sources['/src/components/TempoGuideSheet.tsx']
     expect(src).toBeDefined()
-    // 카운트인은 tick()을 호출한다 — 규격을 베끼지 않는다
-    expect(src).toMatch(/\btick\(\)/)
+    /*
+      카운트인은 `tick()`을 호출한다 — 규격을 베끼지 않는다.
+      인자는 **태그**다 (CC2): 가이드를 닫을 때 예약된 틱까지 취소하려면 'tempo'여야 한다.
+    */
+    expect(src).toMatch(/\btick\('tempo'\)/)
+  })
+
+  it('글라이드 대역이 tempo.ts 상수 두 개에서만 온다 (CC7)', () => {
+    const src = sources['/src/lib/tempo.ts']!
+    expect(src).toMatch(/export const GLIDE_LOW = \d+/)
+    expect(src).toMatch(/export const GLIDE_HIGH = \d+/)
+    // phaseGlide가 상수를 쓰고 숫자를 다시 적지 않는다
+    const fn = /export function phaseGlide[\s\S]*?\n\}/.exec(src)?.[0] ?? ''
+    expect(fn).not.toMatch(/from: \d/)
+    expect(fn).not.toMatch(/to: \d/)
   })
 })

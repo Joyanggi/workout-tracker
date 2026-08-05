@@ -117,9 +117,14 @@ function entryLine(
     : undefined
 
   const lines: string[] = []
+  /*
+    얹은 종목 (CC15)은 그 사실을 적는다 — 이게 없으면 LLM이 "그 Day 구성이 바뀌었다"로
+    읽는다. 대체와 같은 이유이고, 둘은 의미가 반대라 문구를 구분한다.
+  */
   lines.push(
     `### ${name} (${dayId.toUpperCase()}/${group}) ${fmtWeight(weight)}kg` +
-      (origin ? ` (대체: ${origin} — 자리 없음)` : ''),
+      (origin ? ` (대체: ${origin} — 자리 없음)` : '') +
+      (entry.extra ? ' (추가 — 계획 외)' : ''),
   )
   lines.push(sets.map((s) => s.reps).join(' / '))
 

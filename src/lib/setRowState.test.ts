@@ -81,12 +81,18 @@ describe('화면 배선 (2층 잠금)', () => {
 
   it('힌트를 화면이 직접 판정하지 않는다', () => {
     const src = card()
-    expect(src).toMatch(/zeroWeightHint\(set, inverseWeight\)/)
+    expect(src).toMatch(/zeroWeightHint\(set, inverseWeight, allowZeroWeight\)/)
     expect(src).not.toMatch(/set\.weight === 0/)
   })
 
-  it('힌트가 inverse를 넘긴다 — 빼먹으면 어시스티드에 경고가 뜬다', () => {
-    expect(card()).not.toMatch(/zeroWeightHint\(set\)/)
+  it('힌트가 제외 플래그 둘을 다 넘긴다 — 빼먹으면 오탐이 돌아온다', () => {
+    /*
+      inverse를 빼면 어시스티드(보조 0 = 최고 난도)에 경고가 뜨고,
+      allowZeroWeight를 빼면 맨몸 크런치에 뜬다 (CC10 — 실데이터에서 확인된 오탐).
+    */
+    const src = card()
+    expect(src).not.toMatch(/zeroWeightHint\(set\)/)
+    expect(src).not.toMatch(/zeroWeightHint\(set, inverseWeight\)/)
   })
 
   it('경고가 문구와 숫자 양쪽에 걸린다', () => {

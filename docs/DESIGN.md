@@ -226,6 +226,7 @@ suggestNextDay(sessions, routine, today):
 | 후면어깨 | 7 | 0.70 |
 | 팔 | 6 | 0.50 |
 | 하체 | 9 | 0.45 |
+| 내전근 | 3 | 0.30 |
 | 코어 | 5 | 0.30 |
 
 `RoutineDay`에 `muscleSets: Record<string, number>` 필드를 추가해 각 Day가 부위별로 몇 세트를 제공하는지 명시한다 (종목→부위 매핑을 매번 계산하지 않도록).
@@ -238,7 +239,7 @@ suggestNextDay(sessions, routine, today):
 |---|---|---|
 | (없음) | D1 | 전부 0, 최고 가중치 부위 포함 Day |
 | D1 | D2 | 광배·후면어깨 0 |
-| D1·D2 | **D4** | D4=10.5 (광배6×0.85 + 상부가슴3×0.90 + 측면2×1.00 + 후면1×0.70) > D3=5.55 (하체9×0.45 + 코어5×0.30) |
+| D1·D2 | **D4** | D4=10.5 (광배6×0.85 + 상부가슴3×0.90 + 측면2×1.00 + 후면1×0.70) > D3=**6.45** (하체9×0.45 + 내전근3×0.30 + 코어5×0.30) — CC9로 내전근 목표가 신설되며 5.55에서 올랐다. 결론(D4 > D3)은 그대로 |
 | D1·D2·D4 | D3 | 상체 충족, 하체·코어만 남음 |
 | 하체를 10일+ 안 함 | D3 | 규칙 2 발동 (점수 무시) |
 
@@ -316,7 +317,8 @@ suggestNextDay(sessions, routine, today):
  ── 보상작용: [없음] (탭하면 종목별 체크리스트 + 직접 입력)
 ```
 - **프리필은 최근 3세션 최고 기록 기준.** 직전 세션만 쓰면 컨디션 나쁜 날의 기록이 다음 기준점이 되어 하향 고착이 생긴다(특히 감량기에는 세션 간 변동이 커진다). 최고 기록을 입력 기본값으로, 직전 기록은 비교용 고스트 텍스트로 병기
-- 무게 스테퍼 ±2.5kg 롱프레스 가속, 횟수 스테퍼 ±1. 직접 입력도 가능
+- 무게 스테퍼 ±2.5kg, 횟수 스테퍼 ±1. 직접 입력도 가능
+- **스테퍼는 손을 뗄 때 1스텝** (CC12 개정). 초기 구현은 롱프레스 가속 반복(400ms 후 110ms 간격, 8회 후 55ms)이었고 의도는 "큰 점프를 빠르게"였다 — 실사용 환경(땀·장갑·기구 사이 이동 중 오터치)에서 가속이 **오터치 증폭 장치**가 되어 복구 비용이 이득을 넘었다. 큰 점프는 직접 입력이 담당한다. 슬롭 12px 초과·버튼 밖 릴리즈·pointercancel은 무발화
 - 세트 체크(✓) 시 → 휴식 타이머 자동 시작 (해당 종목의 restSec)
 - A그룹 증량 제안 상태면 무게 필드에 `40 → 42.5` 제안 칩
 - 보상작용 기본값 "없음" (루틴 문서 규칙: 빈칸 금지 — 기본값으로 마찰 없이 충족)
@@ -510,13 +512,14 @@ Phase 0 진행: 최근 주부터 거슬러 "주 3회 이상" 연속 주 수. 주
       ] },
 
     { "id": "d3", "name": "Day 3 — 하체 + 코어", "subtitle": "발 조건 하 유지 목적", "isBuffer": false,
-      "muscleSets": { "하체": 9, "코어": 5 },  // 총 14
+      "muscleSets": { "하체": 9, "내전근": 3, "코어": 5 },  // 총 17 (CC9 — 문서 2026-08-05 갱신분)
       "exercises": [
         { "exerciseId": "leg-extension", "group": "A",    "sets": 3, "repMin": 10, "repMax": 15, "restSec": 105, "plannedOrder": 1, "optional": false, "note": "무릎 통제, 반동 금지" },
         { "exerciseId": "leg-curl",      "group": "A",    "sets": 3, "repMin": 10, "repMax": 15, "restSec": 105, "plannedOrder": 2, "optional": false, "note": "수축에서 1초 정지" },
-        { "exerciseId": "hip-abduction", "group": "B",    "sets": 3, "repMin": 15, "repMax": 20, "restSec": 90,  "plannedOrder": 3, "optional": false, "note": "무게 하향, 수축 정지" },
-        { "exerciseId": "crunch",        "group": "core", "sets": 3, "repMin": 10, "repMax": 15, "restSec": 60,  "plannedOrder": 4, "optional": false, "note": "허리 과신전 금지" },
-        { "exerciseId": "dead-bug",      "group": "core", "sets": 2, "repMin": 10, "repMax": 12, "restSec": 60,  "plannedOrder": 5, "optional": false, "note": "좌우 10~12. 천천히 통제" }
+        { "exerciseId": "monster-glute", "group": "B",    "sets": 3, "repMin": 15, "repMax": 20, "restSec": 90,  "plannedOrder": 3, "optional": false, "note": "골반 고정, 뒤꿈치로 민다" },
+        { "exerciseId": "hip-adduction", "group": "B",    "sets": 3, "repMin": 15, "repMax": 20, "restSec": 90,  "plannedOrder": 4, "optional": false, "note": "시작 폭 80%, 모을 때 1초" },
+        { "exerciseId": "crunch",        "group": "core", "sets": 3, "repMin": 10, "repMax": 15, "restSec": 60,  "plannedOrder": 5, "optional": false, "note": "허리 과신전 금지" },
+        { "exerciseId": "dead-bug",      "group": "core", "sets": 2, "repMin": 10, "repMax": 12, "restSec": 60,  "plannedOrder": 6, "optional": false, "note": "좌우 10~12. 천천히 통제" }
       ] },
 
     { "id": "d4", "name": "Day 4 — 피지크 보완", "subtitle": "전 종목 B그룹 방식", "isBuffer": true,
@@ -576,8 +579,11 @@ Phase 0 진행: 최근 주부터 거슬러 "주 3회 이상" 연속 주 수. 주
 | 팔 | 3 | 3 | — | 4 | **10** | 6~10 | 3x |
 | 가슴(플랫) | 3 | — | — | — | 3 | 3 | 1x |
 | 하체 | — | — | 9 | — | 9 | 9 | 1x |
+| 내전근 | — | — | 3 | — | 3 | 3 | 1x |
 | 코어 | — | — | 5 | — | 5 | 5 | 1x |
-| **세션 세트** | 22 | 19 | 14 | 20 | **75** | | |
+| **세션 세트** | 22 | 19 | 17 | 20 | **78** | | |
+
+> D3는 **2026-08-05 루틴 문서 갱신(CC9)** 으로 6종목 17세트가 됐다 (힙 어브덕션 → 몬스터 글루트, 힙 어덕션 복원). 내전근이 별도 부위 목표로 신설되어 주간 볼륨 바와 Day 제안 점수에 반영된다 — D3의 제안 점수가 5.55 → 6.45로 오른다 (§4 표 3행의 결론 D4 > D3은 그대로).
 
 **주 3회(D1·D2·D3)로 떨어져도** 측면어깨 9(2x), 후면어깨 6(2x)가 확보된다. 볼륨 예산 로직은 이 경우 다음 세션으로 D4를 제안해 상부가슴·광배의 2회차를 채운다.
 

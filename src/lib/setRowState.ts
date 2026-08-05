@@ -38,13 +38,26 @@ export function setRowClass(set: SetRecord | undefined): string {
  * **막지 않는다.** 운동 중 모달·확인은 적대적이고, 맨몸 예외가 없다고 단정할 수 없다 —
  * 실패의 방향은 현상 유지여야 한다 (X5에서 세운 것). 기록은 되고 표시만 한다.
  *
- * **inverse 종목은 제외한다.** 어시스티드 풀업의 보조 무게 0은 실수가 아니라 **최고 난도
- * 달성**이다. 그 구분이 없어서 T11 하향 제안이 어시스티드를 더 어렵게 만든 적이 있다
- * (`weightScale.easierWeight` 주석) — 같은 함정을 여기서 반복하지 않는다.
+ * **제외 두 가지:**
+ *
+ * 1. `isInverse` — 어시스티드 풀업의 보조 무게 0은 실수가 아니라 **최고 난도 달성**이다.
+ *    그 구분이 없어서 T11 하향 제안이 어시스티드를 더 어렵게 만든 적이 있다
+ *    (`weightScale.easierWeight` 주석) — 같은 함정을 반복하지 않는다.
+ * 2. `allowZeroWeight` (CC10) — **맨몸 수행이 정상인 종목**. BB6을 낸 다음 날 실데이터에서
+ *    크런치가 `weight: 0`으로 3세트 체크됐고, 그건 힌트가 뜨는 상태이면서 **오탐**이다.
+ *    데드버그는 애초에 무게를 얹을 수 없다. 카탈로그가 그 사실을 갖고 있어야 하고
+ *    (종목의 성질이므로), 판정은 이 함수 안에서만 갈린다.
+ *
+ * "맨몸 예외가 없다고 단정할 수 없다"가 BB6의 근거였는데 하루 뒤에 그 예외가 나왔다 —
+ * 그래서 막지 않기로 한 판단이 맞았다. 오탐은 표시 하나로 끝나고 기록은 온전했다.
  *
  * 체크 전에는 띄우지 않는다: 입력 중인 행에 경고를 미리 띄우면 정상 경로가 경고를 지나간다.
  */
-export function zeroWeightHint(set: SetRecord | undefined, isInverse: boolean): boolean {
-  if (isInverse) return false
+export function zeroWeightHint(
+  set: SetRecord | undefined,
+  isInverse: boolean,
+  allowZeroWeight = false,
+): boolean {
+  if (isInverse || allowZeroWeight) return false
   return set?.done === true && set.weight === 0
 }

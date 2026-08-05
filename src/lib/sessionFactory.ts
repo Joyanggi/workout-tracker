@@ -57,6 +57,12 @@ export function buildSession(args: {
    * 같은 화면이 서로 다른 말을 한다 (F6).
    */
   scales?: WeightScaleMap
+  /**
+   * 첫 기록 시작 무게 추정 (CC13). 둘 다 있어야 추정이 나온다 — 없으면 현행(0kg)이다.
+   * 계수를 함수로 받는 이유: 카탈로그를 이 모듈이 알 필요가 없다.
+   */
+  bodyWeightKg?: number
+  startWeightPctBW?: (exerciseId: string) => number | undefined
 }): BuiltSession {
   const { routine, day, mode, sessions, phase, today, now = new Date(), returnStep } = args
 
@@ -77,6 +83,9 @@ export function buildSession(args: {
         phase,
         scales: args.scales,
         inverse: args.isInverse?.(recordKey) ?? false,
+        // 첫 기록 시작 무게 추정 (CC13). 세션 생성 시점의 프리필이 카드와 같아야 한다
+        bodyWeightKg: args.bodyWeightKg,
+        startWeightPctBW: args.startWeightPctBW?.(routineExercise.exerciseId),
       })
       prefills.set(recordKey, prefill)
 

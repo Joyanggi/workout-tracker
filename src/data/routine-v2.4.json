@@ -2,7 +2,7 @@
   "id": "physique-v2.4",
   "name": "피지크형 상체 루틴 v2.4",
   "version": "2.4",
-  "seedRevision": 1,
+  "seedRevision": 2,
   "createdAt": "2026-07-31T00:00:00.000Z",
   "isActive": true,
   "muscleTargets": {
@@ -36,6 +36,10 @@
     },
     "코어": {
       "target": 5,
+      "weight": 0.3
+    },
+    "내전근": {
+      "target": 3,
       "weight": 0.3
     }
   },
@@ -232,6 +236,7 @@
       "isBuffer": false,
       "muscleSets": {
         "하체": 9,
+        "내전근": 3,
         "코어": 5
       },
       "exercises": [
@@ -260,7 +265,7 @@
           "note": "수축에서 1초 정지"
         },
         {
-          "exerciseId": "hip-abduction",
+          "exerciseId": "monster-glute",
           "group": "B",
           "muscle": "하체",
           "sets": 3,
@@ -269,7 +274,19 @@
           "restSec": 90,
           "plannedOrder": 3,
           "optional": false,
-          "note": "무게 하향, 수축 정지"
+          "note": "골반 고정, 뒤꿈치로 민다"
+        },
+        {
+          "exerciseId": "hip-adduction",
+          "group": "B",
+          "muscle": "내전근",
+          "sets": 3,
+          "repMin": 15,
+          "repMax": 20,
+          "restSec": 90,
+          "plannedOrder": 4,
+          "optional": false,
+          "note": "시작 폭 80%, 모을 때 1초"
         },
         {
           "exerciseId": "crunch",
@@ -279,7 +296,7 @@
           "repMin": 10,
           "repMax": 15,
           "restSec": 60,
-          "plannedOrder": 4,
+          "plannedOrder": 5,
           "optional": false,
           "note": "허리 과신전 금지"
         },
@@ -291,7 +308,7 @@
           "repMin": 10,
           "repMax": 12,
           "restSec": 60,
-          "plannedOrder": 5,
+          "plannedOrder": 6,
           "optional": false,
           "note": "좌우 10~12. 천천히 통제"
         }

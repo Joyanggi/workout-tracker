@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { getSetting, setSetting } from '../db'
 import { DEFAULT_SOUND_VOLUME, setVolumeScale, volumeScaleFor, type SoundVolume } from '../lib/beep'
+import { DEFAULT_A_ECCENTRIC, type AEccentricSec } from '../lib/tempo'
 import type { Phase } from '../types'
 
 interface SettingsState {
@@ -17,6 +18,11 @@ interface SettingsState {
   tempoGuide: boolean
   /** 신호 볼륨 (Z1). 배율은 `beep.ts`가 소유하고 이 값은 그 선택지다 */
   soundVolume: SoundVolume
+  /**
+   * A그룹 이완 초 (CC16). 문서 3장이 "1.5~2초 (기본 2)" 범위로 규정한다 —
+   * 범위 밖 값은 설정에 없다. B그룹·코어는 열지 않는다 (감각 점수 체계의 전제).
+   */
+  aEccentricSec: AEccentricSec
 
   load: () => Promise<void>
   setPhase: (phase: Phase) => Promise<void>
@@ -24,6 +30,7 @@ interface SettingsState {
   setBodyWeight: (kg: number) => Promise<void>
   setTempoGuide: (on: boolean) => Promise<void>
   setSoundVolume: (volume: SoundVolume) => Promise<void>
+  setAEccentricSec: (sec: AEccentricSec) => Promise<void>
 }
 
 /**
@@ -36,17 +43,19 @@ export const useSettings = create<SettingsState>((set) => ({
   onboardingDone: false,
   tempoGuide: false,
   soundVolume: DEFAULT_SOUND_VOLUME,
+  aEccentricSec: DEFAULT_A_ECCENTRIC,
 
   load: async () => {
     // activeRoutineId는 여기 두지 않는다 — 루틴 교체 시 낡은 값이 남고,
     // 실제 소비처인 getActiveRoutine()이 Dexie에서 직접 읽는다
-    const [currentPhase, onboardingDone, bodyWeightKg, tempoGuide, soundVolume] =
+    const [currentPhase, onboardingDone, bodyWeightKg, tempoGuide, soundVolume, aEccentricSec] =
       await Promise.all([
         getSetting<Phase>('currentPhase', 0),
         getSetting<boolean>('onboardingDone', false),
         getSetting<number | undefined>('bodyWeightKg', undefined),
         getSetting<boolean>('tempoGuide', false),
         getSetting<SoundVolume>('soundVolume', DEFAULT_SOUND_VOLUME),
+        getSetting<AEccentricSec>('aEccentricSec', DEFAULT_A_ECCENTRIC),
       ])
     /*
      * 부팅 시 배율을 오디오 모듈에 밀어 넣는다 (Z1).
@@ -54,7 +63,15 @@ export const useSettings = create<SettingsState>((set) => ({
      * 방향으로 실패하지 않는다.
      */
     setVolumeScale(volumeScaleFor(soundVolume))
-    set({ loaded: true, currentPhase, onboardingDone, bodyWeightKg, tempoGuide, soundVolume })
+    set({
+      loaded: true,
+      currentPhase,
+      onboardingDone,
+      bodyWeightKg,
+      tempoGuide,
+      soundVolume,
+      aEccentricSec,
+    })
   },
 
   setPhase: async (phase) => {
@@ -86,5 +103,10 @@ export const useSettings = create<SettingsState>((set) => ({
     setVolumeScale(volumeScaleFor(volume))
     await setSetting('soundVolume', volume)
     set({ soundVolume: volume })
+  },
+
+  setAEccentricSec: async (sec) => {
+    await setSetting('aEccentricSec', sec)
+    set({ aEccentricSec: sec })
   },
 }))

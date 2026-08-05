@@ -78,9 +78,21 @@ describe('부위별 기대 빈도 — 부위 이름을 하드코딩하지 않는
 
   it('바는 가중치(우선순위) 내림차순으로 정렬된다 (§5.1)', () => {
     const { bars } = muscleBars([], ROUTINE, MON)
-    expect(bars.map((b) => b.muscle)).toEqual([
-      '측면어깨', '상부가슴', '광배', '후면어깨', '팔', '하체', '가슴', '코어',
-    ])
+    /*
+      하드코딩 목록을 규칙으로 바꿨다 (CC9). 내전근(0.30)이 신설되며 코어(0.30)와
+      **가중치가 같아졌고**, 동률의 순서는 정렬 안정성에 달려 있어 목록을 박으면
+      의미 없는 실패가 된다. 검사해야 하는 것은 "내림차순"이라는 규칙이다.
+    */
+    const weights = bars.map((b) => ROUTINE.muscleTargets[b.muscle].weight)
+    for (let i = 1; i < weights.length; i += 1) {
+      expect(weights[i], `${bars[i - 1].muscle} → ${bars[i].muscle}`).toBeLessThanOrEqual(
+        weights[i - 1],
+      )
+    }
+    // 목표에 있는 부위가 하나도 빠지지 않는다 (부위 이름을 하드코딩하지 않는 것이 이 describe의 취지다)
+    expect(bars.map((b) => b.muscle).sort()).toEqual(Object.keys(ROUTINE.muscleTargets).sort())
+    // 최상위 셋은 우선순위가 명확하므로 그대로 고정한다
+    expect(bars.slice(0, 3).map((b) => b.muscle)).toEqual(['측면어깨', '상부가슴', '광배'])
   })
 
   it('주 3회 미만인 주에는 빈도 미달을 경고하지 않는다', () => {

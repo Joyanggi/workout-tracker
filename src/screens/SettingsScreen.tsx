@@ -6,6 +6,7 @@ import {
   VOLUME_SCALES,
   audioContextState,
   previewSignals,
+  previewTempoGlide,
   unlockAudio,
   type SoundVolume,
 } from '../lib/beep'
@@ -19,6 +20,7 @@ import { phaseReadiness } from '../lib/phaseReadiness'
 import { todayLocal } from '../lib/dates'
 import { dayTotalSets, exerciseLabel, useRoutine } from '../lib/useRoutine'
 import { isStandalone } from '../lib/platform'
+import { A_ECCENTRIC_OPTIONS } from '../lib/tempo'
 import { useSettings } from '../store/settings'
 import type { Phase } from '../types'
 
@@ -47,6 +49,8 @@ export default function SettingsScreen({ seed }: { seed: SeedResult }) {
     setTempoGuide,
     soundVolume,
     setSoundVolume,
+    aEccentricSec,
+    setAEccentricSec,
   } = useSettings()
   const sessionCount = useLiveQuery(() => db.sessions.count(), [], 0)
   const sessions = useLiveQuery(() => db.sessions.toArray(), [], [])
@@ -247,6 +251,20 @@ export default function SettingsScreen({ seed }: { seed: SeedResult }) {
         >
           🔊 미리 듣기 (3·2·1 틱 → 종료 차임)
         </button>
+        {/*
+          글라이드 미리 듣기 (CC7·CC8) — 게인 기준이 다른 **별 계열의 소리**라
+          틱·차임만으로는 "글라이드가 충분히 큰가"를 판단할 수 없다.
+        */}
+        <button
+          className="btn btn-sm"
+          style={{ marginTop: 8 }}
+          onClick={() => {
+            unlockAudio()
+            previewTempoGlide()
+          }}
+        >
+          🔊 템포 글라이드 미리 듣기 (올림 1초 → 내림 2초)
+        </button>
         <p className="row-sub" style={{ marginTop: 8 }}>
           카운트다운 틱 · 종료 차임 · 템포 가이드 소리가 함께 조절됩니다.
           무음 스위치가 켜져 있으면 어떤 크기로도 소리가 나지 않습니다 (음악을 끊지 않기
@@ -269,12 +287,38 @@ export default function SettingsScreen({ seed }: { seed: SeedResult }) {
           ))}
         </div>
         <p className="row-sub" style={{ marginTop: 8 }}>
-          세트 행의 ♩ 버튼으로 수축·이완 리듬을 소리와 링으로 안내합니다
-          (A그룹 1-2초 · B그룹 3-1-1-1 · 코어 2-1-2, 루틴 문서 3장).
+          세트 행의 ♩ 버튼으로 수축·이완 리듬을 <b>연속 글라이드</b>와 링으로 안내합니다
+          (A그룹 1-{aEccentricSec}초 · B그룹 3-1-1-1 · 코어 2-1-2, 루틴 문서 3장).
+          호흡도 함께 표시됩니다 — 원리는 “힘쓸 때 내쉰다” 하나입니다.
           종료하면 카운트된 반복수가 그 세트에 들어갑니다.
         </p>
         <p className="row-sub">
           마지막 2~3회에서 리듬을 못 따라가기 시작하면 그게 세트 종료 신호입니다 (문서 13장).
+        </p>
+
+        {/*
+          A그룹 이완 초 (CC16). **문서 3장 표가 "1.5~2초 (기본 2)" 범위로 개정됐다** —
+          설정이 문서 범위 안에서만 움직인다. B그룹·코어는 열지 않는다: 그쪽 템포는
+          속도가 아니라 감각 점수 체계의 전제이고, 문서에 그 근거까지 적혀 있다.
+        */}
+        <div className="card-label" style={{ marginTop: 16 }}>
+          A그룹 내리는 속도
+        </div>
+        <div className="segment">
+          {A_ECCENTRIC_OPTIONS.map((sec) => (
+            <button
+              key={sec}
+              aria-pressed={aEccentricSec === sec}
+              onClick={() => void setAEccentricSec(sec)}
+            >
+              {sec}초
+            </button>
+          ))}
+        </div>
+        <p className="row-sub" style={{ marginTop: 8 }}>
+          문서 3장이 규정한 범위(1.5~2초, 기본 2) 안에서만 고를 수 있습니다. 통제를 유지하는
+          것이 조건입니다 — 반동이 생기면 느린 쪽이 맞습니다. B그룹·코어는 감각 점수 체계의
+          전제라 고정입니다. 레그 컬은 문서의 예외 행(1-1-2)을 따릅니다.
         </p>
       </div>
 

@@ -52,3 +52,59 @@ export function dayChoiceReason(
 ): string {
   return pickedDayId === null ? suggestionReason : `직접 선택 — 제안은 ${suggested.name}`
 }
+
+/**
+ * 홈 카드가 무엇을 가리키는가 (CC11).
+ *
+ * 피드백: "운동 중에 홈으로 나오면 카드가 지금 하는 운동으로, 시작 버튼이 '이어서 하기'로
+ * 바뀌면 좋겠다. 실수로 누르면 세션이 날아갈까 불안하다."
+ *
+ * **데이터는 이미 안전했다** — `start()`가 열린 세션을 감지하면 OpenSessionSheet(이어서 /
+ * 마치고 시작 / 버리고 시작)를 먼저 띄우고 `store.begin`도 덮어쓰기를 거부한다.
+ * 유실 경로는 없었고, 고칠 것은 **화면이 그 사실을 말하지 않는 것**이었다.
+ * 불안은 실재하고, 주 행동 버튼의 라벨이 정확하지 않은 것이 그 원인이다.
+ *
+ * **직접 선택이 세션 모드를 이긴다.** 세션 중에 [변경]으로 다른 Day를 고르는 것은
+ * "갈아타겠다"는 명시적 의사표시이고, 그때 카드가 계속 진행 중 세션을 보여주면
+ * 고른 결과가 화면에 나타나지 않는다 (AA1이 없애려던 형태다). 갈아타기 자체는
+ * OpenSessionSheet 가드가 그대로 받는다.
+ */
+export interface HomeCardState {
+  day: RoutineDay
+  /** 제안 이유 자리에 쓸 문구 */
+  reason: string
+  /** primary 버튼 라벨 */
+  cta: string
+  /** 진행 중 세션 모드 — 버튼이 시작이 아니라 이어서 하기다 */
+  resuming: boolean
+}
+
+export function homeCardState(args: {
+  routine: RoutineTemplate
+  suggested: RoutineDay
+  suggestionReason: string
+  pickedDayId: string | null
+  /** 열린 세션의 dayId (없으면 null) */
+  openDayId: string | null
+}): HomeCardState {
+  const { routine, suggested, suggestionReason, pickedDayId, openDayId } = args
+  const picked = displayDay(routine, pickedDayId, suggested)
+
+  if (openDayId !== null && pickedDayId === null) {
+    // 세션의 Day를 못 찾으면(시드 교체) 제안으로 되돌린다 — displayDay와 같은 실패 방향
+    const day = findDay(routine, openDayId) ?? suggested
+    return {
+      day,
+      reason: '진행 중인 세션이 있어요',
+      cta: '이어서 하기',
+      resuming: true,
+    }
+  }
+
+  return {
+    day: picked,
+    reason: dayChoiceReason(pickedDayId, suggested, suggestionReason),
+    cta: `${picked.name} 시작`,
+    resuming: false,
+  }
+}

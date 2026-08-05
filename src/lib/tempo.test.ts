@@ -3,11 +3,14 @@ import {
   COUNT_IN_SEC,
   PHASE_LABEL,
   TEMPO,
+  GLIDE_HIGH,
+  GLIDE_LOW,
   cycleSeconds,
-  phaseTone,
+  phaseGlide,
   tempoPositionAt,
   tempoRepState,
 } from './tempo'
+import { TICK } from './beep'
 
 /**
  * 템포 가이드 (G7).
@@ -137,31 +140,55 @@ describe('복귀 안전성 — 누적하지 않는다', () => {
   })
 })
 
-describe('페이즈 소리', () => {
-  it('이완 톤 길이가 이완 초에 비례한다 — "언제까지 내려야 하나"를 귀로 안다', () => {
-    const bEcc = TEMPO.B.find((p) => p.kind === 'eccentric')!
-    const aEcc = TEMPO.A.find((p) => p.kind === 'eccentric')!
-    expect(phaseTone(bEcc).duration).toBeGreaterThan(phaseTone(aEcc).duration)
-    expect(phaseTone(bEcc).duration).toBeCloseTo(2.7, 5)
-  })
-
-  it('수축이 이완보다 높은 음이다 (상행 vs 하행)', () => {
-    const conc = phaseTone(TEMPO.B[0])
-    const ecc = phaseTone(TEMPO.B[2])
-    expect(conc.freq).toBeGreaterThan(ecc.freq)
-  })
-
-  it('정지·짜내기는 짧은 저음 틱이다', () => {
-    for (const kind of ['squeeze', 'stretch'] as const) {
-      const t = phaseTone({ kind, seconds: 1 })
-      expect(t.duration).toBeLessThan(0.2)
-      expect(t.freq).toBeLessThan(phaseTone(TEMPO.B[2]).freq)
+/**
+ * 페이즈 소리 — **연속 글라이드** (CC7).
+ *
+ * v1.7까지는 페이즈 경계에서 단발 톤(`phaseTone`)을 냈다. 그 구조는 "방금 바뀌었다"만
+ * 말하고 "언제 바뀔지"를 말하지 못해서 반 박자 늦었다 (피드백). 아래 테스트는 새 구조가
+ * **무엇을 전달해야 하는가**를 잠근다 — 주파수 상수가 아니라 성질이다.
+ */
+describe('페이즈 글라이드 (CC7)', () => {
+  it('글라이드는 페이즈 길이 그대로 이어진다 — "언제까지"가 소리 안에 있다', () => {
+    for (const phases of [TEMPO.A, TEMPO.B, TEMPO.core]) {
+      for (const phase of phases) {
+        expect(phaseGlide(phase).duration).toBe(phase.seconds)
+      }
     }
   })
 
-  it('수축 톤이 페이즈보다 길어지지 않는다', () => {
-    const short = phaseTone({ kind: 'concentric', seconds: 0.2 })
-    expect(short.duration).toBeLessThanOrEqual(0.2)
+  it('수축은 상행, 이완은 하행이다 (방향이 곧 동작 방향)', () => {
+    const conc = phaseGlide({ kind: 'concentric', seconds: 1 })
+    const ecc = phaseGlide({ kind: 'eccentric', seconds: 3 })
+    expect(conc.to).toBeGreaterThan(conc.from)
+    expect(ecc.to).toBeLessThan(ecc.from)
+    // 두 페이즈가 같은 두 음 사이를 왕복한다 — 사이클이 하나의 곡선으로 들린다
+    expect(conc.from).toBe(ecc.to)
+    expect(conc.to).toBe(ecc.from)
+  })
+
+  it('정지 구간은 유지(같은 음)다 — 움직이지 않는 것이 소리에도 있다', () => {
+    for (const kind of ['squeeze', 'stretch'] as const) {
+      const g = phaseGlide({ kind, seconds: 1 })
+      expect(g.from).toBe(g.to)
+    }
+  })
+
+  it('정점 짜내기는 고음 유지, 신장 정지는 저음 유지다', () => {
+    expect(phaseGlide({ kind: 'squeeze', seconds: 1 }).from).toBe(GLIDE_HIGH)
+    expect(phaseGlide({ kind: 'stretch', seconds: 1 }).from).toBe(GLIDE_LOW)
+  })
+
+  it('신장 정지만 게인이 낮다 — 쉬는 구간이라는 신호', () => {
+    const rest = phaseGlide({ kind: 'stretch', seconds: 1 })
+    const work = phaseGlide({ kind: 'concentric', seconds: 1 })
+    expect(rest.gain).toBeLessThan(work.gain)
+  })
+
+  it('대역이 W2의 스피커 유효 대역 안이고 틱·차임과 겹치지 않는다', () => {
+    // 소형 스피커는 공진(수백 Hz) 아래로 12dB/oct 떨어진다 — 그 위여야 들린다
+    expect(GLIDE_LOW).toBeGreaterThan(300)
+    // 틱 784Hz·차임 880~1568Hz 아래에 둬서 글라이드 위로 그 신호들이 들린다
+    expect(GLIDE_HIGH).toBeLessThan(TICK.freq)
   })
 })
 

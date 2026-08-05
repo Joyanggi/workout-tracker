@@ -86,18 +86,24 @@ describe('AA1 — 시트가 세션을 만들지 않는다', () => {
     expect(onPick).toMatch(/pickedIdFor/)
   })
 
-  it('카드와 시작 버튼이 같은 파생 Day를 쓴다', () => {
-    // suggestion.day를 카드나 시작 버튼이 직접 읽으면 보이는 Day와 시작되는 Day가 갈라진다
+  it('카드와 시작 버튼이 같은 파생 상태를 쓴다', () => {
+    /*
+      suggestion.day를 카드나 시작 버튼이 직접 읽으면 보이는 Day와 시작되는 Day가 갈라진다.
+      CC11에서 판정이 `homeCardState` 하나로 합쳐졌으므로(제안 / 직접 선택 / 진행 중 세션),
+      화면은 그 결과(card.*, displayed)만 읽어야 한다.
+    */
     const src = home()
     const card = /className="card today-card[\s\S]*?<\/button>/.exec(src)?.[0]
     expect(card, '카드를 찾지 못했다 — 이 검사가 헛돌고 있다').toBeDefined()
     expect(card).not.toMatch(/suggestion\.day\./)
     expect(card).toMatch(/displayed\./)
+    expect(card).toMatch(/card\.reason/)
 
     const startBtn = /className="btn-row start-row"[\s\S]*?<\/div>/.exec(src)?.[0]
     expect(startBtn, '시작 버튼 행을 찾지 못했다 — 이 검사가 헛돌고 있다').toBeDefined()
     expect(startBtn).toMatch(/start\(displayed\)/)
-    expect(startBtn).toMatch(/displayed\.name/)
+    // 라벨도 파생값이다 (CC11: 진행 중이면 "이어서 하기")
+    expect(startBtn).toMatch(/\{card\.cta\}/)
   })
 
   it('시작하면 override를 지운다', () => {

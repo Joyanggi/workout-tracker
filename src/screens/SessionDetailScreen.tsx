@@ -141,6 +141,8 @@ export default function SessionDetailScreen({
             compensationSigns={exercise?.compensationSigns ?? []}
             defaultStep={bundle.routine.rules.weightIncrementKg}
             inverseWeight={isInverseKey(bundle.catalog, entry.recordKey)}
+            /* 편집 화면도 같은 판정을 받아야 한다 (CC10) — 한쪽만 오탐이 남으면 갈라진다 */
+            allowZeroWeight={exercise?.allowZeroWeight === true}
             actions={editor.actions}
             open={openKey === entry.recordKey}
             onToggleOpen={() => setOpenKey(openKey === entry.recordKey ? null : entry.recordKey)}

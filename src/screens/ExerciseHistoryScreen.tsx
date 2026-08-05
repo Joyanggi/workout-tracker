@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { hasCompensation } from '../lib/compensation'
 import { weekdayKo } from '../lib/dates'
 import { allRecordKeys, exerciseHistory } from '../lib/history'
+import { noteHistory, noteLineText } from '../lib/noteHistory'
 import { isInverseKey } from '../lib/weightScale'
 import type { RoutineBundle } from '../lib/useRoutine'
 import type { Session } from '../types'
@@ -27,6 +28,11 @@ export default function ExerciseHistoryScreen({
   const keys = useMemo(() => allRecordKeys(sessions, bundle.routine), [sessions, bundle.routine])
   const history = useMemo(
     () => (selected ? exerciseHistory(sessions, selected) : []),
+    [sessions, selected],
+  )
+  /** 메모·보상작용 이력 (CC14) — 저장된 값에서 파생한다 */
+  const notes = useMemo(
+    () => (selected ? noteHistory(sessions, selected) : []),
     [sessions, selected],
   )
 
@@ -101,6 +107,33 @@ export default function ExerciseHistoryScreen({
           </p>
         )}
       </div>
+
+      {/*
+        메모 타임라인 (CC14). 저장은 이미 있으니 **읽기만** 추가한다 —
+        같은 종목에서 반복되는 감각·보상작용 패턴이 한 화면에 보여야 한다.
+      */}
+      {notes.length > 0 && (
+        <div className="card">
+          <div className="card-label">메모 이력 ({notes.length})</div>
+          {notes.map((n) => (
+            <div className="row" key={n.sessionId}>
+              <div className="row-main">
+                <div className="row-title">
+                  {n.date} ({weekdayKo(n.date)})
+                  {n.sensoryScore !== undefined && (
+                    <span className="chip" style={{ marginLeft: 6 }}>
+                      감각 {n.sensoryScore}
+                    </span>
+                  )}
+                </div>
+                <div className="row-sub" style={{ whiteSpace: 'normal' }}>
+                  {noteLineText(n)}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="card">
         <div className="card-label">세션 히스토리 (최신순)</div>

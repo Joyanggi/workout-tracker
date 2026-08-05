@@ -61,19 +61,57 @@ function audioCtor(): Ctor | undefined {
   return window.AudioContext ?? w.webkitAudioContext
 }
 
+/**
+ * 복구가 필요한 상태인가 (CC1).
+ *
+ * **`'suspended'`만 보면 안 된다.** iOS Safari는 앱 전환·전화·시리에서 컨텍스트를
+ * 비표준 상태 **`'interrupted'`**로 떨어뜨린다. 복구 경로 세 곳이 전부
+ * `state === 'suspended'`만 검사하고 있었고, 그래서 `interrupted`가 되면 소리가 죽은 채로
+ * 남았다 — "앱 나갔다 오면 소리가 안 나고, 완전 종료 후 다시 켜면 난다"는 보고가
+ * 정확히 이 상태다 (재시작하면 새 컨텍스트라 정상).
+ *
+ * `'closed'`는 제외한다 — resume으로 살아나지 않으므로 **재생성 대상**이다.
+ *
+ * 판정을 이 함수 하나로 모으는 이유: 세 곳이 각자 조건을 들고 있으면 다음에 또 한 곳만
+ * 고쳐진다 (이번 결함이 정확히 그 형태다).
+ */
+export function needsResume(state: string | undefined | null): boolean {
+  return state !== null && state !== undefined && state !== 'running' && state !== 'closed'
+}
+
+/**
+ * 죽은 컨텍스트를 버린다 (CC1).
+ *
+ * **"죽은 컨텍스트를 붙들고 있는 것"이 지금의 실패 모드다.** resume이 거부되면 그
+ * 컨텍스트로는 다시 소리가 나지 않으므로, 버리고 다음 사용자 제스처에서 새로 만든다
+ * (세트 체크가 `unlockAudio()`를 부른다). 실패하는 방향이 "다음 제스처에서 복구"여야 한다.
+ */
+function discardContext(): void {
+  const dead = ctx
+  ctx = null
+  void dead?.close().catch(() => undefined)
+}
+
+/** resume 시도 — 거부되면 컨텍스트를 버린다 (CC1) */
+function tryResume(): void {
+  if (!ctx || !needsResume(ctx.state)) return
+  void ctx.resume().catch(() => discardContext())
+}
+
 /** 사용자 제스처 핸들러 안에서 호출해야 한다 */
 export function unlockAudio(): void {
   const Ctor = audioCtor()
   if (!Ctor) return
   configureAudioSession()
+  if (ctx && ctx.state === 'closed') discardContext()
   if (!ctx) ctx = new Ctor()
-  if (ctx.state === 'suspended') void ctx.resume()
+  tryResume()
 }
 
-/** 백그라운드에서 돌아오면 컨텍스트가 suspended로 떨어져 있다 */
+/** 백그라운드에서 돌아오면 컨텍스트가 suspended·interrupted로 떨어져 있다 (CC1) */
 export function resumeAudio(): void {
   configureAudioSession()
-  if (ctx && ctx.state === 'suspended') void ctx.resume()
+  tryResume()
 }
 
 /*
@@ -86,11 +124,19 @@ export function resumeAudio(): void {
  * 따로 저장하지 않는 이유: "틱만 커지고 차임은 안 커지는" 갈라짐이 정확히 이 프로젝트가
  * 반복해서 고쳐 온 형태다.
  *
- * 상한 1.8인 이유: 가장 큰 CHIME 0.26 × 1.8 = 0.47이고, 인접 톤의 램프가 겹쳐도
- * 피크가 1.0을 넘지 않는다 (사인파는 클리핑 전까지 왜곡이 없다).
- * `tone()`에서 한 번 더 1로 클램프해 두는 것은 미래에 게인을 올릴 때의 방어다.
+ * **CC8에서 게인과 배율을 함께 올렸다 — 단계를 더 만드는 것이 답이 아니었다.**
+ * 백업의 `soundVolume`이 이미 `max`인데 "아직도 너무 작다"가 피드백이었다. W2 분석대로
+ * 주파수·길이는 이미 스피커 유효 대역에 있으므로 남은 것은 게인 헤드룸뿐이다.
+ *
+ * 실효 피크 (사인파, `tone()`의 per-tone 1.0 클램프 유지):
+ *   차임 0.36 × 2.2 = **0.79** (이전 0.26 × 1.8 = 0.47 → +4.6 dB)
+ *   틱   0.30 × 2.2 = **0.66** (이전 0.20 × 1.8 = 0.36 → +5.3 dB)
+ *
+ * 차임 3음은 `delay`가 앞 음의 `duration`과 맞물려, 앞 음이 지수 감쇠 끝(0.0001)에 있을 때
+ * 다음 음이 시작한다 — 합산 피크가 개별 피크를 넘지 않는다 (사인파는 클리핑 전까지
+ * 왜곡이 없다). 클램프는 다음에 또 올릴 때의 방어로 남겨 둔다.
  */
-export const VOLUME_SCALES = { normal: 1, loud: 1.4, max: 1.8 } as const
+export const VOLUME_SCALES = { normal: 1, loud: 1.5, max: 2.2 } as const
 export type SoundVolume = keyof typeof VOLUME_SCALES
 
 /** 기본값 `loud` — "지금도 들리는데 더 적극적이면 좋겠다"가 피드백이므로 기본 경험을 올린다 */
@@ -127,13 +173,73 @@ export interface ToneSpec {
   type?: OscillatorType
 }
 
+/*
+ * ─── 예약 취소 (CC2) ──────────────────────────────────────
+ *
+ * 피드백: "마지막 템포가이드 내림 후에도 1틱 사운드 남."
+ *
+ * 원인은 `tone()`이 `osc.start(at)`으로 **예약**한다는 것이다. delay가 있는 톤(차임 2·3음,
+ * 마지막 큐 2음)과 방금 예약된 페이즈 소리는 시트를 닫아도 이미 오디오 그래프에 올라가
+ * 있어 그대로 재생된다 — **React 정리는 오디오 예약을 취소하지 않는다.**
+ *
+ * 그래서 소리에 태그를 붙여 추적하고, 태그 단위로 취소한다. 태그를 나누는 이유는
+ * 명확하다: 템포 가이드를 닫는 순간 **동시에 울리고 있을 수 있는 휴식 차임**을 건드리면
+ * 안 된다 (자동 종료가 휴식을 시작시키므로 실제로 겹친다).
+ */
+export type SoundTag = 'tempo' | 'timer'
+
+interface LiveNode {
+  osc: OscillatorNode
+  env: GainNode
+}
+
+const live = new Map<SoundTag, Set<LiveNode>>()
+
+function track(tag: SoundTag, node: LiveNode): void {
+  const set = live.get(tag) ?? new Set<LiveNode>()
+  set.add(node)
+  live.set(tag, set)
+  // 자연 종료한 노드는 목록에서 빠진다 — 안 빼면 세션 내내 자라는 누수가 된다
+  node.osc.onended = () => set.delete(node)
+}
+
+/**
+ * 그 태그의 예약·재생 중 소리를 즉시 멈춘다 (CC2).
+ *
+ * 게인을 20ms 램프로 내린 뒤 정지한다 — 재생 중인 톤을 그냥 끊으면 클릭이 남고,
+ * 그건 `tone()`이 엔벨로프를 한 곳에 모아 없앤 바로 그 문제다.
+ * 아직 시작 시각이 오지 않은 노드는 `stop(now)`으로 **아예 울리지 않게** 된다
+ * (Web Audio: stop 시각이 start 시각보다 앞이면 소리를 내지 않는다).
+ */
+export function cancelTag(tag: SoundTag): void {
+  const set = live.get(tag)
+  if (!set || !ctx) return
+  const now = ctx.currentTime
+  for (const node of set) {
+    try {
+      node.env.gain.cancelScheduledValues(now)
+      node.env.gain.setValueAtTime(node.env.gain.value, now)
+      node.env.gain.linearRampToValueAtTime(0.0001, now + 0.02)
+      node.osc.stop(now + 0.03)
+    } catch {
+      /* 이미 끝난 노드에 stop을 부르면 던지는 구현이 있다 — 취소는 실패해도 조용해야 한다 */
+    }
+  }
+  set.clear()
+}
+
 /**
  * 톤 하나. 모든 소리가 이 함수를 지난다 — 게인 엔벨로프를 한 곳에 두면
  * 소리마다 클릭(급격한 진폭 변화) 여부가 갈리지 않는다.
  */
-export function tone({ freq, duration, delay = 0, gain = 0.22, type = 'sine' }: ToneSpec): void {
+export function tone(
+  { freq, duration, delay = 0, gain = 0.22, type = 'sine' }: ToneSpec,
+  tag: SoundTag = 'timer',
+): void {
   if (!ctx) return
-  if (ctx.state === 'suspended') void ctx.resume()
+  // 복구 판정은 needsResume 하나를 지난다 (CC1) — suspended만 보면 interrupted를 놓친다
+  tryResume()
+  if (!ctx) return
 
   // 볼륨 배율은 **여기 한 곳**에서만 적용된다 (Z1 — 위 주석 참조)
   const level = Math.min(1, gain * volumeScale)
@@ -149,6 +255,62 @@ export function tone({ freq, duration, delay = 0, gain = 0.22, type = 'sine' }: 
   osc.connect(env).connect(ctx.destination)
   osc.start(at)
   osc.stop(at + duration + 0.02)
+  track(tag, { osc, env })
+}
+
+/*
+ * ─── 연속 글라이드 (CC7) ──────────────────────────────────
+ *
+ * 피드백: "매 틱이 아니라 도로로로 올라갔다 내려오는 느낌. 지금은 이완하다 갑자기 수축
+ * 사운드가 들리면 반 박자 늦고 호흡도 꼬인다."
+ *
+ * **구조의 한계였다.** 페이즈 *경계*에서 한 번 울리는 소리는 "방금 바뀌었다"만 말하고
+ * "언제 바뀔지"를 말하지 못한다. 반 박자 늦는 것은 사용자 잘못이 아니라 신호 설계의
+ * 귀결이다. 연속 글라이드는 **피치의 진행 방향과 위치가 곧 남은 시간**이라 예측이
+ * 소리 안에 들어 있다.
+ *
+ * 어택·릴리즈를 30ms로 두는 이유: 페이즈가 이어질 때 이음새에서 클릭이 없어야 한다.
+ * 램프는 `linearRampToValueAtTime`으로 주파수를 **연속 변화**시킨다 (톤 여러 개를
+ * 이어 붙이면 그게 다시 "경계에서 바뀌는 소리"가 된다).
+ */
+export interface GlideSpec {
+  /** 시작 Hz */
+  from: number
+  /** 끝 Hz (같으면 유지) */
+  to: number
+  /** 초 — 페이즈 길이 그대로 */
+  duration: number
+  gain?: number
+}
+
+const GLIDE_EDGE_SEC = 0.03
+
+export function glide(
+  { from, to, duration, gain = 0.14 }: GlideSpec,
+  tag: SoundTag = 'tempo',
+): void {
+  if (!ctx || duration <= 0) return
+  tryResume()
+  if (!ctx) return
+
+  const level = Math.min(1, gain * volumeScale)
+  const at = ctx.currentTime
+  const osc = ctx.createOscillator()
+  const env = ctx.createGain()
+  osc.type = 'sine'
+  osc.frequency.setValueAtTime(from, at)
+  if (to !== from) osc.frequency.linearRampToValueAtTime(to, at + duration)
+
+  const edge = Math.min(GLIDE_EDGE_SEC, duration / 3)
+  env.gain.setValueAtTime(0.0001, at)
+  env.gain.linearRampToValueAtTime(level, at + edge)
+  env.gain.setValueAtTime(level, at + duration - edge)
+  env.gain.linearRampToValueAtTime(0.0001, at + duration)
+
+  osc.connect(env).connect(ctx.destination)
+  osc.start(at)
+  osc.stop(at + duration + 0.02)
+  track(tag, { osc, env })
 }
 
 /*
@@ -174,16 +336,16 @@ export function tone({ freq, duration, delay = 0, gain = 0.22, type = 'sine' }: 
  */
 
 /** 카운트다운 틱 (G1) · 템포 가이드 카운트인 (G7) — 두 곳이 같은 소리를 써야 한다 */
-export const TICK: ToneSpec = { freq: 784, duration: 0.11, gain: 0.2 }
+export const TICK: ToneSpec = { freq: 784, duration: 0.11, gain: 0.3 }
 
 /**
  * 휴식 종료 차임 (G1). **상행 3음** A5 → D6 → G6 (총 ~0.62초).
  * 음악 위로 뚫려야 하므로 고음역에 둔다 (음악 에너지는 저·중역에 몰려 있어 마스킹이 덜하다).
  */
 export const CHIME: readonly ToneSpec[] = [
-  { freq: 880, duration: 0.18, gain: 0.26 },
-  { freq: 1175, duration: 0.18, delay: 0.18, gain: 0.26 },
-  { freq: 1568, duration: 0.26, delay: 0.36, gain: 0.26 },
+  { freq: 880, duration: 0.18, gain: 0.36 },
+  { freq: 1175, duration: 0.18, delay: 0.18, gain: 0.36 },
+  { freq: 1568, duration: 0.26, delay: 0.36, gain: 0.36 },
 ]
 
 /**
@@ -192,8 +354,8 @@ export const CHIME: readonly ToneSpec[] = [
  * **단음 하나** — 세 번 같은 음이 반복되는 것이 "아직 남았다"의 신호이고,
  * 올라가는 차임이 "끝났다"의 신호다. 형태로 구분한다 (위 규격 주석 참조).
  */
-export function tick(): void {
-  tone(TICK)
+export function tick(tag: SoundTag = 'timer'): void {
+  tone(TICK, tag)
 }
 
 /**
@@ -203,13 +365,14 @@ export function tick(): void {
  * "이번이 마지막"을 미리 알려야 자동 종료가 갑자기 끊기는 느낌이 되지 않는다.
  */
 export const LAST_CYCLE_CUE: readonly ToneSpec[] = [
-  { freq: 1319, duration: 0.07, gain: 0.22 },
-  { freq: 1319, duration: 0.07, delay: 0.12, gain: 0.22 },
+  { freq: 1319, duration: 0.07, gain: 0.3 },
+  { freq: 1319, duration: 0.07, delay: 0.12, gain: 0.3 },
 ]
 
 /** 마지막 사이클 큐 (W3). 고음 더블 — 틱·차임과 형태가 다르다 */
 export function lastCycleCue(): void {
-  for (const spec of LAST_CYCLE_CUE) tone(spec)
+  // 템포 가이드의 소리이므로 'tempo' — 가이드를 닫으면 예약된 둘째 음도 취소된다 (CC2)
+  for (const spec of LAST_CYCLE_CUE) tone(spec, 'tempo')
 }
 
 /** 휴식 종료 차임 (G1). 상행 3음 — 틱의 단음 반복과 형태가 다르다 */
@@ -230,6 +393,21 @@ export function previewSignals(): void {
   const spacing = 0.55
   for (let i = 0; i < 3; i += 1) tone({ ...TICK, delay: i * spacing })
   for (const spec of CHIME) tone({ ...spec, delay: (spec.delay ?? 0) + 3 * spacing })
+}
+
+/**
+ * 템포 글라이드 미리 듣기 (CC7·CC8-3).
+ *
+ * 글라이드는 **새로 생긴 소리 계열**이고 게인 기준도 다르므로(0.14) 틱·차임만 들려주는
+ * 미리 듣기로는 "글라이드가 충분히 큰가"를 판단할 수 없다. 같은 이유로 여기서도
+ * **실제 신호를 그대로** 낸다 — 미리 듣기용 소리를 따로 만들면 "미리 듣기는 들리는데
+ * 실제는 안 들린다"가 가능해진다.
+ *
+ * 상행 1초 → 하행 2초. A그룹 한 사이클과 같은 모양이다.
+ */
+export function previewTempoGlide(): void {
+  glide({ from: 392, to: 659, duration: 1 })
+  window.setTimeout(() => glide({ from: 659, to: 392, duration: 2 }), 1000)
 }
 
 /** iOS는 미지원. 지원하는 환경에서는 소리와 함께 진동도 준다 */

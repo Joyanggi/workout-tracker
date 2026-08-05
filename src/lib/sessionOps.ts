@@ -117,6 +117,40 @@ export function applySkipped(session: Session, recordKey: RecordKey, skipped: bo
  * 어긋난다. 자리가 없어서 바꾸는 상황이므로 아직 아무것도 수행하지 않은 것이 정상이다.
  * 세트 수·반복수는 원 종목 계획을 그대로 쓴다 (같은 운동의 다른 수행이므로).
  */
+/**
+ * 세션에 종목을 **얹는다** (CC15).
+ *
+ * 대체(`applySubstitute`)와 나란히 두는 이유: 둘 다 세션 구성을 바꾸지만 의미가 반대다.
+ * 대체는 자리를 **교체**하고 이것은 자리를 **추가**한다.
+ *
+ * `recordKey`는 원소속 Day의 라인을 그대로 쓴다 (호출부가 만든다) — 기록 라인 연속성.
+ * 이미 있는 종목이면 아무것도 하지 않는다 (같은 recordKey 두 개는 집계를 이중 계상한다).
+ *
+ * `plannedOrder`는 마지막 + 1이다: 계획 순서상 맨 뒤이고, 순서 이탈 분석에서
+ * "계획에 없던 것을 뒤에 했다"로 읽히는 것이 사실과 맞는다.
+ */
+export function applyAddExercise(
+  session: Session,
+  args: { recordKey: RecordKey; setCount: number; weight: number; reps: number },
+): Session {
+  if (session.entries.some((e) => e.recordKey === args.recordKey)) return session
+  const maxPlanned = session.entries.reduce((n, e) => Math.max(n, e.plannedOrder), 0)
+  const entry: SessionEntry = {
+    recordKey: args.recordKey,
+    plannedOrder: maxPlanned + 1,
+    performedOrder: null,
+    sets: Array.from({ length: Math.max(1, args.setCount) }, () => ({
+      weight: args.weight,
+      reps: args.reps,
+      done: false,
+    })),
+    compensation: NO_COMPENSATION,
+    skipped: false,
+    extra: true,
+  }
+  return { ...session, entries: [...session.entries, entry] }
+}
+
 export function applySubstitute(
   session: Session,
   recordKey: RecordKey,

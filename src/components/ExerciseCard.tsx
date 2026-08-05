@@ -12,7 +12,9 @@ import type { CompensationWatch } from '../lib/compensationWatch'
 import { compensationSummary, hasCompensation } from '../lib/compensation'
 import { commitPendingEdits } from '../lib/commitEdits'
 import { doneSetsAll } from '../lib/derive'
+import { noteLineText, type NoteEntry } from '../lib/noteHistory'
 import { setRowClass, zeroWeightHint } from '../lib/setRowState'
+import { tempoPhasesFor, type TempoPhase } from '../lib/tempo'
 import type { RecordPrefill } from '../lib/prefill'
 import type { RecordKey, RoutineExercise, SessionEntry, SetRecord } from '../types'
 import { NO_AUTOFILL } from '../lib/inputProps'
@@ -52,6 +54,14 @@ function ghostText(prefill: RecordPrefill | undefined, index: number): string {
   if (best && (!last || best.weight !== last.weight || best.reps !== last.reps)) {
     parts.push(`최고 ${best.weight}×${best.reps}`)
   }
+  /*
+    기록이 하나도 없고 추정값이 들어간 경우 (CC13) — 그 사실을 말해야 한다.
+    "기준 기록 없음"이 아니라 "추정"이라고 적는 이유: 숫자가 이미 들어 있는데
+    "기록 없음"이 뜨면 그 숫자의 출처를 알 수 없다.
+  */
+  if (parts.length === 0 && prefill.startEstimate !== undefined) {
+    return '추정 시작 무게 — 첫 세트에서 조절'
+  }
   return parts.join(' · ')
 }
 
@@ -65,10 +75,14 @@ export default function ExerciseCard({
   prefill,
   defaultStep,
   substituteForName,
+  isExtra = false,
   inverseWeight = false,
+  allowZeroWeight = false,
   onRequestSubstitute,
   compensationWatch,
   tempoGuide = false,
+  tempoPhases,
+  previousNote,
   actions,
   open,
   onToggleOpen,
@@ -93,14 +107,25 @@ export default function ExerciseCard({
   defaultStep: number
   /** 대체 수행 중이면 원 종목 이름 (T8) */
   substituteForName?: string
+  /** 계획에 없이 얹은 종목 (CC15) — 칩으로 표시한다 */
+  isExtra?: boolean
   /** 표시 무게가 클수록 쉬운 종목 (T8 어시스티드). 하향 제안 방향이 반대다 */
   inverseWeight?: boolean
+  /** 맨몸 수행이 정상인 종목 (CC10). 0kg 체크가 실수가 아니다 */
+  allowZeroWeight?: boolean
   /** 대체 요청 (T8). 넘기지 않으면 버튼이 안 보인다 — 과거 세션 편집에는 의미가 없다 */
   onRequestSubstitute?: () => void
   /** 반복 보상작용 경고 (T11). 과거 세션 편집에서는 넘기지 않는다 */
   compensationWatch?: CompensationWatch
   /** 템포 가이드 사용 (G7). 꺼져 있으면 세트 행에 버튼이 없다 */
   tempoGuide?: boolean
+  /**
+   * 이 종목의 템포 (CC5·CC16). 호출부가 `tempoPhasesFor`로 만들어 넘긴다 —
+   * 카드가 `TEMPO[group]`을 직접 읽으면 종목 오버라이드와 설정이 반영되지 않는다.
+   */
+  tempoPhases?: TempoPhase[]
+  /** 이 종목의 직전 감각 메모·보상작용 (CC14). 없으면 줄이 안 보인다 */
+  previousNote?: NoteEntry
   actions: EntryActions
   open: boolean
   onToggleOpen: () => void
@@ -214,6 +239,12 @@ export default function ExerciseCard({
             {substituteForName && (
               <span className="chip chip-warn" style={{ marginLeft: 6 }}>
                 대체
+              </span>
+            )}
+            {/* 계획에 없이 얹은 종목 (CC15) — 다음 세션에 자동으로 생기지 않는다는 사실도 담는다 */}
+            {isExtra && (
+              <span className="chip chip-accent" style={{ marginLeft: 6 }}>
+                추가
               </span>
             )}
             {entry.performedOrder !== null && (
@@ -364,7 +395,7 @@ export default function ExerciseCard({
           */}
           {setLabels.map((label, i) => {
             const set = entry.sets[i]
-            const zeroHint = zeroWeightHint(set, inverseWeight)
+            const zeroHint = zeroWeightHint(set, inverseWeight, allowZeroWeight)
             return (
             /*
               체크 버튼을 고스트 줄로 올려 입력 행을 전폭으로 쓴다.
@@ -543,6 +574,16 @@ export default function ExerciseCard({
                   ? '미입력 — 목표 부위에 자극이 왔는지'
                   : SENSORY_LABELS[entry.sensoryScore]}
               </p>
+              {/*
+                직전 메모 (CC14). 데이터는 이미 쌓여 있었고 **보여주는 곳이 없었다** —
+                '리어델트에서 목에 긴장' 같은 기록이 내보내기·LLM을 한 바퀴 돌아
+                기억으로만 남던 것을, 그 종목을 펼치는 순간 화면이 말해 준다.
+              */}
+              {previousNote && (
+                <p className="row-sub note-prev">
+                  지난번({previousNote.date}): {noteLineText(previousNote)}
+                </p>
+              )}
               <input
                 {...NO_AUTOFILL}
                 className="field"
@@ -574,6 +615,7 @@ export default function ExerciseCard({
           exerciseName={name}
           setNumber={guideSet + 1}
           routineExercise={routineExercise}
+          phases={tempoPhases ?? tempoPhasesFor(undefined, routineExercise.group)}
           /*
             수동 종료와 자동 종료가 **같은 체인**을 지난다 (Z2).
             기록 → 미체크면 세트 체크 → (그 경로가) 휴식 타이머 시작.

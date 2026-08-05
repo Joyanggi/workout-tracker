@@ -366,8 +366,14 @@ describe('Z1 — 볼륨 배율', () => {
     mod.unlockAudio()
     mod.setVolumeScale(mod.VOLUME_SCALES.max)
     mod.chime()
-    // 가장 큰 신호가 CHIME 0.26 → 0.468. 인접 톤 램프가 겹쳐도 1을 넘지 않는다
-    expect(Math.max(...recorded.map((r) => r.gain))).toBeLessThan(0.5)
+    /*
+      CC8에서 게인·배율을 올렸다. 가장 큰 신호가 CHIME 0.36 × 2.2 = **0.792**.
+      이 숫자는 실측 계약이다 (v1.7 §6-18) — 다음에 또 올릴 때 여유가 남았는지
+      여기서 먼저 확인하게 된다. 1.0까지 21% 여유가 있고 인접 톤 램프가 겹쳐도
+      앞 음이 지수 감쇠 끝에 있어 합산 피크가 개별 피크를 넘지 않는다.
+    */
+    expect(Math.max(...recorded.map((r) => r.gain))).toBeCloseTo(0.792, 3)
+    expect(Math.max(...recorded.map((r) => r.gain))).toBeLessThan(0.85)
   })
 
   it('이상한 배율은 기본값으로 되돌린다 — 소리가 사라지는 방향으로 실패하지 않는다', async () => {

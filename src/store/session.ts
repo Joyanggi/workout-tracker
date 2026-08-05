@@ -7,6 +7,7 @@ import {
   applyRemoveSet,
   applySensoryNote,
   applySensoryScore,
+  applyAddExercise,
   applySkipped,
   applySubstitute,
   applyToggleDone,
@@ -46,6 +47,13 @@ interface SessionState {
   patchSet: (recordKey: RecordKey, index: number, patch: Partial<SetRecord>) => void
   toggleDone: (recordKey: RecordKey, index: number, now?: Date) => void
   addSet: (recordKey: RecordKey, opts?: { warmup?: boolean }) => void
+  /** 계획에 없던 종목을 얹는다 (CC15) — 대체와 달리 기존 종목을 남긴다 */
+  addExercise: (args: {
+    recordKey: RecordKey
+    setCount: number
+    weight: number
+    reps: number
+  }) => void
   removeSet: (recordKey: RecordKey, index: number) => void
   setSkipped: (recordKey: RecordKey, skipped: boolean) => void
   substitute: (
@@ -112,6 +120,8 @@ export const useSessionStore = create<SessionState>((set, get) => {
       update((s) => applyToggleDone(s, recordKey, index, now)),
 
     addSet: (recordKey, opts) => update((s) => applyAddSet(s, recordKey, opts)),
+
+    addExercise: (args) => update((s) => applyAddExercise(s, args)),
 
     removeSet: (recordKey, index) => update((s) => applyRemoveSet(s, recordKey, index)),
 

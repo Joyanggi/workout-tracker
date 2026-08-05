@@ -16,7 +16,7 @@ import {
 import { todayLocal } from '../lib/dates'
 import { phaseReadiness } from '../lib/phaseReadiness'
 import { backupReminder, isGistConfigured } from '../lib/gistSync'
-import { completedSessions, findDay } from '../lib/derive'
+import { completedSessions, doneSetsAll, findDay } from '../lib/derive'
 import { ADHERENCE_MARK, nextUnloggedSlot, summarizeDietDay } from '../lib/diet'
 import { findPlan, useDiet } from '../lib/useDiet'
 import { storageAtRisk } from '../lib/platform'
@@ -26,7 +26,7 @@ import { buildScaleMap, formatProgression, isInverseKey } from '../lib/weightSca
 import { useExerciseSettings } from '../lib/useExerciseSettings'
 import { buildSession, withJustFinished } from '../lib/sessionFactory'
 import { bannerQueue, type BannerId } from '../lib/bannerQueue'
-import { dayChoiceReason, displayDay, pickedIdFor } from '../lib/dayChoice'
+import { homeCardState, pickedIdFor } from '../lib/dayChoice'
 import { suggestNextDay } from '../lib/suggestNextDay'
 import { exerciseLabel, useRoutine } from '../lib/useRoutine'
 import { useSessionStore } from '../store/session'
@@ -48,6 +48,7 @@ export default function HomeScreen({
   const sessions = useLiveQuery(() => db.sessions.toArray(), [], [])
   const exerciseSettings = useExerciseSettings()
   const openSession = useSessionStore((s) => s.session)
+  const bodyWeightKg = useSettings((s) => s.bodyWeightKg)
   const begin = useSessionStore((s) => s.begin)
   const finishSession = useSessionStore((s) => s.finish)
   const discardSession = useSessionStore((s) => s.discard)
@@ -162,6 +163,9 @@ export default function HomeScreen({
       isInverse: (rk) => isInverseKey(catalog, rk),
       // 없으면 프리필이 전역 2.5를 써서 칩과 실제 세트 무게가 어긋난다 (F6)
       scales: buildScaleMap(exerciseSettings, routine.rules.weightIncrementKg),
+      // 첫 기록 시작 무게 추정 (CC13) — 세션 생성 시점에 넣어야 카드가 열릴 때 이미 보인다
+      bodyWeightKg,
+      startWeightPctBW: (id) => catalog.get(id)?.startWeightPctBW,
     }).session
   }
 
@@ -190,10 +194,26 @@ export default function HomeScreen({
   }
 
   /*
-   * 카드·시작 버튼·디로드 시작이 **같은 Day를 가리킨다** (AA1).
-   * 각자 고르면 보이는 Day와 시작되는 Day가 갈라진다 — `dayChoice`가 그 한 점이다.
+   * 카드·시작 버튼·디로드 시작이 **같은 Day를 가리킨다** (AA1), 그리고 진행 중 세션이
+   * 있으면 카드가 그 세션을 가리킨다 (CC11). 판정은 `homeCardState` 한 곳이다.
    */
-  const displayed = displayDay(routine, pickedDayId, suggestion.day)
+  const card = homeCardState({
+    routine,
+    suggested: suggestion.day,
+    suggestionReason: suggestion.reason,
+    pickedDayId,
+    openDayId: openSession?.dayId ?? null,
+  })
+  const displayed = card.day
+
+  /*
+   * 세션 모드 카드의 부제 (CC11). 경과 분은 `startedAt`에서 파생한다 (§5.2 타임스탬프
+   * 원칙) — 카드는 홈이 리렌더될 때마다 다시 계산되므로 별도 인터벌을 두지 않는다.
+   * 재개 스트립이 30초 간격으로 갱신하며 같은 값을 보여준다.
+   */
+  const sessionProgress = openSession
+    ? `진행 중 · ${Math.max(0, Math.floor((Date.now() - new Date(openSession.startedAt).getTime()) / 60_000))}분 · 완료 ${openSession.entries.reduce((n, e) => n + doneSetsAll(e).length, 0)}/${openSession.entries.reduce((n, e) => n + e.sets.length, 0)}세트`
+    : ''
 
   // §11 리스크 대응: "주 1회 백업 리마인드 배너"
   const reminder = backupReminder({
@@ -431,10 +451,10 @@ export default function HomeScreen({
       <button className="card today-card today-card-btn" onClick={() => setPicking(true)}>
         <div className="card-label">다음 운동</div>
         <div className="today-day">{displayed.name}</div>
-        <div className="today-sub">{displayed.subtitle}</div>
-        <div className="today-reason">
-          {dayChoiceReason(pickedDayId, suggestion.day, suggestion.reason)}
+        <div className="today-sub">
+          {card.resuming ? sessionProgress : displayed.subtitle}
         </div>
+        <div className="today-reason">{card.reason}</div>
         <div className="today-sub" style={{ marginTop: 8 }}>
           {displayed.exercises
             .slice()
@@ -449,8 +469,16 @@ export default function HomeScreen({
         모델과 정확히 짝이 맞는다 — 시트는 선택만 바꾸고 시작은 항상 이 버튼이다.
       */}
       <div className="btn-row start-row">
-        <button className="btn btn-primary btn-start" onClick={() => start(displayed)}>
-          {displayed.name} 시작
+        {/*
+          진행 중 세션이면 **이어서 하기**다 (CC11). 라벨이 정확해야 "실수로 누르면
+          세션이 날아갈까"라는 불안이 사라진다 — 데이터는 원래 안전했고 화면이
+          그 사실을 말하지 않고 있었다.
+        */}
+        <button
+          className="btn btn-primary btn-start"
+          onClick={() => (card.resuming ? onEnterSession() : start(displayed))}
+        >
+          {card.cta}
         </button>
         <button className="btn btn-change" onClick={() => setPicking(true)}>
           변경

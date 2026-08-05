@@ -10,7 +10,13 @@ import type {
 import { NO_COMPENSATION } from '../types'
 import { completedSessions, doneSets } from './derive'
 import { bGroupGuide, type BGroupGuide } from './bGroupGuide'
-import { nextWeightForProgression, scaleFor, type WeightScale, type WeightScaleMap } from './weightScale'
+import {
+  nextWeightForProgression,
+  scaleFor,
+  snapDownToScale,
+  type WeightScale,
+  type WeightScaleMap,
+} from './weightScale'
 
 /**
  * 무게·횟수 프리필 (DESIGN.md §5.2).
@@ -46,6 +52,41 @@ export interface RecordPrefill {
    * 복귀는 프리필 무게 자체를 바꿔야 하는 규칙이라 두 곳에서 판단하면 어긋난다.
    */
   bGroup?: BGroupGuide
+  /**
+   * 첫 기록 종목의 **추정 시작 무게** (CC13).
+   *
+   * 기록이 하나라도 있으면 `undefined`다 — 실측이 있으면 추정이 끼어들 자리가 없다.
+   * 값의 성격은 `SubstituteOption.startFactor`와 같다: **미검증 코칭 휴리스틱**이고
+   * 본체는 첫 세트 RIR 3~4 캘리브레이션이다. 그래서 화면이 "추정"이라고 말한다.
+   */
+  startEstimate?: number
+}
+
+/**
+ * 첫 기록 종목의 시작 무게 추정 (CC13).
+ *
+ * 피드백: "기준 기록 없는 운동은 신체 조건으로 추정한 권장 시작 무게가 입력돼 있으면
+ * 좋겠다. 안 맞으면 그날 조절할게."
+ *
+ * **조건 세 개가 다 맞아야 값이 나온다** — 기록이 없고, 체중이 있고, 계수가 있고.
+ * 하나라도 없으면 `undefined`이고 현행(0kg)이 유지된다. 실패 방향이 현상 유지다.
+ *
+ * 어시스티드(inverse)는 여기서 계산하지 않는다: 보조 무게는 `substitute.assistWeightFor`가
+ * 랫풀 실적에서 역산하는 별도 규칙이고, 체중 비율로 근사하면 방향이 뒤집힌 값이 나온다.
+ */
+export function startWeightEstimate(args: {
+  hasHistory: boolean
+  bodyWeightKg?: number
+  startWeightPctBW?: number
+  scale: WeightScale
+}): number | undefined {
+  const { hasHistory, bodyWeightKg, startWeightPctBW, scale } = args
+  if (hasHistory || scale.inverse) return undefined
+  if (bodyWeightKg === undefined || bodyWeightKg <= 0) return undefined
+  if (startWeightPctBW === undefined || startWeightPctBW <= 0) return undefined
+  // 내림으로 맞춘다 — 추정은 가벼운 쪽으로 틀리는 것이 맞다 (snapDownToScale 주석)
+  const snapped = snapDownToScale(bodyWeightKg * startWeightPctBW, scale)
+  return snapped > 0 ? snapped : undefined
 }
 
 /**
@@ -80,8 +121,22 @@ export function buildPrefill(args: {
   scales?: WeightScaleMap
   /** 표시 무게가 클수록 쉬운 종목 (T8 어시스티드) — 기준 기록 비교 방향이 반대다 */
   inverse?: boolean
+  /** 첫 기록 추정용 (CC13). 없으면 추정하지 않는다 */
+  bodyWeightKg?: number
+  /** 카탈로그의 체중 대비 시작 계수 (CC13) */
+  startWeightPctBW?: number
 }): RecordPrefill {
-  const { sessions, routine, recordKey, routineExercise, phase, scales, inverse = false } = args
+  const {
+    sessions,
+    routine,
+    recordKey,
+    routineExercise,
+    phase,
+    scales,
+    inverse = false,
+    bodyWeightKg,
+    startWeightPctBW,
+  } = args
   const history = sessionsForRecord(sessions, recordKey)
   const recent = history.slice(0, RECENT_SESSIONS_FOR_PREFILL)
 
@@ -103,11 +158,22 @@ export function buildPrefill(args: {
     ? doneSets(lastEntry).map((s) => ({ weight: s.weight, reps: s.reps }))
     : []
 
+  const scale: WeightScale = {
+    ...scaleFor(scales, recordKey, routine.rules.weightIncrementKg),
+    inverse,
+  }
+
   return {
     recordKey,
     bestBySet,
     best,
     lastSets,
+    startEstimate: startWeightEstimate({
+      hasHistory: history.length > 0,
+      bodyWeightKg,
+      startWeightPctBW,
+      scale,
+    }),
     bGroup: bGroupGuide({ history, recordKey, routineExercise, phase }),
     progression: computeProgression({
       routine,
@@ -115,7 +181,7 @@ export function buildPrefill(args: {
       phase,
       lastSets,
       lastCompensation: lastEntry?.compensation,
-      scale: { ...scaleFor(scales, recordKey, routine.rules.weightIncrementKg), inverse },
+      scale,
     }),
   }
 }
@@ -167,7 +233,8 @@ export function defaultSetFor(
   mode: SessionMode = 'normal',
 ): SetRecord {
   const ref = prefill.bestBySet[index] ?? prefill.best
-  const base = ref?.weight ?? 0
+  // 기록이 없을 때만 추정이 base가 된다 (CC13) — ref가 있으면 실측이 이긴다
+  const base = ref?.weight ?? prefill.startEstimate ?? 0
   /*
     B그룹 복귀(T10)는 루틴 문서 9장이 "절대 기준"이라고 못 박은 규칙이므로 프리필을
     자동으로 이전 무게로 내린다. 회복 힌트('recover')는 제안이라 프리필을 바꾸지 않는다 —

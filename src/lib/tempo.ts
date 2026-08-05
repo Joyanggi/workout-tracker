@@ -26,12 +26,60 @@ export interface TempoPhase {
   seconds: number
 }
 
-/** 루틴 문서 3장 템포 규정 표 (2026-08-05 판) */
+/**
+ * A그룹 이완 초 (CC16) — **문서 3장 표가 "1.5~2초 (기본 2)" 범위로 개정됐다** (2026-08-05).
+ *
+ * 설정으로 여는 이유: 메타분석 근거상 두 값이 같은 범위 안이고, 통제 유지가 조건이다.
+ * **B그룹·코어는 열지 않는다** — 그쪽 템포는 속도가 아니라 감각 점수 체계의 전제다
+ * (문서에 그 근거까지 적혀 있으므로 설정이 문서와 갈라지지 않는다).
+ */
+export const A_ECCENTRIC_OPTIONS = [2, 1.5] as const
+export type AEccentricSec = (typeof A_ECCENTRIC_OPTIONS)[number]
+export const DEFAULT_A_ECCENTRIC: AEccentricSec = 2
+
+/**
+ * 루틴 문서 3장 템포 규정 표 (2026-08-05 판).
+ *
+ * **상수가 아니라 함수다** (CC16). A그룹 이완이 설정값이 되었으므로 phases를 만드는
+ * 자리가 하나여야 한다 — 상수 사본을 두면 설정이 반영된 쪽과 안 된 쪽이 갈린다.
+ */
+export function tempoFor(
+  group: RoutineExercise['group'],
+  aEccentricSec: AEccentricSec = DEFAULT_A_ECCENTRIC,
+): TempoPhase[] {
+  if (group !== 'A') return TEMPO[group]
+  return [
+    { kind: 'concentric', seconds: 1 },
+    { kind: 'eccentric', seconds: aEccentricSec },
+  ]
+}
+
+/**
+ * 이 종목이 실제로 쓸 템포 — **갈림이 여기 한 곳** (CC5·CC16).
+ *
+ * 두 개의 예외가 겹친다:
+ *   1. **종목 오버라이드** (CC5): 레그 컬 cue에 "수축 지점에서 1초 정지"가 있는데
+ *      A그룹 템포(수축1-이완2)에는 정지가 없었다 — 문서 3장 표에 예외 행(1-1-2)이
+ *      추가됐고 catalog의 `tempo`가 그것을 담는다.
+ *   2. **A그룹 이완 설정** (CC16): 1.5초 / 2초.
+ *
+ * 오버라이드는 **설정을 따르지 않는다** — 예외 행은 문서에 고정 수치로 규정돼 있다.
+ * 두 규칙이 만나는 자리를 함수 하나로 두면 "설정이 반영된 화면과 안 된 화면"이 갈리지 않는다.
+ */
+export function tempoPhasesFor(
+  override: TempoPhase[] | undefined,
+  group: RoutineExercise['group'],
+  aEccentricSec: AEccentricSec = DEFAULT_A_ECCENTRIC,
+): TempoPhase[] {
+  return override ?? tempoFor(group, aEccentricSec)
+}
+
+/** 기본값 기준 표 — 직접 참조하는 곳은 `tempoFor`를 쓸 수 없는 테스트·문서 대조뿐이다 */
 export const TEMPO: Record<RoutineExercise['group'], TempoPhase[]> = {
-  // "내릴 때 2초, 통제"
+  // "내릴 때 1.5~2초 (기본 2), 통제" — CC16
   A: [
     { kind: 'concentric', seconds: 1 },
-    { kind: 'eccentric', seconds: 2 },
+    { kind: 'eccentric', seconds: DEFAULT_A_ECCENTRIC },
   ],
   // B그룹 실행 규칙 3-1-1-1 (이완 3 · 신장 정지 1 · 수축 1 · 정점 1)
   B: [
@@ -53,6 +101,23 @@ export const PHASE_LABEL: Record<PhaseKind, string> = {
   squeeze: '짜내기',
   eccentric: '내림',
   stretch: '늘림 유지',
+}
+
+/**
+ * 호흡 안내 (CC4).
+ *
+ * **원본은 루틴 문서 3장 템포 규정 표의 호흡 열이다** (2026-08-05 추가).
+ * 원리는 하나 — **"힘쓸 때 내쉰다."** 3초 들숨 / 3초 날숨 같은 대칭 호흡이 아니다
+ * (피드백: "3초 들숨 3초 날숨은 생각보다 길다" — 그건 이 규정이 아니었다).
+ *
+ * 소리·색을 붙이지 않는다: 소리 채널은 글라이드(CC7)가 쓰고, 색은 페이즈 링이 쓴다.
+ * 한 줄 텍스트가 맞는 자리다.
+ */
+export const BREATH_LABEL: Record<PhaseKind, string> = {
+  concentric: '내쉬기',
+  squeeze: '마저 내쉬기',
+  eccentric: '들이쉬기',
+  stretch: '들숨 유지',
 }
 
 /** 카운트인 초 (G1 틱과 같은 소리를 쓴다) */
@@ -177,21 +242,53 @@ export function tempoRepState(pos: TempoPosition, repMax: number): TempoRepState
   }
 }
 
-/**
- * 그 페이즈에 낼 소리.
+/*
+ * ─── 페이즈 소리 (CC7 — 연속 글라이드) ─────────────────────────────
  *
- * 수축은 상행, 이완은 하행 롱톤(길이 = 이완 초), 정지·짜내기는 저음 틱.
- * 이완이 가장 길고 통제가 필요한 구간이므로 소리도 그 길이만큼 이어진다 —
- * "언제까지 내려야 하나"를 귀로 알 수 있어야 한다.
+ * 이전에는 `phaseTone`이 페이즈 **경계**에서 단발 톤을 냈다 (수축 660Hz 0.3초 등).
+ * 경계에서 한 번 울리는 소리는 "방금 바뀌었다"만 말하고 **"언제 바뀔지"를 말하지 못한다** —
+ * 피드백의 "이완하다 갑자기 수축 사운드가 들리면 반 박자 늦다"는 사용자 잘못이 아니라
+ * 신호 설계의 귀결이었다.
+ *
+ * 글라이드는 페이즈 **길이만큼 지속**하고 피치가 그 안에서 움직인다. 진행 방향과 위치가
+ * 곧 남은 시간이므로 예측이 소리 안에 들어 있다 (피드백의 "도로로로 올라갔다 내려오는
+ * 느낌 · 애플워치 명상처럼").
+ *
+ * 대역 392~659Hz(G4~E5)는 W2에서 계산한 스피커 유효 대역 안이다 — 그 아래로는 소형
+ * 스피커가 12dB/oct 떨어진다. 틱(784)·차임(880~1568)·마지막 큐(1319)와 대역이 겹치지
+ * 않으므로 글라이드가 깔린 위로 그 신호들이 그대로 들린다.
  */
-export function phaseTone(phase: TempoPhase): { freq: number; duration: number; gain: number } {
+export const GLIDE_LOW = 392
+export const GLIDE_HIGH = 659
+export const GLIDE_GAIN = 0.14
+
+/** 신장 정지는 한 단 낮은 게인 — "쉬는 구간"이라는 신호가 음량에도 있어야 한다 */
+export const GLIDE_GAIN_REST = 0.1
+
+export interface PhaseGlide {
+  from: number
+  to: number
+  duration: number
+  gain: number
+}
+
+/**
+ * 그 페이즈에 낼 글라이드.
+ *
+ * - 수축: 저→고 상행 (밀어 올리는 방향)
+ * - 정점 짜내기: 고음 유지 (버티는 구간)
+ * - 이완: 고→저 하행, **페이즈 길이 그대로** (언제까지 내려야 하나가 소리에 있다)
+ * - 신장 정지: 저음 유지, 게인 한 단 낮게
+ */
+export function phaseGlide(phase: TempoPhase): PhaseGlide {
   switch (phase.kind) {
     case 'concentric':
-      return { freq: 660, duration: Math.min(0.3, phase.seconds), gain: 0.18 }
-    case 'eccentric':
-      return { freq: 440, duration: phase.seconds * 0.9, gain: 0.14 }
+      return { from: GLIDE_LOW, to: GLIDE_HIGH, duration: phase.seconds, gain: GLIDE_GAIN }
     case 'squeeze':
+      return { from: GLIDE_HIGH, to: GLIDE_HIGH, duration: phase.seconds, gain: GLIDE_GAIN }
+    case 'eccentric':
+      return { from: GLIDE_HIGH, to: GLIDE_LOW, duration: phase.seconds, gain: GLIDE_GAIN }
     case 'stretch':
-      return { freq: 290, duration: 0.08, gain: 0.14 }
+      return { from: GLIDE_LOW, to: GLIDE_LOW, duration: phase.seconds, gain: GLIDE_GAIN_REST }
   }
 }

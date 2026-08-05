@@ -2,12 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import ExerciseCard from '../components/ExerciseCard'
 import FinishSheet from '../components/FinishSheet'
+import AddExerciseSheet from '../components/AddExerciseSheet'
+import ManualTimerSheet from '../components/ManualTimerSheet'
 import RestTimerBar from '../components/RestTimerBar'
 import { db } from '../db'
 import { unlockAudio } from '../lib/beep'
 import { formatElapsed } from '../lib/dates'
 import { doneSets, findDay, routineExerciseOfEntry } from '../lib/derive'
 import { requestSync } from '../lib/gistSync'
+import { lastNote } from '../lib/noteHistory'
 import { buildPrefill, sessionsForRecord, type RecordPrefill } from '../lib/prefill'
 import { previewSubstitutes, type SubstitutePreview } from '../lib/substitute'
 import { compensationWatches, watchFor } from '../lib/compensationWatch'
@@ -17,6 +20,7 @@ import { useExerciseSettings } from '../lib/useExerciseSettings'
 import type { RestTimer } from '../lib/useRestTimer'
 import type { RoutineBundle } from '../lib/useRoutine'
 import { useSessionStore } from '../store/session'
+import { tempoPhasesFor } from '../lib/tempo'
 import { useSettings } from '../store/settings'
 import { parseRecordKey, type RecordKey } from '../types'
 
@@ -46,6 +50,10 @@ export default function SessionScreen({
    */
   const [openKey, setOpenKey] = useState<RecordKey | null>(null)
   const [finishing, setFinishing] = useState(false)
+  /** 휴식 타이머 단독 시작 시트 (CC3) */
+  const [manualTimer, setManualTimer] = useState(false)
+  /** 종목 얹기 시트 (CC15) */
+  const [addingExercise, setAddingExercise] = useState(false)
   const [elapsed, setElapsed] = useState(0)
 
   // 경과 시간은 매 틱마다 startedAt에서 다시 계산한다.
@@ -69,6 +77,7 @@ export default function SessionScreen({
   const watches = useMemo(() => compensationWatches(allSessions), [allSessions])
   const bodyWeightKg = useSettings((st) => st.bodyWeightKg)
   const tempoGuide = useSettings((st) => st.tempoGuide)
+  const aEccentricSec = useSettings((st) => st.aEccentricSec)
   const setBodyWeight = useSettings((st) => st.setBodyWeight)
 
   // 프리필은 저장하지 않고 매번 파생 계산한다 (앱 재시작 후 이어하기에서도 동일하게 나와야 함).
@@ -84,9 +93,18 @@ export default function SessionScreen({
     const day = findDay(bundle.routine, session.dayId)
     if (!day) return map
     for (const entry of session.entries) {
-      const routineExercise = day.exercises.find((e) =>
-        entry.recordKey.startsWith(`${e.exerciseId}@`),
-      )
+      /*
+        얹은 종목(CC15)은 **다른 Day의 recordKey**를 갖는다 — 이 Day의 exercises에서
+        찾으면 못 찾아서 프리필이 비고, 그러면 카드가 "기준 기록 없음"을 띄운다
+        (추정 시작 무게도, 지난 기록도 안 보인다). 실측에서 확인한 뒤 고쳤다.
+
+        대체 수행(T8)의 프리필 부재는 **기존 동작이라 건드리지 않는다** —
+        `firstExposure`·캘리브레이션 칩이 "prefill.best가 없다"를 신호로 쓰고 있어서,
+        여기서 채우면 그 판정이 바뀐다. 이 라운드의 범위가 아니다.
+      */
+      const routineExercise =
+        day.exercises.find((e) => entry.recordKey.startsWith(`${e.exerciseId}@`)) ??
+        (entry.extra ? routineExerciseOfEntry(bundle.routine, entry) : undefined)
       if (!routineExercise) continue
       map.set(
         entry.recordKey,
@@ -98,12 +116,26 @@ export default function SessionScreen({
           phase,
           scales: buildScaleMap(exerciseSettings, bundle.routine.rules.weightIncrementKg),
           inverse: isInverseKey(bundle.catalog, entry.recordKey),
+          // 첫 기록 시작 무게 추정 (CC13) — 둘 중 하나가 없으면 추정하지 않는다
+          bodyWeightKg,
+          startWeightPctBW: bundle.catalog.get(routineExercise.exerciseId)?.startWeightPctBW,
         }),
       )
     }
     return map
     // eslint-disable-next-line react-hooks/exhaustive-deps -- session은 id/dayId/키 목록으로 대표한다
-  }, [sessionId, sessionDayId, entryKeys, allSessions, bundle.routine, phase, exerciseSettings])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    sessionId,
+    sessionDayId,
+    entryKeys,
+    allSessions,
+    bundle.routine,
+    bundle.catalog,
+    phase,
+    exerciseSettings,
+    bodyWeightKg,
+  ])
 
   // 첫 진입 시 아직 손대지 않은 첫 종목을 펼쳐둔다.
   // openKey를 조건으로 쓰면 사용자가 카드를 접을 때(openKey → null) 다른 카드가
@@ -134,6 +166,20 @@ export default function SessionScreen({
     return <p className="center-note">이 세션의 Day 정의를 찾을 수 없습니다 ({session.dayId}).</p>
   }
 
+  /*
+    열려 있는 카드의 휴식·이름 (CC3 기본값). 카드가 안 열려 있으면 undefined —
+    시트가 90초를 기본으로 쓴다.
+  */
+  const openEntry = session.entries.find((e) => e.recordKey === openKey)
+  const openRoutineExercise = openEntry
+    ? routineExerciseOfEntry(bundle.routine, openEntry)
+    : undefined
+  const openRestSec = openRoutineExercise?.restSec
+  const openExerciseName = openRoutineExercise
+    ? (bundle.catalog.get(openRoutineExercise.exerciseId)?.shortName ??
+      openRoutineExercise.exerciseId)
+    : undefined
+
   const totalPlanned = session.entries.reduce((n, e) => n + e.sets.length, 0)
   const totalDone = session.entries.reduce((n, e) => n + doneSets(e).length, 0)
 
@@ -159,6 +205,17 @@ export default function SessionScreen({
             )}
           </div>
         </div>
+        {/*
+          휴식 타이머 단독 시작 (CC3). 세트 체크와 무관하게 쓰는 맥락(자리 이동·스트레칭)이
+          세션 중이므로 여기 둔다. App이 소유한 타이머 하나를 그대로 시작시킨다.
+        */}
+        <button
+          className="session-timer-btn"
+          onClick={() => setManualTimer(true)}
+          aria-label="휴식 타이머 시작"
+        >
+          ⏱
+        </button>
         <button className="session-end" onClick={() => setFinishing(true)}>
           종료
         </button>
@@ -186,10 +243,16 @@ export default function SessionScreen({
               compensationSigns={exercise?.compensationSigns ?? []}
               defaultStep={bundle.routine.rules.weightIncrementKg}
               substituteForName={originName}
+              isExtra={entry.extra === true}
               inverseWeight={isInverseKey(bundle.catalog, entry.recordKey)}
+              allowZeroWeight={exercise?.allowZeroWeight === true}
+              /* 직전 메모 (CC14) — 저장된 감각 메모에서 파생, 새 저장소 없음 */
+              previousNote={lastNote(allSessions, entry.recordKey)}
               onRequestSubstitute={() => setSubstituting(entry.recordKey)}
               compensationWatch={watchFor(watches, entry.recordKey)}
               tempoGuide={tempoGuide}
+              /* 종목 오버라이드(CC5) + A그룹 이완 설정(CC16)의 갈림은 tempoPhasesFor 한 곳 */
+              tempoPhases={tempoPhasesFor(exercise?.tempo, routineExercise.group, aEccentricSec)}
               prefill={prefills.get(entry.recordKey)}
               showProgression={session.mode === 'normal'}
               actions={actions}
@@ -204,6 +267,14 @@ export default function SessionScreen({
             />
           )
         })}
+
+        {/*
+          종목 얹기 (CC15). 카드 목록 **끝**에 둔다 — 계획된 종목을 먼저 보고 나서
+          "머신이 차 있다"를 판단하는 순서이고, 상단에 두면 계획을 밀어낸다.
+        */}
+        <button className="btn btn-sm" onClick={() => setAddingExercise(true)}>
+          + 종목 추가
+        </button>
       </div>
 
       <RestTimerBar timer={timer} />
@@ -249,6 +320,56 @@ export default function SessionScreen({
             />
           )
         })()}
+
+      {addingExercise && (
+        <AddExerciseSheet
+          bundle={bundle}
+          existing={session.entries.map((e) => e.recordKey)}
+          onAdd={({ recordKey, setCount, repMin }) => {
+            /*
+              무게는 그 종목의 프리필에서 온다 (CC15+CC13) — 세션 생성과 같은 규칙이라
+              얹은 종목도 "지난 기록" 또는 "추정 시작 무게"를 그대로 받는다.
+            */
+            const routineEx = bundle.routine.days
+              .flatMap((d) => d.exercises)
+              .find((e) => recordKey.startsWith(`${e.exerciseId}@`))
+            const prefill = routineEx
+              ? buildPrefill({
+                  sessions: allSessions,
+                  routine: bundle.routine,
+                  recordKey,
+                  routineExercise: routineEx,
+                  phase,
+                  scales: buildScaleMap(exerciseSettings, bundle.routine.rules.weightIncrementKg),
+                  inverse: isInverseKey(bundle.catalog, recordKey),
+                  bodyWeightKg,
+                  startWeightPctBW: bundle.catalog.get(routineEx.exerciseId)?.startWeightPctBW,
+                })
+              : undefined
+            const base = prefill
+              ? (prefill.bestBySet[0] ?? prefill.best)
+              : undefined
+            actions.addExercise({
+              recordKey,
+              setCount,
+              weight: base?.weight ?? prefill?.startEstimate ?? 0,
+              reps: base?.reps ?? repMin,
+            })
+            setOpenKey(recordKey)
+          }}
+          onClose={() => setAddingExercise(false)}
+        />
+      )}
+
+      {manualTimer && (
+        <ManualTimerSheet
+          /* 열려 있는 종목의 휴식이 기본값이다 — 지금 쓰려는 것이 대개 그 휴식이다 (CC3) */
+          defaultSec={openRestSec}
+          defaultLabel={openExerciseName}
+          onStart={(sec, label) => timer.start(sec, label)}
+          onClose={() => setManualTimer(false)}
+        />
+      )}
 
       {finishing && (
         <FinishSheet
