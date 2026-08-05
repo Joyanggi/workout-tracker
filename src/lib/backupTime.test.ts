@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { formatDateTimeLocal, localDateOf } from './dates'
 import { backupReminder } from './gistSync'
 import { stripComments } from './sourceScan'
@@ -15,28 +15,41 @@ import { stripComments } from './sourceScan'
  * (데이터는 무사했다. Gist 리비전 이력으로 확정 — 업로드는 정상이었고 혼란은 표시가 만들었다)
  */
 
-/** 테스트를 KST(UTC+9)에 고정한다 — 경계 검증은 시간대가 정해져야 의미가 있다 */
-const KST = 9 * 60
-beforeEach(() => {
-  vi.spyOn(Date.prototype, 'getTimezoneOffset').mockReturnValue(-KST)
-  // getHours/getDate 등은 실제 로컬 시간대를 쓰므로, 경계 검증은 UTC 오프셋 계산으로 한다
-})
-afterEach(() => {
-  vi.restoreAllMocks()
-})
+/*
+ * **시간대를 mock하지 않는다.**
+ *
+ * 첫 버전은 `getTimezoneOffset`을 −540(KST)으로 스텁했다. 그런데 `formatDateTimeLocal`은
+ * `getHours()`·`getDate()`를 쓰고 그것들은 스텁의 영향을 받지 않는다 — 그래서 **가드는
+ * 가짜 오프셋을 읽고 포매터는 실제 시간대를 읽는** 상태가 됐다.
+ * 내 기기(KST)에서는 우연히 일치해 통과했고, **UTC인 CI에서 깨졌다.**
+ *
+ * 피하려던 함정("환경을 가정한 테스트")을 mock으로 직접 만든 셈이다.
+ * 이제 기대값과 가드를 **둘 다 실제 환경에서 파생**한다 — 어느 시간대에서 돌려도 맞다.
+ */
+
+/** 실행 환경의 로컬 시간으로 기대값을 만든다 (시간대를 가정하지 않는다) */
+const expectedLocal = (iso: string) => {
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+/*
+ * 가드가 둘이다 — **벽시계 차이와 날짜 차이는 다른 질문**이다.
+ * 처음에 하나로 합쳤더니 America/New_York(−4)·Asia/Kolkata(+5:30)에서 깨졌다:
+ * `15:30Z`는 그 시간대에서 **시각은 다르지만 날짜는 같다.**
+ */
+
+/** 로컬 벽시계가 UTC와 다른가 (`formatDateTimeLocal` 비교용) */
+const clockDiffersFromUtc = (iso: string) => {
+  const d = new Date(iso)
+  return d.getHours() !== d.getUTCHours() || d.getMinutes() !== d.getUTCMinutes()
+}
+
+/** 로컬 **날짜**가 UTC와 다른가 (`localDateOf` 비교용) */
+const dateDiffersFromUtc = (iso: string) => new Date(iso).getDate() !== new Date(iso).getUTCDate()
 
 describe('로컬 시각 변환', () => {
-  /**
-   * 시간대 의존을 피하려고 **오프셋을 직접 계산해** 기대값을 만든다.
-   * 실행 환경 시간대를 가정하면 CI에서 깨진다 (그리고 그건 이 프로젝트가 여러 번
-   * 겪은 "환경을 가정한 테스트"다).
-   */
-  const expectedLocal = (iso: string) => {
-    const d = new Date(iso)
-    const pad = (n: number) => String(n).padStart(2, '0')
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
-  }
-
   it('UTC ISO를 로컬 표시로 바꾼다', () => {
     for (const iso of ['2026-08-04T23:56:50Z', '2026-08-05T00:30:00Z', '2026-01-01T12:00:00Z']) {
       expect(formatDateTimeLocal(iso), iso).toBe(expectedLocal(iso))
@@ -47,9 +60,9 @@ describe('로컬 시각 변환', () => {
     // 실제 사건의 값. UTC로 자르면 "2026-08-04 23:56"이고 KST로는 8/5 08:56이다
     const iso = '2026-08-04T23:56:50Z'
     const naiveSlice = iso.slice(0, 16).replace('T', ' ')
-    const offsetMin = -new Date(iso).getTimezoneOffset()
-    // KST처럼 UTC보다 앞선 시간대에서는 두 값이 반드시 달라야 한다
-    if (offsetMin > 0) expect(formatDateTimeLocal(iso)).not.toBe(naiveSlice)
+    // 로컬 벽시계가 UTC와 다른 환경에서만 성립하는 비교다 (UTC 환경에서는 같은 게 정상)
+    if (clockDiffersFromUtc(iso)) expect(formatDateTimeLocal(iso)).not.toBe(naiveSlice)
+    else expect(formatDateTimeLocal(iso)).toBe(naiveSlice)
   })
 
   it('파싱 실패는 원문을 돌려준다 (표시가 사라지지 않게)', () => {
@@ -59,13 +72,23 @@ describe('로컬 시각 변환', () => {
 
   it('localDateOf는 로컬 날짜다', () => {
     const iso = '2026-08-04T23:56:50Z'
-    const d = new Date(iso)
-    const pad = (n: number) => String(n).padStart(2, '0')
-    expect(localDateOf(iso)).toBe(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`)
+    expect(localDateOf(iso)).toBe(expectedLocal(iso).slice(0, 10))
   })
 
-  it('localDateOf 파싱 실패는 앞 10자로 떨어진다', () => {
+  /*
+    이 두 테스트가 함수의 실제 결함을 잡았다. 처음엔 `'2026-08-04'`를 "파싱 실패" 사례로
+    썼는데 그 문자열은 **파싱된다** — `new Date()`가 UTC 자정으로 읽어서 UTC−4에서는
+    하루 밀렸다 (America/New_York에서 8/4 → 8/3). 이 코드베이스에서 `YYYY-MM-DD`는
+    이미 로컬 날짜라는 규약이므로, 날짜만 있으면 그대로 돌려주도록 함수를 고쳤다.
+  */
+  it('날짜만 있는 문자열은 그대로 돌려준다 (이미 로컬 날짜다)', () => {
     expect(localDateOf('2026-08-04')).toBe('2026-08-04')
+    expect(localDateOf(' 2026-12-31 ')).toBe('2026-12-31')
+  })
+
+  it('정말 파싱 못 하는 값은 앞 10자로 떨어진다', () => {
+    expect(localDateOf('없음')).toBe('없음')
+    expect(localDateOf('not-a-date-at-all')).toBe('not-a-date')
   })
 })
 
@@ -89,9 +112,9 @@ describe('백업 리마인드가 로컬 날짜로 센다 (Z7-3)', () => {
 
   it('UTC 날짜로 셌다면 1일이 나왔을 것이다 (차이가 실재한다)', () => {
     const iso = '2026-08-04T15:30:00Z'
-    const offsetMin = -new Date(iso).getTimezoneOffset()
-    // UTC보다 앞선 시간대에서만 성립하는 비교 — 그 외 환경에서는 검증을 건너뛴다
-    if (offsetMin >= 570) expect(localDateOf(iso)).not.toBe(iso.slice(0, 10))
+    // 날짜가 UTC와 갈리는 환경에서만 성립한다 (KST가 그렇다). UTC CI에서는 같은 게 정상
+    if (dateDiffersFromUtc(iso)) expect(localDateOf(iso)).not.toBe(iso.slice(0, 10))
+    else expect(localDateOf(iso)).toBe(iso.slice(0, 10))
   })
 
   it('7일이 지나면 여전히 리마인드가 뜬다 (수정이 기능을 죽이지 않았다)', () => {

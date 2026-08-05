@@ -178,8 +178,16 @@ export function formatDateTimeLocal(iso: string): string {
  *
  * `iso.slice(0, 10)`은 UTC 날짜라 KST 자정~09시 업로드가 하루 어긋난다.
  * 백업 리마인드가 그 값으로 경과일을 세고 있었다.
+ *
+ * **날짜만 있는 문자열(`"2026-08-04"`)은 그대로 돌려준다.** 이 코드베이스에서
+ * `YYYY-MM-DD`는 이미 로컬 날짜이고(`toDateStr`·`parseDateStr` 규약), `new Date()`는
+ * 그것을 **UTC 자정**으로 읽는다 — UTC보다 뒤진 시간대(예: UTC−4)에서는 하루 밀린다.
+ * 테스트를 여러 시간대에서 돌리다 발견했다 (America/New_York에서 8/4 → 8/3).
  */
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
+
 export function localDateOf(iso: string): string {
+  if (DATE_ONLY.test(iso.trim())) return iso.trim()
   const d = new Date(iso)
   return Number.isNaN(d.getTime()) ? iso.slice(0, 10) : toDateStr(d)
 }
