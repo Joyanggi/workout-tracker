@@ -25,6 +25,7 @@ import { bannerWatches, compensationWatches } from '../lib/compensationWatch'
 import { buildScaleMap, formatProgression, isInverseKey } from '../lib/weightScale'
 import { useExerciseSettings } from '../lib/useExerciseSettings'
 import { buildSession, withJustFinished } from '../lib/sessionFactory'
+import { dayChoiceReason, displayDay, pickedIdFor } from '../lib/dayChoice'
 import { suggestNextDay } from '../lib/suggestNextDay'
 import { exerciseLabel, useRoutine } from '../lib/useRoutine'
 import { useSessionStore } from '../store/session'
@@ -50,6 +51,11 @@ export default function HomeScreen({
   const finishSession = useSessionStore((s) => s.finish)
   const discardSession = useSessionStore((s) => s.discard)
   const [picking, setPicking] = useState(false)
+  /*
+   * 직접 고른 Day (AA1). **저장하지 않는다** — 탭을 옮겼다 돌아오면 제안으로 돌아간다.
+   * 다음 날 열었을 때 어제의 수동 선택이 남아 있는 것이 더 나쁜 실패다 (파생값 비저장 원칙).
+   */
+  const [pickedDayId, setPickedDayId] = useState<string | null>(null)
   const [pending, setPending] = useState<{ day: RoutineDay; forceMode?: SessionMode } | null>(null)
   const [applyReturn, setApplyReturn] = useState(true)
   // 탭을 옮겨도 dismiss가 유지되도록 스토어에 둔다 (store/ui.ts 주석 참조)
@@ -155,6 +161,8 @@ export default function HomeScreen({
 
   const start = (day: RoutineDay, forceMode?: SessionMode) => {
     setPicking(false)
+    // 시작하면 override를 지운다 (AA1) — 다음에 홈으로 돌아왔을 때는 다시 제안이 기준이다
+    setPickedDayId(null)
     // 진행 중 세션이 있으면 덮어쓰지 않고 처리 방법을 먼저 묻는다 (store.begin이 거부한다)
     if (openSession) {
       setPending({ day, forceMode })
@@ -174,6 +182,12 @@ export default function HomeScreen({
     setPending(null)
     onEnterSession()
   }
+
+  /*
+   * 카드·시작 버튼·디로드 시작이 **같은 Day를 가리킨다** (AA1).
+   * 각자 고르면 보이는 Day와 시작되는 Day가 갈라진다 — `dayChoice`가 그 한 점이다.
+   */
+  const displayed = displayDay(routine, pickedDayId, suggestion.day)
 
   // §5.1 상태 배너는 우선순위 순. 복귀와 디로드는 **동시에 띄우지 않는다** —
   // 복귀는 이미 볼륨을 줄인 상태이므로 디로드 권고가 중복이고, 두 배너가 서로 다른
@@ -240,7 +254,12 @@ export default function HomeScreen({
                 : `조기 신호: ${deload.earlyDetail}`}
             </small>
           </span>
-          <button onClick={() => start(suggestion.day, 'deload')}>
+          {/*
+            디로드는 그대로 1단이다 (라벨이 이미 "시작"이므로 맞다). 다만 **카드에 보이는
+            Day**로 시작한다 — 직접 고른 Day가 있는데 배너가 제안 Day를 시작하면 화면이
+            말한 것과 다른 세션이 만들어진다 (계획서가 명시하지 않은 자리라 이렇게 정했다).
+          */}
+          <button onClick={() => start(displayed, 'deload')}>
             <span>디로드로 시작</span>
           </button>
           <button
@@ -349,24 +368,39 @@ export default function HomeScreen({
         </button>
       )}
 
+      {/*
+        카드 탭으로 시트가 열리는 경로는 유지한다 (아는 사람의 지름길). 다만 하단
+        텍스트 힌트("탭해서 다른 Day 선택 ▸")는 제거했다 (AA2) — 보이는 [변경] 버튼이
+        생겼으므로 중복이고, 힌트는 **읽는 사람**에게만 보이고 버튼은 훑는 사람에게도 보인다.
+      */}
       <button className="card today-card today-card-btn" onClick={() => setPicking(true)}>
         <div className="card-label">다음 운동</div>
-        <div className="today-day">{suggestion.day.name}</div>
-        <div className="today-sub">{suggestion.day.subtitle}</div>
-        <div className="today-reason">{suggestion.reason}</div>
+        <div className="today-day">{displayed.name}</div>
+        <div className="today-sub">{displayed.subtitle}</div>
+        <div className="today-reason">
+          {dayChoiceReason(pickedDayId, suggestion.day, suggestion.reason)}
+        </div>
         <div className="today-sub" style={{ marginTop: 8 }}>
-          {suggestion.day.exercises
+          {displayed.exercises
             .slice()
             .sort((a, b) => a.plannedOrder - b.plannedOrder)
             .map((ex) => exerciseLabel(catalog, ex.exerciseId))
             .join(' · ')}
         </div>
-        <div className="today-change">탭해서 다른 Day 선택 ▸</div>
       </button>
 
-      <button className="btn btn-primary" onClick={() => start(suggestion.day)}>
-        {suggestion.day.name} 시작
-      </button>
+      {/*
+        시작이 주 동작이고 [변경]은 곁이다 (AA2). "변경 → 고르기 → 시작"이 AA1의 선택
+        모델과 정확히 짝이 맞는다 — 시트는 선택만 바꾸고 시작은 항상 이 버튼이다.
+      */}
+      <div className="btn-row start-row">
+        <button className="btn btn-primary btn-start" onClick={() => start(displayed)}>
+          {displayed.name} 시작
+        </button>
+        <button className="btn btn-change" onClick={() => setPicking(true)}>
+          변경
+        </button>
+      </div>
 
       <div style={{ height: 12 }} />
 
@@ -476,7 +510,15 @@ export default function HomeScreen({
         <DayPickerSheet
           routine={routine}
           suggestedDayId={suggestion.day.id}
-          onPick={(day) => start(day)}
+          pickedDayId={pickedDayId}
+          /*
+            **시트는 선택만 바꾼다** (AA1) — 세션을 만들지 않는다.
+            제안 Day를 다시 고르면 override가 지워진다 (pickedIdFor).
+          */
+          onPick={(day) => {
+            setPickedDayId(pickedIdFor(day.id, suggestion.day.id))
+            setPicking(false)
+          }}
           onClose={() => setPicking(false)}
         />
       )}

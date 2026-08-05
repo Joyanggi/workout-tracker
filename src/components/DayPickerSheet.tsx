@@ -5,15 +5,22 @@ import { dayTotalSets } from '../lib/useRoutine'
  * Day 선택 바텀시트 (DESIGN.md §4).
  * "홈 화면에서 제안 Day를 크게 표시하되, 탭하면 모든 Day + 하한 모드 선택 시트가 열림
  *  (요구사항: 잘못된 경우 변경 가능)"
+ *
+ * **시트는 선택만 바꾸고, 시작은 항상 시작 버튼이다** (AA1). 예전에는 행을 탭하는 순간
+ * 세션이 만들어졌다 — 제안 Day는 2단(카드 → 시작)인데 다른 Day는 1단이어서 둘러보기가
+ * 불가능했고, 잘못 탭하면 세션을 버리거나 강제 마감해야 했다.
  */
 export default function DayPickerSheet({
   routine,
   suggestedDayId,
+  /** 지금 직접 고른 Day (없으면 제안이 기준) — 무엇이 선택돼 있는지 시트가 말해야 한다 */
+  pickedDayId,
   onPick,
   onClose,
 }: {
   routine: RoutineTemplate
   suggestedDayId?: string
+  pickedDayId?: string | null
   onPick: (day: RoutineDay) => void
   onClose: () => void
 }) {
@@ -25,6 +32,11 @@ export default function DayPickerSheet({
           {day.id === suggestedDayId && (
             <span className="chip chip-accent" style={{ marginLeft: 6 }}>
               제안
+            </span>
+          )}
+          {day.id === pickedDayId && day.id !== suggestedDayId && (
+            <span className="chip" style={{ marginLeft: 6 }}>
+              선택
             </span>
           )}
           {day.isBuffer && (
@@ -48,6 +60,9 @@ export default function DayPickerSheet({
       <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Day 선택">
         <div className="sheet-grip" />
         <div className="card-label">오늘 할 운동</div>
+        <p className="row-sub" style={{ marginTop: -4, marginBottom: 4 }}>
+          고르면 홈 카드가 바뀝니다. 시작은 시작 버튼으로.
+        </p>
         {routine.days.map(renderDay)}
 
         <div className="card-label" style={{ marginTop: 20 }}>

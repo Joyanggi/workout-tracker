@@ -493,10 +493,19 @@ select {
   font-weight: 600;
 }
 
-.today-change {
-  margin-top: 12px;
-  color: var(--text-faint);
-  font-size: 13px;
+/*
+  시작 버튼 행 (AA2) — 시작이 주 동작이고 [변경]은 곁이다.
+  .btn이 width:100%라 flex-basis가 같아지므로 비율을 여기서 정한다.
+  "변경"은 두 글자이므로 고정 폭으로 두고 시작 버튼이 남는 폭을 갖는다.
+*/
+.start-row .btn-start {
+  flex: 1 1 auto;
+  width: auto;
+}
+
+.start-row .btn-change {
+  flex: 0 0 84px;
+  width: auto;
 }
 
 /* ─── 세션 화면 ────────────────────────────────────────── */
