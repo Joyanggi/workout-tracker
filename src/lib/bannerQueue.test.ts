@@ -12,7 +12,7 @@ import { stripComments } from './sourceScan'
 const NONE: BannerConditions = {
   hasReturn: false,
   deloadDue: false,
-  backupDue: false,
+  backupStale: false,
   phaseReady: false,
   hasWatches: false,
   hasProgressions: false,
@@ -28,7 +28,7 @@ describe('우선순위', () => {
 
   it('선언된 순서대로 나온다', () => {
     // 배제가 없는 조합으로 순서만 확인한다 (백업은 아무것도 가리지 않는다)
-    expect(q({ backupDue: true, hasProgressions: true })).toEqual(['backup', 'progression'])
+    expect(q({ backupStale: true, hasProgressions: true })).toEqual(['backup', 'progression'])
   })
 
   it('BANNER_ORDER가 계획서의 우선순위와 같다', () => {
@@ -49,7 +49,7 @@ describe('상호 배제 — 현행 규칙 그대로', () => {
     const all: BannerConditions = {
       hasReturn: true,
       deloadDue: true,
-      backupDue: true,
+      backupStale: true,
       phaseReady: true,
       hasWatches: true,
       hasProgressions: true,
@@ -79,15 +79,15 @@ describe('상호 배제 — 현행 규칙 그대로', () => {
   })
 
   it('백업은 아무것도 가리지 않고 아무것에도 가려지지 않는다', () => {
-    expect(q({ backupDue: true, hasReturn: true })).toContain('backup')
-    expect(q({ backupDue: true, deloadDue: true })).toEqual(['deload', 'backup'])
+    expect(q({ backupStale: true, hasReturn: true })).toContain('backup')
+    expect(q({ backupStale: true, deloadDue: true })).toEqual(['deload', 'backup'])
   })
 })
 
 describe('dismiss', () => {
   it('닫은 배너는 큐에서 빠진다', () => {
     expect(q({ deloadDue: true }, { [BANNER_DELOAD]: true })).toEqual([])
-    expect(q({ backupDue: true }, { [BANNER_BACKUP]: true })).toEqual([])
+    expect(q({ backupStale: true }, { [BANNER_BACKUP]: true })).toEqual([])
     expect(q({ phaseReady: true }, { [BANNER_PHASE]: true })).toEqual([])
     expect(q({ hasWatches: true }, { [BANNER_COMPENSATION]: true })).toEqual([])
   })
@@ -110,7 +110,7 @@ describe('dismiss', () => {
 
 describe('접기 판단의 근거 — 실제로 쌓이는 조합', () => {
   it('백업 + 증량 + 보상작용이 동시에 3개다 (BB4가 지목한 상황)', () => {
-    const stacked = q({ backupDue: true, hasWatches: true, hasProgressions: true })
+    const stacked = q({ backupStale: true, hasWatches: true, hasProgressions: true })
     expect(stacked).toHaveLength(3)
     // 첫 번째만 펼치고 2개가 접힌다
     expect(stacked[0]).toBe('backup')
@@ -143,8 +143,13 @@ describe('화면 배선 (2층 잠금)', () => {
     for (const gone of ['showReturn', 'showDeload', 'showPhase']) {
       expect(src, `${gone}가 남아 있다`).not.toContain(gone)
     }
-    // dismissed를 직접 보고 배너를 감추는 조건도 없어야 한다
-    expect(src).not.toMatch(/dismissed\[BANNER_/)
+    /*
+      `dismissed[BANNER_…]`를 화면이 직접 보는 자리는 **정확히 하나**여야 한다:
+      큐 밖의 백업 미설정 배너 (후속 2). 큐에 있는 배너가 여기서 다시 dismiss를 보면
+      큐와 화면이 서로 다른 답을 낼 수 있다.
+    */
+    const direct = src.match(/dismissed\[BANNER_[A-Z_]+\]/g) ?? []
+    expect(direct).toEqual(['dismissed[BANNER_BACKUP]'])
   })
 
   it('저장소 위험 배너는 큐 밖에 있다 — 접히면 안 된다', () => {
@@ -152,5 +157,45 @@ describe('화면 배선 (2층 잠금)', () => {
     expect(src).toMatch(/storageAtRisk\(\) && \(/)
     // storageAtRisk가 큐 조건에 들어가지 않았는지
     expect(src).not.toMatch(/storageAtRisk[^\n]*bannerQueue|bannerQueue[^)]*storageAtRisk/)
+  })
+})
+
+/**
+ * 백업 배너를 `configured`로 가른다 (v1.7 후속 2).
+ *
+ * 미설정은 **백업이 아예 없는 상태**라 데이터 유실 축이고 접히면 안 된다.
+ * 설정됨+오래됨은 세션 종료마다 자동 백업이 도는 상태의 보조 신호이므로 큐에 남긴다.
+ */
+describe('백업 미설정은 큐 밖 (후속 2)', () => {
+  const home = () => {
+    const sources = import.meta.glob('/src/screens/*.tsx', {
+      query: '?raw',
+      import: 'default',
+      eager: true,
+    }) as Record<string, string>
+    return stripComments(sources['/src/screens/HomeScreen.tsx']!)
+  }
+
+  it('큐에는 "설정됨 + 오래됨"만 넣는다', () => {
+    expect(home()).toMatch(/backupStale: reminder\.show && reminder\.configured/)
+  })
+
+  it('미설정 배너는 큐 밖에서 렌더한다', () => {
+    const src = home()
+    expect(src).toMatch(/reminder\.show && !reminder\.configured/)
+    // 큐 렌더보다 위에 있어야 한다 (다른 배너에 밀리지 않는다)
+    expect(src.indexOf('!reminder.configured')).toBeLessThan(src.indexOf('queue.slice('))
+  })
+
+  it('큐의 백업 배너 문구가 한 가지만 말한다', () => {
+    // 두 상태를 삼항으로 겸하던 문구를 갈랐다 — 각 배너가 자기 상태만 말한다
+    const src = home()
+    expect(src).toMatch(/마지막 백업이 \{reminder\.daysSince/)
+    expect(src).not.toMatch(/reminder\.configured\s*\n?\s*\?/)
+  })
+
+  it('미설정 상태는 큐에 들어가지 않는다 (조건 함수 수준)', () => {
+    // configured=false인 상황을 큐에 넣으면 접힐 수 있다 — backupStale이 false여야 한다
+    expect(q({ backupStale: false, hasProgressions: true })).toEqual(['progression'])
   })
 })

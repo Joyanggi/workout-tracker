@@ -10,6 +10,7 @@ import TempoGuideSheet from './TempoGuideSheet'
 import { IconScale, IconSliders } from './icons'
 import type { CompensationWatch } from '../lib/compensationWatch'
 import { compensationSummary, hasCompensation } from '../lib/compensation'
+import { commitPendingEdits } from '../lib/commitEdits'
 import { doneSetsAll } from '../lib/derive'
 import { setRowClass, zeroWeightHint } from '../lib/setRowState'
 import type { RecordPrefill } from '../lib/prefill'
@@ -372,9 +373,19 @@ export default function ExerciseCard({
               무게는 4자("42.5"), 횟수는 2자라 1.3:1로 배분한다.
             */
             /*
-              key={i}는 **세트를 끝에서만 제거**하는 현재 UI에서만 안전하다.
-              중간 제거를 추가하면 NumberStepper의 편집 중 로컬 상태가 옆 세트로 옮겨 붙는다.
-              그때는 SetRecord에 id를 추가해야 한다 (persist되는 타입이라 백업 스키마도 함께).
+              key={i}의 실제 위험 (v1.7 §3.2 — 이전 주석의 "끝에서만 제거하므로 안전"은
+              **거짓이었다**).
+
+              워밍업 추가는 `[set, ...entry.sets]`로 **앞에 삽입**하므로 이미 모든 인덱스가
+              밀린다. 중간 제거를 기다릴 필요가 없었다. 인덱스가 밀리면 NumberStepper의
+              편집 중 로컬 `text` 상태가 원래 세트를 떠나 옆 행의 숫자로 보인다
+              (실측: 화면 40 / DB 0).
+
+              **현재 방어선은 `commitPendingEdits()`다** — 워밍업 버튼이 배열을 바꾸기 전에
+              편집을 커밋시킨다. 방어선이지 근본 수정이 아니다: 인덱스를 미는 조작을 새로
+              추가하면 그 자리에도 같은 한 줄이 필요하고, 빠뜨리면 조용히 되돌아온다.
+              근본 수정은 SetRecord에 id를 두는 것이고, persist되는 타입이라 백업 스키마·
+              마이그레이션과 함께 봐야 한다 (다음 기능 라운드 백로그).
             */
             <div className={setRowClass(set)} key={i}>
               <div className="set-no">{label}</div>
@@ -466,7 +477,14 @@ export default function ExerciseCard({
             */}
             <button
               className="btn btn-sm"
-              onClick={() => actions.addSet(entry.recordKey, { warmup: true })}
+              onClick={() => {
+                /*
+                  **커밋을 먼저.** 워밍업은 앞에 삽입되어 인덱스를 밀고, NumberStepper의
+                  편집 중 로컬 상태는 인덱스에 붙어 있다 (v1.7 §3.2에서 화면 40 / DB 0).
+                */
+                commitPendingEdits()
+                actions.addSet(entry.recordKey, { warmup: true })
+              }}
               aria-label="워밍업 세트 추가"
             >
               워밍업

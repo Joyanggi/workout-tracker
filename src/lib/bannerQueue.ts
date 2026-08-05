@@ -22,8 +22,9 @@ import { BANNER_BACKUP, BANNER_COMPENSATION, BANNER_DELOAD, BANNER_PHASE } from 
  * **배제 규칙은 현행 그대로 옮겼다** (동작 변경 없음). 순서만 계획서가 정한 우선순위로
  * 명시한다: 복귀 > 디로드 > 백업 > Phase > 보상작용 > 증량.
  *
- * `storageAtRisk`(데이터 유실 경고)는 **이 큐에 넣지 않는다** — 접히면 안 되는 유일한
- * 배너이고, 큐 밖 최상단에 고정된다.
+ * **큐 밖에 있는 것 두 개** (접히지 않는다 — 둘 다 데이터 유실 축이다):
+ *   1. `storageAtRisk` — 홈 화면에 추가하지 않으면 기록이 삭제될 수 있다는 경고.
+ *   2. **백업 미설정** (v1.7 후속 2) — 백업이 아예 없는 상태다. 아래 `backupStale` 참조.
  */
 
 export type BannerId = 'return' | 'deload' | 'backup' | 'phase' | 'compensation' | 'progression'
@@ -51,8 +52,15 @@ export interface BannerConditions {
   hasReturn: boolean
   /** 디로드 권장 (도달 또는 조기 신호) */
   deloadDue: boolean
-  /** 백업 리마인드 */
-  backupDue: boolean
+  /**
+   * 백업 리마인드 — **설정돼 있고 오래된 경우만** (v1.7 후속 2).
+   *
+   * 미설정(`configured === false`)은 이 큐에 들어오지 않는다. 둘을 가르는 이유:
+   * 설정된 상태에서는 세션 종료마다 자동 백업이 돌고 있으므로 이 배너는 **보조 신호**이고,
+   * 복귀 램프 몇 주 동안 접혀 있어도 실위험이 아니다. 반면 미설정은 **백업이 아예 없는
+   * 상태**라 데이터 유실 축이고, 그건 접을 대상이 아니다 (storageAtRisk와 같은 취급).
+   */
+  backupStale: boolean
   /** Phase 전환 조건 충족 + 다음 Phase 존재 */
   phaseReady: boolean
   /** 반복 보상작용 감시 대상이 있는가 */
@@ -69,7 +77,8 @@ export interface BannerConditions {
  * 상태이므로 디로드 권고가 중복이다.
  *
  * 백업이 아무것도 가리지 않고 아무것에도 가려지지 않는 것도 현행 그대로다 —
- * 데이터 보존은 훈련 판정과 다른 축이라 모순 쌍이 없다.
+ * 데이터 보존은 훈련 판정과 다른 축이라 모순 쌍이 없다. (그래서 순서만 낮고, 접힘의
+ * 대상이 된다. 미설정은 큐 밖이라 이 표에 없다.)
  */
 const BLOCKED_BY: Record<BannerId, readonly BannerId[]> = {
   return: [],
@@ -83,7 +92,7 @@ const BLOCKED_BY: Record<BannerId, readonly BannerId[]> = {
 const PRESENT: Record<BannerId, (c: BannerConditions) => boolean> = {
   return: (c) => c.hasReturn,
   deload: (c) => c.deloadDue,
-  backup: (c) => c.backupDue,
+  backup: (c) => c.backupStale,
   phase: (c) => c.phaseReady,
   compensation: (c) => c.hasWatches,
   progression: (c) => c.hasProgressions,

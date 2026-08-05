@@ -213,7 +213,8 @@ export default function HomeScreen({
     {
       hasReturn: Boolean(suggestion.returnStep),
       deloadDue: deload.due || deload.earlySignal,
-      backupDue: reminder.show,
+      // 미설정은 큐 밖에서 항상 보여준다 (후속 2) — 여기 오는 것은 "설정됨 + 오래됨"만
+      backupStale: reminder.show && reminder.configured,
       phaseReady: phase.allMet && phase.to !== null,
       hasWatches: watches.length > 0,
       hasProgressions: progressions.length > 0,
@@ -266,12 +267,11 @@ export default function HomeScreen({
     ),
     backup: (
       <div className="banner banner-warn" style={{ alignItems: 'flex-start' }} key="backup">
+        {/* 설정돼 있고 오래된 경우만 여기 온다 (후속 2) — 문구가 한 가지만 말한다 */}
         <span>
-          {reminder.configured
-            ? `마지막 백업이 ${reminder.daysSince ?? '—'}일 전이에요`
-            : '백업이 설정되지 않았어요'}
+          마지막 백업이 {reminder.daysSince ?? '—'}일 전이에요
           <br />
-          <small>설정 → Gist 백업에서 연결하면 세션 종료마다 자동으로 올라갑니다</small>
+          <small>세션을 마치면 자동으로 올라갑니다. 지금 올리려면 설정 → Gist 백업</small>
         </span>
         <button
           onClick={() => dismiss(BANNER_BACKUP)}
@@ -355,6 +355,34 @@ export default function HomeScreen({
         <span className="chip">Phase {currentPhase}</span>{' '}
         <span className="chip">누적 {done.length}세션</span>
       </p>
+
+      {/*
+        백업 **미설정**은 큐 밖에서 항상 보여준다 (v1.7 후속 2).
+        설정된 뒤 오래된 것("마지막 백업이 N일 전")은 큐에 들어가 접힐 수 있지만,
+        아예 백업이 없는 상태는 데이터 유실 축이라 다른 배너에 밀려 접히면 안 된다.
+
+        **제목 아래에 둔다.** `storageAtRisk`처럼 제목 위로 올리지 않는다 — 그쪽은 danger
+        (지금 기록이 삭제될 수 있다)이고 이쪽은 warn이다. 요구는 "접히지 않는다"이지
+        "모든 것보다 위"가 아니어서, 화면이 경고로 시작하게 만들 이유가 없다.
+
+        "나중에"는 남긴다: dismiss는 저장되지 않으므로(store/ui) 다음 실행에 다시 뜬다.
+        큐 밖이라는 것은 "접히지 않는다"이지 "닫을 수 없다"가 아니다.
+      */}
+      {reminder.show && !reminder.configured && !dismissed[BANNER_BACKUP] && (
+        <div className="banner banner-warn" style={{ alignItems: 'flex-start' }}>
+          <span>
+            백업이 설정되지 않았어요
+            <br />
+            <small>설정 → Gist 백업에서 연결하면 세션 종료마다 자동으로 올라갑니다</small>
+          </span>
+          <button
+            onClick={() => dismiss(BANNER_BACKUP)}
+            style={{ background: 'transparent', marginLeft: 0 }}
+          >
+            <span style={{ color: 'var(--warn)' }}>나중에</span>
+          </button>
+        </div>
+      )}
 
       {/*
         §11 리스크 대응(세션 도중 앱이 죽어도 이어서 진행)은 **재개 스트립**이 대신한다 (Z5).
