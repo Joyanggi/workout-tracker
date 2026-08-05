@@ -12,6 +12,7 @@ import {
 } from '../lib/gistSync'
 import { getGistToken, maskToken, setGistToken } from '../lib/secrets'
 import { NO_AUTOFILL } from '../lib/inputProps'
+import { formatDateTimeLocal } from '../lib/dates'
 
 const TOKEN_HELP = 'https://github.com/settings/tokens/new?scopes=gist&description=workout-tracker'
 
@@ -24,7 +25,13 @@ function stateLabel(s: SyncState): string {
     case 'syncing':
       return '백업 중…'
     case 'done':
-      return `백업 완료 ${s.at.slice(0, 16).replace('T', ' ')}`
+      /*
+        스킵과 업로드를 **문구로** 구분한다 (Z7). 스킵은 lastBackupAt을 갱신하지 않으므로
+        "백업 완료 <옛 시각>"이 뜨면 방금 올린 것과 구분되지 않는다.
+      */
+      return s.skipped
+        ? `변경 없음 — 마지막 백업 ${formatDateTimeLocal(s.at)}`
+        : `백업 완료 ${formatDateTimeLocal(s.at)}`
     case 'error':
       return `실패: ${s.message}`
   }
@@ -191,7 +198,7 @@ export default function GistPanel() {
             <div className="row-main">
               <div className="row-title">마지막 백업</div>
               <div className="row-sub">
-                {lastBackupAt ? lastBackupAt.slice(0, 16).replace('T', ' ') : '없음'}
+                {lastBackupAt ? formatDateTimeLocal(lastBackupAt) : '없음'}
               </div>
             </div>
           </div>
@@ -217,7 +224,7 @@ export default function GistPanel() {
                 세션 {restoreStaged.summary.sessions}개 ({restoreStaged.summary.oldestSession ?? '—'} ~{' '}
                 {restoreStaged.summary.newestSession ?? '—'})
                 <br />
-                내보낸 시각 {restoreStaged.summary.exportedAt.slice(0, 16).replace('T', ' ')}
+                내보낸 시각 {formatDateTimeLocal(restoreStaged.summary.exportedAt)}
                 <br />
                 복원하면 현재 데이터를 <strong>전부 교체</strong>합니다.
               </div>

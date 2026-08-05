@@ -7,6 +7,7 @@ import {
   type BackupSummary,
 } from '../lib/backup'
 import { pickTextFile } from '../lib/pickFile'
+import { formatDateTimeLocal } from '../lib/dates'
 
 /**
  * JSON 복원 (DESIGN.md §5.5).
@@ -77,7 +78,7 @@ export default function ImportPanel() {
             <div className="row-main">
               <div className="row-title mono">{staged.name}</div>
               <div className="row-sub">
-                내보낸 시각 {staged.summary.exportedAt.slice(0, 16).replace('T', ' ')}
+                내보낸 시각 {formatDateTimeLocal(staged.summary.exportedAt)}
               </div>
             </div>
           </div>

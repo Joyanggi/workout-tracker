@@ -1,7 +1,7 @@
 import { createBackup, fingerprintPayload } from './backup'
 import { createGist, GistError, updateGist } from './gist'
 import { getGistToken } from './secrets'
-import { daysBetween, todayLocal } from './dates'
+import { daysBetween, localDateOf, todayLocal } from './dates'
 import { getSetting, setSettings } from '../db'
 
 /**
@@ -22,7 +22,15 @@ export type SyncState =
   | { status: 'idle' }
   | { status: 'pending' }
   | { status: 'syncing' }
-  | { status: 'done'; at: string }
+  /**
+   * 업로드 성공 또는 **건너뜀**.
+   *
+   * `skipped`를 구분하는 이유 (Z7): 스킵은 `lastBackupAt`을 갱신하지 않는 것이 맞다
+   * (올린 게 없으므로). 그런데 화면 문구가 "백업 완료 <옛 시각>"이면 방금 올린 것과
+   * 구분되지 않는다 — 사용자가 버튼을 눌렀을 때 "올라갔다 / 올릴 게 없었다"가
+   * **문구만으로** 갈려야 한다. 틀린 것은 시각이 아니라 문구였다.
+   */
+  | { status: 'done'; at: string; skipped?: boolean }
   | { status: 'error'; message: string }
 
 type Listener = (state: SyncState) => void
@@ -103,7 +111,7 @@ export async function syncNow(): Promise<SyncState> {
       // 마지막 백업 시각이 없으면 건너뛰지 않는다 — 보고할 사실이 없으면 올리는 쪽이 안전하다
       if (lastHash === fingerprint && lastAt !== null) {
         clearSyncPending()
-        const next: SyncState = { status: 'done', at: lastAt }
+        const next: SyncState = { status: 'done', at: lastAt, skipped: true }
         emit(next)
         return next
       }
@@ -253,7 +261,11 @@ export function backupReminder(args: {
   today?: string
 }): ReminderInfo {
   const { sessionCount, lastBackupAt, configured, today = todayLocal() } = args
-  const daysSince = lastBackupAt ? daysBetween(lastBackupAt.slice(0, 10), today) : null
+  /*
+   * **로컬 날짜로 센다** (Z7). `slice(0, 10)`은 UTC 날짜라 KST 자정~09시 업로드가
+   * 하루 어긋나고, 리마인드가 하루 일찍/늦게 뜬다.
+   */
+  const daysSince = lastBackupAt ? daysBetween(localDateOf(lastBackupAt), today) : null
 
   if (sessionCount === 0) return { show: false, daysSince, configured }
   if (!configured) return { show: true, daysSince, configured }

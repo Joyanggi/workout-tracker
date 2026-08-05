@@ -147,3 +147,39 @@ export function mmss(totalSec: number): string {
   const safe = Math.max(0, Math.floor(totalSec))
   return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, '0')}`
 }
+
+/*
+ * ─── UTC ISO → 기기 로컬 표시 (Z7) ────────────────────────
+ *
+ * 백업 시각은 GitHub API의 `updated_at`(UTC ISO)이다. 화면이 이걸 `slice(0, 16)`으로
+ * 그대로 잘라 쓰고 있었고, 그래서 **KST 자정~09시 사이의 모든 백업이 하루 전 날짜로**
+ * 보였다 — 8/5 08:56에 백업한 것이 "08-04 23:56"으로 표시된다.
+ *
+ * 사용자 보고는 "백업이 된 건데 시간만 오류인지 판단이 안 선다"였다.
+ * **판단이 안 서는 것 자체가 결함이다** — 백업 상태 표시의 존재 이유가 그 판단을
+ * 대신 해주는 것이다. 데이터는 무사했다 (Gist 리비전 이력으로 확정).
+ *
+ * `slice`가 **네 곳**에 복제돼 있었다 (패턴 B) — 계획서는 두 곳을 지목했고, 내가 grep으로
+ * 세 곳을 찾았고, 인바리언트 테스트가 네 번째(`ImportPanel`)를 잡았다.
+ * 함수 하나로 모은다 — `mmss`를 뽑은 것과 같은 이유다.
+ */
+
+/** UTC ISO → 로컬 `YYYY-MM-DD HH:mm`. 파싱 실패는 원문을 돌려준다 (표시가 사라지지 않게) */
+export function formatDateTimeLocal(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  return `${toDateStr(d)} ${hh}:${mm}`
+}
+
+/**
+ * UTC ISO → 로컬 `YYYY-MM-DD` (날짜 계산용).
+ *
+ * `iso.slice(0, 10)`은 UTC 날짜라 KST 자정~09시 업로드가 하루 어긋난다.
+ * 백업 리마인드가 그 값으로 경과일을 세고 있었다.
+ */
+export function localDateOf(iso: string): string {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? iso.slice(0, 10) : toDateStr(d)
+}
