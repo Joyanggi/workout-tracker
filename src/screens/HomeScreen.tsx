@@ -25,6 +25,7 @@ import { bannerWatches, compensationWatches } from '../lib/compensationWatch'
 import { buildScaleMap, formatProgression, isInverseKey } from '../lib/weightScale'
 import { useExerciseSettings } from '../lib/useExerciseSettings'
 import { buildSession, withJustFinished } from '../lib/sessionFactory'
+import { bannerQueue, type BannerId } from '../lib/bannerQueue'
 import { dayChoiceReason, displayDay, pickedIdFor } from '../lib/dayChoice'
 import { suggestNextDay } from '../lib/suggestNextDay'
 import { exerciseLabel, useRoutine } from '../lib/useRoutine'
@@ -57,6 +58,11 @@ export default function HomeScreen({
    */
   const [pickedDayId, setPickedDayId] = useState<string | null>(null)
   const [pending, setPending] = useState<{ day: RoutineDay; forceMode?: SessionMode } | null>(null)
+  /*
+   * 접힌 배너 전개 (BB4). 컴포넌트 상태로 둔다 — dismiss와 달리 "지금 한 번 펼쳐 본다"는
+   * 뜻이고, 탭을 옮겼다 돌아오면 다시 접혀 있는 것이 맞다 (AA1의 선택 상태와 같은 결).
+   */
+  const [bannersOpen, setBannersOpen] = useState(false)
   const [applyReturn, setApplyReturn] = useState(true)
   // 탭을 옮겨도 dismiss가 유지되도록 스토어에 둔다 (store/ui.ts 주석 참조)
   const dismissed = useUi((s) => s.dismissed)
@@ -189,22 +195,149 @@ export default function HomeScreen({
    */
   const displayed = displayDay(routine, pickedDayId, suggestion.day)
 
-  // §5.1 상태 배너는 우선순위 순. 복귀와 디로드는 **동시에 띄우지 않는다** —
-  // 복귀는 이미 볼륨을 줄인 상태이므로 디로드 권고가 중복이고, 두 배너가 서로 다른
-  // 숫자를 말하면 어느 쪽을 따라야 하는지 알 수 없다.
-  const showReturn = Boolean(suggestion.returnStep)
-  const showDeload = !showReturn && !dismissed[BANNER_DELOAD] && (deload.due || deload.earlySignal)
-
-  // T3 배너 우선순위: 복귀 > 디로드 > Phase 전환 제안 > 증량 배지
-  const showPhase =
-    !showReturn && !showDeload && !dismissed[BANNER_PHASE] && phase.allMet && phase.to !== null
-
   // §11 리스크 대응: "주 1회 백업 리마인드 배너"
   const reminder = backupReminder({
     sessionCount: done.length,
     lastBackupAt,
     configured: isGistConfigured(),
   })
+
+  /*
+   * 배너 우선순위·상호 배제를 `bannerQueue`가 판정한다 (BB4).
+   *
+   * 예전에는 여섯 개 조건식이 `!showReturn && !showDeload && …`를 손으로 이어 붙였고,
+   * **몇 개가 동시에 뜨는지 아무도 계산하지 않았다** (백업 + 증량 + 보상작용이 실제로
+   * 함께 쌓였다). 규칙은 그대로 옮겼고, 화면은 큐에서 렌더한다.
+   */
+  const queue = bannerQueue(
+    {
+      hasReturn: Boolean(suggestion.returnStep),
+      deloadDue: deload.due || deload.earlySignal,
+      backupDue: reminder.show,
+      phaseReady: phase.allMet && phase.to !== null,
+      hasWatches: watches.length > 0,
+      hasProgressions: progressions.length > 0,
+    },
+    dismissed,
+  )
+
+  /*
+   * 배너 본문. 큐가 순서를 정하고 이 맵이 그림을 정한다 — 조건은 이 안에 없다.
+   * (조건을 여기 또 적으면 큐와 화면이 서로 다른 답을 낼 수 있다.)
+   */
+  const BANNER_VIEW: Record<BannerId, JSX.Element> = {
+    return: (
+      <div className="banner banner-info" style={{ alignItems: 'flex-start' }} key="return">
+        <span>
+          {suggestion.gapDays}일 공백 — 무게 {suggestion.returnStep?.weightPct}%, 세트{' '}
+          {suggestion.returnStep?.setPct}%, RIR {suggestion.returnStep?.targetRIR}로 복귀할까요?
+          <br />
+          <small>{suggestion.returnStep?.rampWeeks}주간 램프업</small>
+        </span>
+        <button onClick={() => setApplyReturn(!applyReturn)}>
+          <span>{applyReturn ? '적용됨' : '무시'}</span>
+        </button>
+      </div>
+    ),
+    deload: (
+      <div className="banner banner-warn" style={{ alignItems: 'flex-start' }} key="deload">
+        <span>
+          디로드 권장 — 세트 50%, 무게 유지
+          <br />
+          <small>
+            {deload.due ? `수행 ${deload.performedWeeks}주 도달` : `조기 신호: ${deload.earlyDetail}`}
+          </small>
+        </span>
+        {/*
+          디로드는 그대로 1단이다 (라벨이 이미 "시작"이므로 맞다). 다만 **카드에 보이는
+          Day**로 시작한다 — 직접 고른 Day가 있는데 배너가 제안 Day를 시작하면 화면이
+          말한 것과 다른 세션이 만들어진다 (AA1).
+        */}
+        <button onClick={() => start(displayed, 'deload')}>
+          <span>디로드로 시작</span>
+        </button>
+        <button
+          onClick={() => dismiss(BANNER_DELOAD)}
+          style={{ background: 'transparent', marginLeft: 0 }}
+        >
+          <span style={{ color: 'var(--warn)' }}>나중에</span>
+        </button>
+      </div>
+    ),
+    backup: (
+      <div className="banner banner-warn" style={{ alignItems: 'flex-start' }} key="backup">
+        <span>
+          {reminder.configured
+            ? `마지막 백업이 ${reminder.daysSince ?? '—'}일 전이에요`
+            : '백업이 설정되지 않았어요'}
+          <br />
+          <small>설정 → Gist 백업에서 연결하면 세션 종료마다 자동으로 올라갑니다</small>
+        </span>
+        <button
+          onClick={() => dismiss(BANNER_BACKUP)}
+          style={{ background: 'transparent', marginLeft: 0 }}
+        >
+          <span style={{ color: 'var(--warn)' }}>나중에</span>
+        </button>
+      </div>
+    ),
+    phase: (
+      <div className="banner banner-ok" style={{ alignItems: 'flex-start' }} key="phase">
+        <span>
+          Phase {phase.from} 조건을 모두 충족했어요
+          <br />
+          <small>{phase.checks.map((c) => c.detail).join(' · ')}</small>
+        </span>
+        <button onClick={() => void setPhase(phase.to as Phase)}>
+          <span>Phase {phase.to}로 전환</span>
+        </button>
+        <button
+          onClick={() => dismiss(BANNER_PHASE)}
+          style={{ background: 'transparent', marginLeft: 0 }}
+        >
+          <span style={{ color: 'var(--ok)' }}>나중에</span>
+        </button>
+      </div>
+    ),
+    compensation: (
+      <div className="banner banner-warn" style={{ alignItems: 'flex-start' }} key="compensation">
+        <span>
+          보상작용 반복 — 무게 하향 검토
+          <br />
+          <small>
+            {watches
+              .map(
+                (w) =>
+                  `${exerciseLabel(catalog, parseRecordKey(w.recordKey).exerciseId)} ${w.streak}회 연속`,
+              )
+              .join(' · ')}
+          </small>
+        </span>
+        <button
+          onClick={() => dismiss(BANNER_COMPENSATION)}
+          style={{ background: 'transparent', marginLeft: 'auto' }}
+        >
+          <span style={{ color: 'var(--warn)' }}>나중에</span>
+        </button>
+      </div>
+    ),
+    progression: (
+      <div className="banner banner-info" style={{ alignItems: 'flex-start' }} key="progression">
+        <span>
+          증량 제안
+          <br />
+          <small>
+            {progressions
+              .map(
+                (p) =>
+                  `${exerciseLabel(catalog, p.exerciseId)} ${formatProgression(p.from, p.to, p.inverse)}`,
+              )
+              .join(' · ')}
+          </small>
+        </span>
+      </div>
+    ),
+  }
 
   return (
     <div className="screen">
@@ -229,125 +362,19 @@ export default function HomeScreen({
         같은 정보가 홈에서만 두 줄로 뜨는 것을 피한다.
       */}
 
-      {showReturn && suggestion.returnStep && (
-        <div className="banner banner-info" style={{ alignItems: 'flex-start' }}>
-          <span>
-            {suggestion.gapDays}일 공백 — 무게 {suggestion.returnStep.weightPct}%, 세트{' '}
-            {suggestion.returnStep.setPct}%, RIR {suggestion.returnStep.targetRIR}로 복귀할까요?
-            <br />
-            <small>{suggestion.returnStep.rampWeeks}주간 램프업</small>
-          </span>
-          <button onClick={() => setApplyReturn(!applyReturn)}>
-            <span>{applyReturn ? '적용됨' : '무시'}</span>
-          </button>
-        </div>
-      )}
-
-      {showDeload && (
-        <div className="banner banner-warn" style={{ alignItems: 'flex-start' }}>
-          <span>
-            디로드 권장 — 세트 50%, 무게 유지
-            <br />
-            <small>
-              {deload.due
-                ? `수행 ${deload.performedWeeks}주 도달`
-                : `조기 신호: ${deload.earlyDetail}`}
-            </small>
-          </span>
-          {/*
-            디로드는 그대로 1단이다 (라벨이 이미 "시작"이므로 맞다). 다만 **카드에 보이는
-            Day**로 시작한다 — 직접 고른 Day가 있는데 배너가 제안 Day를 시작하면 화면이
-            말한 것과 다른 세션이 만들어진다 (계획서가 명시하지 않은 자리라 이렇게 정했다).
-          */}
-          <button onClick={() => start(displayed, 'deload')}>
-            <span>디로드로 시작</span>
-          </button>
-          <button
-            onClick={() => dismiss(BANNER_DELOAD)}
-            style={{ background: 'transparent', marginLeft: 0 }}
-          >
-            <span style={{ color: 'var(--warn)' }}>나중에</span>
-          </button>
-        </div>
-      )}
-
-      {reminder.show && !dismissed[BANNER_BACKUP] && (
-        <div className="banner banner-warn" style={{ alignItems: 'flex-start' }}>
-          <span>
-            {reminder.configured
-              ? `마지막 백업이 ${reminder.daysSince ?? '—'}일 전이에요`
-              : '백업이 설정되지 않았어요'}
-            <br />
-            <small>설정 → Gist 백업에서 연결하면 세션 종료마다 자동으로 올라갑니다</small>
-          </span>
-          <button
-            onClick={() => dismiss(BANNER_BACKUP)}
-            style={{ background: 'transparent', marginLeft: 0 }}
-          >
-            <span style={{ color: 'var(--warn)' }}>나중에</span>
-          </button>
-        </div>
-      )}
-
-      {showPhase && phase.to !== null && (
-        <div className="banner banner-ok" style={{ alignItems: 'flex-start' }}>
-          <span>
-            Phase {phase.from} 조건을 모두 충족했어요
-            <br />
-            <small>{phase.checks.map((c) => c.detail).join(' · ')}</small>
-          </span>
-          <button onClick={() => void setPhase(phase.to as Phase)}>
-            <span>Phase {phase.to}로 전환</span>
-          </button>
-          <button
-            onClick={() => dismiss(BANNER_PHASE)}
-            style={{ background: 'transparent', marginLeft: 0 }}
-          >
-            <span style={{ color: 'var(--ok)' }}>나중에</span>
-          </button>
-        </div>
-      )}
-
-      {/* 복귀·디로드·Phase 배너와 동시에 띄우지 않는다 — "볼륨을 줄여라"와 "증량하라"가 나란히 뜬다 */}
-      {progressions.length > 0 && !showReturn && !showDeload && !showPhase && (
-        <div className="banner banner-info" style={{ alignItems: 'flex-start' }}>
-          <span>
-            증량 제안
-            <br />
-            <small>
-              {progressions
-                .map(
-                  (p) =>
-                    `${exerciseLabel(catalog, p.exerciseId)} ${formatProgression(p.from, p.to, p.inverse)}`,
-                )
-                .join(' · ')}
-            </small>
-          </span>
-        </div>
-      )}
-
       {/*
-        반복 보상작용 (T11). 모드 배너(복귀·디로드·Phase)보다 아래에 둔다.
-        증량 배너와는 함께 떠도 된다 — 둘 다 종목별 목록이고 대상이 다르다.
+        배너는 **첫 번째만 펼친다** (BB4). 나머지는 "다른 알림 N개"로 접어 둔다 —
+        조건 배제 규칙이 있어도 백업 + 증량 + 보상작용처럼 축이 다른 배너는 함께 쌓이고,
+        첫 화면이 경고로 가득 차면 어느 것도 읽히지 않는다.
+
+        순서·배제 판정은 `bannerQueue`가 한다. 여기서 다시 조건을 쓰지 않는 것이 요점이다.
       */}
-      {watches.length > 0 && !showReturn && !showDeload && !dismissed[BANNER_COMPENSATION] && (
-        <div className="banner banner-warn" style={{ alignItems: 'flex-start' }}>
-          <span>
-            보상작용 반복 — 무게 하향 검토
-            <br />
-            <small>
-              {watches
-                .map((w) => `${exerciseLabel(catalog, parseRecordKey(w.recordKey).exerciseId)} ${w.streak}회 연속`)
-                .join(' · ')}
-            </small>
-          </span>
-          <button
-            onClick={() => dismiss(BANNER_COMPENSATION)}
-            style={{ background: 'transparent', marginLeft: 'auto' }}
-          >
-            <span style={{ color: 'var(--warn)' }}>나중에</span>
-          </button>
-        </div>
+      {queue.slice(0, bannersOpen ? queue.length : 1).map((id) => BANNER_VIEW[id])}
+
+      {queue.length > 1 && (
+        <button className="banner-more" onClick={() => setBannersOpen(!bannersOpen)}>
+          {bannersOpen ? '알림 접기 ▴' : `다른 알림 ${queue.length - 1}개 ▾`}
+        </button>
       )}
 
       {dietChip && (

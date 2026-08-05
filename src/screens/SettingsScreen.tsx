@@ -73,7 +73,8 @@ export default function SettingsScreen({ seed }: { seed: SeedResult }) {
   return (
     <div className="screen">
       <h1 className="screen-title">설정</h1>
-      <p className="screen-sub">v1.1</p>
+      {/* 버전은 package.json에서 파생된다 (BB5) — 화면이 손으로 적으면 라운드마다 낡는다 */}
+      <p className="screen-sub">v{__APP_VERSION__}</p>
 
       {seed.problems.length > 0 && (
         <div className="banner banner-danger">

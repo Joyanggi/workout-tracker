@@ -22,6 +22,7 @@ import {
   substituteUses,
   weeklyBars,
 } from '../lib/analysis'
+import { chartTheme } from '../lib/chartTheme'
 import { todayLocal } from '../lib/dates'
 import { isInverseKey } from '../lib/weightScale'
 import type { RoutineBundle } from '../lib/useRoutine'
@@ -29,24 +30,13 @@ import { useSettings } from '../store/settings'
 
 const WEEKS_SHOWN = 12
 
-/** 다크 테마에 맞춘 차트 공통 색 (CSS 변수는 SVG 속성에 직접 못 넣는다) */
-const C = {
-  accent: '#ff7a1a',
-  ok: '#34c759',
-  warn: '#ffcc00',
-  dim: '#9a9aa8',
-  faint: '#64646f',
-  line: '#2b2b34',
-  surface: '#16161a',
-}
+/*
+  차트 색은 **CSS 토큰에서 읽는다** (BB7 — `lib/chartTheme.ts`).
 
-const AXIS = { stroke: C.faint, fontSize: 11 }
-const TOOLTIP_STYLE = {
-  background: C.surface,
-  border: `1px solid ${C.line}`,
-  borderRadius: 10,
-  fontSize: 12,
-}
+  여기에 hex 사본이 있었고, G6 가독성 패스가 `--text-faint`를 올렸을 때 **사본이 따라가지
+  않아 축 라벨만 대비 3.09:1로 남아 있었다** (실측). 같은 사실의 두 사본이 갈라진 것이다.
+*/
+const C = chartTheme()
 
 /**
  * 분석 탭 (DESIGN.md §5.4 — v1 최소).
@@ -163,14 +153,14 @@ export default function AnalyzeScreen({ bundle }: { bundle: RoutineBundle }) {
                     <XAxis
                       dataKey="date"
                       tickFormatter={(d: string) => d.slice(5)}
-                      tick={AXIS}
+                      tick={C.axis}
                       axisLine={{ stroke: C.line }}
                       tickLine={false}
                     />
-                    <YAxis tick={AXIS} axisLine={false} tickLine={false} width={38} />
+                    <YAxis tick={C.axis} axisLine={false} tickLine={false} width={38} />
                     <Tooltip
-                      contentStyle={TOOLTIP_STYLE}
-                      labelStyle={{ color: C.dim }}
+                      contentStyle={C.tooltip}
+                      labelStyle={C.tooltipLabel}
                       /*
                         B그룹은 감각 점수를 같이 띄운다 (T12) — 무게가 올랐는데 감각이
                         떨어지는 패턴을 한눈에 봐야 문서 9장의 복귀 기준을 스스로 적용할 수 있다
@@ -189,7 +179,7 @@ export default function AnalyzeScreen({ bundle }: { bundle: RoutineBundle }) {
                       stroke={C.accent}
                       strokeWidth={2}
                       dot={{ r: 3, fill: C.accent }}
-                      activeDot={{ r: 5 }}
+                      activeDot={C.activeDot}
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -245,9 +235,17 @@ export default function AnalyzeScreen({ bundle }: { bundle: RoutineBundle }) {
                   </div>
                   <div className="sdots">
                     {values.map((v) => (
+                      /*
+                        `title`은 **터치에서 절대 뜨지 않는다** (iOS는 hover가 없다).
+                        그래서 값을 읽을 수 있는 경로를 aria-label로 남긴다 (VoiceOver).
+                        탭해서 값을 펼치는 조작은 이 라운드 범위 밖이다 (계획서 "새 조작은
+                        다음 피드백에서") — DEV-RECORD §8에 남겼다.
+                      */
                       <div
                         key={v.label}
                         className="sdot"
+                        role="img"
+                        aria-label={`${v.label} ${v.score === null ? '기록 없음' : `${v.score.toFixed(1)}점`}`}
                         title={`${v.label} ${v.score ?? '기록 없음'}`}
                         style={{
                           background:
@@ -291,21 +289,21 @@ export default function AnalyzeScreen({ bundle }: { bundle: RoutineBundle }) {
               <CartesianGrid stroke={C.line} vertical={false} />
               <XAxis
                 dataKey="label"
-                tick={AXIS}
+                tick={C.axis}
                 axisLine={{ stroke: C.line }}
                 tickLine={false}
                 interval="preserveStartEnd"
               />
               <YAxis
-                tick={AXIS}
+                tick={C.axis}
                 axisLine={false}
                 tickLine={false}
                 width={26}
                 allowDecimals={false}
               />
               <Tooltip
-                contentStyle={TOOLTIP_STYLE}
-                labelStyle={{ color: C.dim }}
+                contentStyle={C.tooltip}
+                labelStyle={C.tooltipLabel}
                 formatter={(value) => [`${value}회`, '수행']}
               />
               <ReferenceLine

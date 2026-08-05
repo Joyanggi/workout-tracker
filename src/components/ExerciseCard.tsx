@@ -7,9 +7,11 @@ import { describeScale, type WeightScale } from '../lib/weightScale'
 import { CALIBRATION_RIR, calibratedWeight } from '../lib/substitute'
 import CompensationWatchSheet from './CompensationWatchSheet'
 import TempoGuideSheet from './TempoGuideSheet'
+import { IconScale, IconSliders } from './icons'
 import type { CompensationWatch } from '../lib/compensationWatch'
 import { compensationSummary, hasCompensation } from '../lib/compensation'
 import { doneSetsAll } from '../lib/derive'
+import { setRowClass, zeroWeightHint } from '../lib/setRowState'
 import type { RecordPrefill } from '../lib/prefill'
 import type { RecordKey, RoutineExercise, SessionEntry, SetRecord } from '../types'
 import { NO_AUTOFILL } from '../lib/inputProps'
@@ -288,7 +290,9 @@ export default function ExerciseCard({
             </div>
           ) : (
             <button className="setup-row" onClick={() => setEditingSetup(true)}>
-              <span aria-hidden="true">🔧</span>
+              <span className="setup-icon">
+                <IconSliders size={16} />
+              </span>
               <span className={setupNote ? 'setup-value' : 'setup-empty'}>
                 {setupNote || '머신 세팅 메모 추가'}
               </span>
@@ -303,7 +307,9 @@ export default function ExerciseCard({
             머신마다 다르다. 미설정 종목은 루틴 전역값이라 표시를 흐리게 둔다.
           */}
           <button className="setup-row" onClick={() => setEditingScale(true)}>
-            <span aria-hidden="true">⚖</span>
+            <span className="setup-icon">
+              <IconScale size={16} />
+            </span>
             <span className={scaleIsCustom ? 'setup-value' : 'setup-empty'}>
               무게 단위 · {describeScale(weightScale)}
             </span>
@@ -357,6 +363,7 @@ export default function ExerciseCard({
           */}
           {setLabels.map((label, i) => {
             const set = entry.sets[i]
+            const zeroHint = zeroWeightHint(set, inverseWeight)
             return (
             /*
               체크 버튼을 고스트 줄로 올려 입력 행을 전폭으로 쓴다.
@@ -369,12 +376,22 @@ export default function ExerciseCard({
               중간 제거를 추가하면 NumberStepper의 편집 중 로컬 상태가 옆 세트로 옮겨 붙는다.
               그때는 SetRecord에 id를 추가해야 한다 (persist되는 타입이라 백업 스키마도 함께).
             */
-            <div className={`set-row${set.warmup ? ' set-row-warmup' : ''}`} key={i}>
+            <div className={setRowClass(set)} key={i}>
               <div className="set-no">{label}</div>
               <div className="set-meta">
-                <span className="set-ghost">
-                  {showPrefillHints ? ghostText(prefill, i) || '기준 기록 없음' : ''}
-                </span>
+                {/*
+                  고스트 텍스트 자리를 무게 미입력 경고가 쓴다 (BB6). 자리를 새로 만들지
+                  않는 이유: 프리필 힌트는 "무엇을 넣을지"이고 이 경고는 "안 넣었다"이므로
+                  같은 자리의 같은 역할이다. 두 줄로 두면 행 높이가 흔들려 옆 버튼의 탭
+                  위치가 밀린다 (X8에서 배운 것).
+                */}
+                {zeroHint ? (
+                  <span className="set-ghost set-ghost-warn">무게 미입력</span>
+                ) : (
+                  <span className="set-ghost">
+                    {showPrefillHints ? ghostText(prefill, i) || '기준 기록 없음' : ''}
+                  </span>
+                )}
                 {/* 템포 가이드 (G7). 기본 꺼짐이라 켠 사람만 이 버튼을 본다 */}
                 {tempoGuide && (
                   <button
@@ -395,7 +412,10 @@ export default function ExerciseCard({
                 </button>
               </div>
               <div className="set-inputs">
-                <div className="stepper-slot stepper-slot-wide">
+                {/* 경고는 숫자에도 입힌다 (BB6) — 문구만 있으면 어느 칸이 문제인지 모른다 */}
+                <div
+                  className={`stepper-slot stepper-slot-wide${zeroHint ? ' stepper-slot-warn' : ''}`}
+                >
                   <NumberStepper
                     value={set.weight}
                     step={weightScale.step}

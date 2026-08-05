@@ -305,8 +305,13 @@ select {
   color: var(--accent);
 }
 
+/*
+  SVG 아이콘 자리 (BB1). 이모지였을 때는 font-size로 크기를 정했지만 SVG는 width/height를
+  갖고 오므로, 여기서는 **줄 높이만 끊는다** — flex로 두지 않으면 인라인 baseline 여백이
+  붙어 라벨과의 간격이 2px 어긋난다.
+*/
 .tabbar .tab-icon {
-  font-size: 20px;
+  display: flex;
   line-height: 1;
 }
 
@@ -330,6 +335,23 @@ select {
 .banner-danger {
   background: rgba(255, 69, 58, 0.12);
   color: var(--danger);
+}
+
+/*
+  접힌 배너를 펼치는 줄 (BB4). 배너처럼 보이면 안 된다 — 이것은 알림이 아니라 **조작**이다.
+  배경 없이 헤어라인만 두고 배너보다 낮은 높이로 둔다.
+*/
+.banner-more {
+  width: 100%;
+  padding: 9px 14px;
+  margin-bottom: 12px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
 }
 
 .banner button {
@@ -1482,19 +1504,36 @@ button.chip {
   color: var(--ok);
 }
 
-/* 머신 세팅 메모 (T4) */
+/*
+  머신 세팅 메모 · 무게 단위 진입 행 (T4·T9 → BB3 재설계).
+
+  **점선을 걷어냈다.** 점선 테두리는 "아직 없는 것 / 미완성"의 관례라서, 메모를 채운
+  뒤에도 placeholder처럼 보였다 (평가에서 "여긴 아직 안 만들어진 곳" 신호로 읽혔다).
+  채운 배경 + 실선 헤어라인으로 바꾸고, **빈 상태와 채운 상태는 텍스트 색으로 구분한다**
+  (이미 그렇게 갈리고 있었으므로 정보 손실이 없다).
+
+  `.ex-card-orphan`의 점선은 그대로 둔다 — 그쪽은 "루틴에서 사라진 종목"이라는 실제
+  예외 상태이고, 점선의 관례가 맞는 자리다.
+*/
 .setup-row {
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 8px 10px;
+  padding: 9px 10px;
   margin-bottom: 12px;
   border-radius: var(--r-sm);
-  border: 1px dashed var(--line);
-  background: transparent;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
   font-size: 13px;
   text-align: left;
+}
+
+/* 아이콘은 텍스트 색과 별개로 항상 흐리게 — 값이 주인공이어야 한다 */
+.setup-row .setup-icon {
+  display: flex;
+  flex-shrink: 0;
+  color: var(--text-faint);
 }
 
 .setup-value {
@@ -1502,7 +1541,7 @@ button.chip {
 }
 
 .setup-empty {
-  color: var(--text-faint);
+  color: var(--text-placeholder);
 }
 
 .setup-edit {
@@ -1528,6 +1567,42 @@ button.chip {
 .set-row-warmup .set-no {
   font-size: 12px;
   color: var(--accent);
+}
+
+/*
+  완료 세트의 행 전체 상태 (BB2).
+
+  예전에는 체크 버튼만 초록이 되어 **"몇 세트 남았나"를 훑어 읽을 수 없었다.**
+  행 배경 틴트 + 세트 번호 색이 그 신호를 준다.
+
+  **숫자·스테퍼를 흐리게 하지 않는다.** 완료 후에도 무게·횟수는 확인·수정 대상이고
+  (프리필 검증, 오입력 정정), 44px 탭타깃도 유지돼야 한다. 취소선·opacity도 쓰지 않는다 —
+  기록은 지워진 것이 아니다.
+*/
+.set-row-done {
+  background: rgba(52, 199, 89, 0.07);
+}
+
+.set-row-done .set-no,
+.set-row-done-warmup .set-no {
+  color: var(--ok);
+}
+
+/*
+  워밍업 완료는 **틴트를 주지 않는다** — .set-row-warmup의 opacity 0.62가 얹히면
+  저알파 틴트가 배경과 구분되지 않는다 (실측). 번호 색만 바꾼다.
+*/
+.set-row-done-warmup .set-no {
+  font-size: 12px;
+}
+
+/* 무게 미입력 경고 (BB6) — 막지 않고 표시만 한다 */
+.set-ghost-warn {
+  color: var(--warn);
+}
+
+.stepper-slot-warn .stepper-value {
+  color: var(--warn);
 }
 
 /* 종목별 고정 설정 행 묶음 (T4 메모 + T9 무게 단위) */

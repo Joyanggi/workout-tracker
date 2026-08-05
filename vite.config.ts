@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import pkg from './package.json' with { type: 'json' }
 
 /**
  * GitHub Pages 하위 경로 배포.
@@ -18,6 +19,17 @@ const BASE = '/workout-tracker/'
 
 export default defineConfig({
   base: BASE,
+  /*
+   * 앱 버전을 **package.json 한 곳에서** 파생시킨다 (BB5).
+   *
+   * 설정 화면에 `v1.1`이 손으로 적혀 있었고 실제 라운드는 v1.7이었다 — 파생 가능한 값을
+   * 손으로 적은 패턴 A이고, 이 프로젝트가 네 번째로 잡는 부류다 (kcalLabel, 커밋 메시지
+   * 테스트 개수, 시드 해시). 관례: PLAN-v1.N을 구현하면 version을 1.N.0으로 올린다.
+   *
+   * 루틴 시드 리비전(`routine-v2.4.json`)과는 다른 축이다 — 그쪽은 훈련 규정의 버전이고
+   * 이쪽은 앱의 버전이다.
+   */
+  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   plugins: [
     react(),
     VitePWA({
