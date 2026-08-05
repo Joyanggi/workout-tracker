@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { stripComments } from './sourceScan'
 
 /**
  * 소리 경로가 **템포 가이드 설정과 무관**함을 강제한다 (W2 ①).
@@ -96,14 +97,14 @@ describe('소리 경로의 설정 독립성 (W2)', () => {
  */
 describe('톤 규격의 단일 정의', () => {
   /**
-   * beep.ts = 신호 규격 (틱·차임·큐).
+   * beep.ts = 신호 규격 (틱·차임·큐) · tempo.ts = 페이즈 경계음 팔레트.
    *
-   * **tempo.ts는 더 이상 `freq:` 리터럴을 갖지 않는다** (CC7): 페이즈 소리가 단발 톤에서
-   * 연속 글라이드로 바뀌면서 대역이 `GLIDE_LOW`/`GLIDE_HIGH` 상수 두 개로 모였다.
-   * 그래서 허용 목록에서 뺐다 — **없는 리터럴을 "허용"으로 두면 그 항목이 검사를
-   * 헛돌게 만든다** (아래 자기검증이 그것을 잡았다).
+   * **이 목록이 한 라운드 만에 두 번 바뀌었다.** CC7이 페이즈 소리를 연속 글라이드로
+   * 바꾸면서 tempo.ts의 `freq:` 리터럴이 사라져 목록에서 뺐고(없는 리터럴을 "허용"으로
+   * 두면 자기검증이 실패한다), CC7-R이 경계음을 되돌리면서 다시 들어왔다.
+   * 목록 자체가 아니라 **자기검증이 이 목록을 정직하게 유지한다.**
    */
-  const ALLOWED = ['/src/lib/beep.ts']
+  const ALLOWED = ['/src/lib/beep.ts', '/src/lib/tempo.ts']
 
   it('주파수 리터럴은 정의 파일에만 있다', () => {
     const offenders = appFiles
@@ -114,7 +115,7 @@ describe('톤 규격의 단일 정의', () => {
     expect(
       offenders,
       `톤 규격을 베껴 적으면 한쪽만 고쳐졌을 때 소리가 갈라집니다.\n` +
-        `beep.ts의 tick()/chime()이나 tempo.ts의 phaseGlide()를 호출하세요:\n` +
+        `beep.ts의 tick()/chime()이나 tempo.ts의 phaseTone()을 호출하세요:\n` +
         offenders.map((f) => `  ${f}`).join('\n'),
     ).toEqual([])
   })
@@ -135,13 +136,12 @@ describe('톤 규격의 단일 정의', () => {
     expect(src).toMatch(/\btick\('tempo'\)/)
   })
 
-  it('글라이드 대역이 tempo.ts 상수 두 개에서만 온다 (CC7)', () => {
+  it('페이즈 경계음 규격이 phaseTone 한 곳에만 있다 (CC7-R)', () => {
     const src = sources['/src/lib/tempo.ts']!
-    expect(src).toMatch(/export const GLIDE_LOW = \d+/)
-    expect(src).toMatch(/export const GLIDE_HIGH = \d+/)
-    // phaseGlide가 상수를 쓰고 숫자를 다시 적지 않는다
-    const fn = /export function phaseGlide[\s\S]*?\n\}/.exec(src)?.[0] ?? ''
-    expect(fn).not.toMatch(/from: \d/)
-    expect(fn).not.toMatch(/to: \d/)
+    const fn = /export function phaseTone[\s\S]*?\n\}/.exec(src)?.[0] ?? ''
+    expect(fn, 'phaseTone을 찾지 못했다 — 이 검사가 헛돌고 있다').toMatch(/freq: \d/)
+    // tempo.ts의 freq 리터럴은 그 함수 안에만 있어야 한다 (다른 곳에 팔레트 사본 금지)
+    const outside = stripComments(src).replace(fn, '')
+    expect(outside).not.toMatch(/freq:\s*\d/)
   })
 })

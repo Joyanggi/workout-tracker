@@ -206,54 +206,100 @@ describe('CC2 — 태그별 예약 취소', () => {
   })
 })
 
-describe('CC7 — 연속 글라이드', () => {
-  it('주파수가 램프로 연속 변화한다 (톤을 이어 붙이지 않는다)', async () => {
+/**
+ * 페이즈 경계음 (CC7-R — 글라이드 기각 후 복원).
+ *
+ * 실기기 청감에서 연속 글라이드가 "사이렌 같다"로 기각됐고, 후보 5종을 들려준 결과
+ * **"글라이드가 없었던 버전이 최선"**이 판정이었다. 여기서 잠그는 것은 되돌린 뒤의
+ * 성질이다: **피치가 램프하지 않는다**(그 순간 사이렌이 된다) · 태그는 tempo다.
+ */
+describe('CC7-R — 페이즈 경계음', () => {
+  it('**피치를 램프시키지 않는다** — 램프가 곧 사이렌이었다', async () => {
     const mod = await freshModule()
-    now = 2
-    mod.glide({ from: 392, to: 659, duration: 1 })
-    const f = nodes[0].freqs
-    expect(f[0]).toMatchObject({ at: 2, value: 392, ramp: false })
-    expect(f[1]).toMatchObject({ at: 3, value: 659, ramp: true })
+    mod.tone({ freq: 660, duration: 0.3 }, 'tempo')
+    // 경계음은 고정 주파수 한 음이다 (frequency.value 대입 — 램프 호출 없음)
+    expect(nodes[0].freqs.filter((f) => f.ramp)).toHaveLength(0)
   })
 
-  it('유지 구간은 램프를 걸지 않는다', async () => {
-    const mod = await freshModule()
-    mod.glide({ from: 659, to: 659, duration: 1 })
-    expect(nodes[0].freqs.filter((x) => x.ramp)).toHaveLength(0)
-  })
-
-  it('페이즈 길이만큼 지속한다', async () => {
+  it('이완 톤이 이완 초에 비례한다 — "언제까지 내려야 하나"를 귀로 안다', async () => {
     const mod = await freshModule()
     now = 0
-    mod.glide({ from: 392, to: 659, duration: 3 })
-    expect(nodes[0].stoppedAt).toBeCloseTo(3.02, 5)
+    const { phaseTone } = await import('./tempo')
+    mod.tone(phaseTone({ kind: 'eccentric', seconds: 3 }), 'tempo')
+    // 3초 × 0.9 = 2.7 (+ stop 여유 0.02)
+    expect(nodes[0].stoppedAt).toBeCloseTo(2.72, 5)
   })
 
-  it('길이가 0이면 아무것도 만들지 않는다 (빈 페이즈 방어)', async () => {
+  it('태그가 tempo다 — 가이드를 닫으면 함께 취소된다', async () => {
     const mod = await freshModule()
-    mod.glide({ from: 392, to: 659, duration: 0 })
-    expect(nodes).toHaveLength(0)
-  })
-
-  it('기본 태그가 tempo다 — 가이드를 닫으면 함께 취소된다', async () => {
-    const mod = await freshModule()
-    mod.glide({ from: 392, to: 659, duration: 2 })
+    const { phaseTone } = await import('./tempo')
+    mod.tone(phaseTone({ kind: 'concentric', seconds: 1 }), 'tempo')
     mod.cancelTag('tempo')
     expect(nodes[0].cancelled).toBe(true)
   })
 
-  it('볼륨 배율이 글라이드에도 적용된다 (소리별 배율을 두지 않는다)', async () => {
+  it('볼륨 배율이 템포 톤에도 적용된다 (소리별 배율을 두지 않는다)', async () => {
     const mod = await freshModule()
+    const { phaseTone } = await import('./tempo')
     mod.setVolumeScale(2)
-    mod.glide({ from: 392, to: 659, duration: 1, gain: 0.14 })
-    expect(nodes[0].gainRampTargets).toContain(0.28)
+    mod.tone(phaseTone({ kind: 'eccentric', seconds: 2 }), 'tempo')
+    // 0.21 × 2 = 0.42
+    expect(nodes[0].gainRampTargets.some((g) => Math.abs(g - 0.42) < 1e-9)).toBe(true)
   })
 
-  it('1을 넘지 않게 클램프한다', async () => {
+  it('미리 듣기가 실제 신호를 그대로 낸다 (규격을 베끼지 않는다)', async () => {
     const mod = await freshModule()
-    mod.setVolumeScale(100)
-    mod.glide({ from: 392, to: 659, duration: 1, gain: 0.14 })
-    for (const g of nodes[0].gainRampTargets) expect(g).toBeLessThanOrEqual(1)
+    const { phaseTone } = await import('./tempo')
+    const specs = [
+      phaseTone({ kind: 'concentric', seconds: 1 }),
+      phaseTone({ kind: 'eccentric', seconds: 2 }),
+    ]
+    now = 0
+    mod.previewTempoTones(specs, 1)
+    expect(nodes).toHaveLength(2)
+    // 두 번째 음이 1초 뒤에 시작한다 (stop 시각으로 확인 — 길이 1.8 + 지연 1)
+    expect(nodes[1].stoppedAt).toBeCloseTo(1 + 2 * 0.9 + 0.02, 5)
+  })
+})
+
+/**
+ * 글라이드 잔재가 없어야 한다 (CC7-R).
+ *
+ * 죽은 코드로 남기면 다음 사람이 "왜 두 방식이 있나"를 조사하게 되고, 기각된 설계가
+ * 되살아나는 경로가 된다 (X10에서 세운 "유지 대상을 늘리지 않는다"와 같은 이유).
+ */
+describe('CC7-R — 글라이드 심볼이 소스에 없다', () => {
+  const appFiles = Object.entries(
+    import.meta.glob('/src/**/*.{ts,tsx}', {
+      query: '?raw',
+      import: 'default',
+      eager: true,
+    }) as Record<string, string>,
+  ).filter(([p]) => !p.includes('.test.'))
+
+  it('glide·phaseGlide·GLIDE_* 가 어디에도 없다', () => {
+    const offenders = appFiles
+      .filter(([, src]) => /\bglide\b|phaseGlide|GLIDE_[A-Z]/i.test(stripComments(src)))
+      .map(([p]) => p)
+    expect(offenders).toEqual([])
+  })
+
+  it('검사가 실제로 그 이름을 잡는다 (헛돌지 않게)', () => {
+    expect(/\bglide\b|phaseGlide|GLIDE_[A-Z]/i.test('export function glide() {}')).toBe(true)
+    expect(/\bglide\b|phaseGlide|GLIDE_[A-Z]/i.test('const GLIDE_LOW = 392')).toBe(true)
+    // 경계음 코드는 걸리지 않는다
+    expect(/\bglide\b|phaseGlide|GLIDE_[A-Z]/i.test('tone(phaseTone(p), \'tempo\')')).toBe(false)
+  })
+
+  it('설정 미리 듣기 버튼이 경계음을 말한다', () => {
+    const files = import.meta.glob('/src/screens/SettingsScreen.tsx', {
+      query: '?raw',
+      import: 'default',
+      eager: true,
+    }) as Record<string, string>
+    const src = stripComments(files['/src/screens/SettingsScreen.tsx']!)
+    expect(src).toContain('템포 경계음 미리 듣기')
+    expect(src).toMatch(/previewTempoTones\(/)
   })
 })
 
@@ -277,12 +323,10 @@ describe('화면 배선 (2층 잠금)', () => {
   it('가이드의 모든 소리가 tempo 태그를 쓴다', () => {
     const src = sheet()
     expect(src).toMatch(/tick\('tempo'\)/)
-    expect(src).toMatch(/glide\(phaseGlide\(pos\.phase\), 'tempo'\)/)
+    // 경계음도 태그를 단다 (CC7-R) — "가이드 닫은 뒤 잔여 틱"은 글라이드 이전부터 있던 결함이다
+    expect(src).toMatch(/tone\(phaseTone\(pos\.phase\), 'tempo'\)/)
     // 태그 없이 부르면 기본값 timer가 되어 취소 대상에서 빠진다
     expect(src).not.toMatch(/\btick\(\)/)
-  })
-
-  it('단발 페이즈 톤(phaseTone)이 되살아나지 않았다', () => {
-    expect(sheet()).not.toMatch(/phaseTone/)
+    expect(src).not.toMatch(/tone\(phaseTone\(pos\.phase\)\)/)
   })
 })

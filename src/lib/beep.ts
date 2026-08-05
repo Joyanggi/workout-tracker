@@ -259,61 +259,6 @@ export function tone(
 }
 
 /*
- * ─── 연속 글라이드 (CC7) ──────────────────────────────────
- *
- * 피드백: "매 틱이 아니라 도로로로 올라갔다 내려오는 느낌. 지금은 이완하다 갑자기 수축
- * 사운드가 들리면 반 박자 늦고 호흡도 꼬인다."
- *
- * **구조의 한계였다.** 페이즈 *경계*에서 한 번 울리는 소리는 "방금 바뀌었다"만 말하고
- * "언제 바뀔지"를 말하지 못한다. 반 박자 늦는 것은 사용자 잘못이 아니라 신호 설계의
- * 귀결이다. 연속 글라이드는 **피치의 진행 방향과 위치가 곧 남은 시간**이라 예측이
- * 소리 안에 들어 있다.
- *
- * 어택·릴리즈를 30ms로 두는 이유: 페이즈가 이어질 때 이음새에서 클릭이 없어야 한다.
- * 램프는 `linearRampToValueAtTime`으로 주파수를 **연속 변화**시킨다 (톤 여러 개를
- * 이어 붙이면 그게 다시 "경계에서 바뀌는 소리"가 된다).
- */
-export interface GlideSpec {
-  /** 시작 Hz */
-  from: number
-  /** 끝 Hz (같으면 유지) */
-  to: number
-  /** 초 — 페이즈 길이 그대로 */
-  duration: number
-  gain?: number
-}
-
-const GLIDE_EDGE_SEC = 0.03
-
-export function glide(
-  { from, to, duration, gain = 0.14 }: GlideSpec,
-  tag: SoundTag = 'tempo',
-): void {
-  if (!ctx || duration <= 0) return
-  tryResume()
-  if (!ctx) return
-
-  const level = Math.min(1, gain * volumeScale)
-  const at = ctx.currentTime
-  const osc = ctx.createOscillator()
-  const env = ctx.createGain()
-  osc.type = 'sine'
-  osc.frequency.setValueAtTime(from, at)
-  if (to !== from) osc.frequency.linearRampToValueAtTime(to, at + duration)
-
-  const edge = Math.min(GLIDE_EDGE_SEC, duration / 3)
-  env.gain.setValueAtTime(0.0001, at)
-  env.gain.linearRampToValueAtTime(level, at + edge)
-  env.gain.setValueAtTime(level, at + duration - edge)
-  env.gain.linearRampToValueAtTime(0.0001, at + duration)
-
-  osc.connect(env).connect(ctx.destination)
-  osc.start(at)
-  osc.stop(at + duration + 0.02)
-  track(tag, { osc, env })
-}
-
-/*
  * ─── 신호 규격 (W2 조사 결과로 재설계) ─────────────────────────────────
  *
  * v1.2의 틱은 330Hz · 80ms · gain 0.16이었고 **실사용에서 들리지 않았다**
@@ -396,18 +341,21 @@ export function previewSignals(): void {
 }
 
 /**
- * 템포 글라이드 미리 듣기 (CC7·CC8-3).
+ * 템포 경계음 미리 듣기 (CC8-3 · CC7-R).
  *
- * 글라이드는 **새로 생긴 소리 계열**이고 게인 기준도 다르므로(0.14) 틱·차임만 들려주는
- * 미리 듣기로는 "글라이드가 충분히 큰가"를 판단할 수 없다. 같은 이유로 여기서도
- * **실제 신호를 그대로** 낸다 — 미리 듣기용 소리를 따로 만들면 "미리 듣기는 들리는데
- * 실제는 안 들린다"가 가능해진다.
+ * 템포 톤은 게인 기준이 다르므로(0.21~0.27) 틱·차임만 들려주는 미리 듣기로는
+ * "템포 소리가 충분히 큰가"를 판단할 수 없다. 여기서도 **실제 신호를 그대로** 낸다 —
+ * 미리 듣기용 소리를 따로 만들면 "미리 듣기는 들리는데 실제는 안 들린다"가 가능해진다.
  *
- * 상행 1초 → 하행 2초. A그룹 한 사이클과 같은 모양이다.
+ * A그룹 한 사이클(올림 1초 → 내림 2초)의 경계에서 나는 두 음을 그 간격대로 낸다.
+ * 스펙은 `tempo.phaseTone`이 소유하고 이 함수는 호출부일 뿐이다 — 규격을 베끼면
+ * 미리 듣기와 실제가 갈라진다 (v1.2에서 카운트인 틱이 그렇게 갈라질 뻔했다).
  */
-export function previewTempoGlide(): void {
-  glide({ from: 392, to: 659, duration: 1 })
-  window.setTimeout(() => glide({ from: 659, to: 392, duration: 2 }), 1000)
+export function previewTempoTones(
+  specs: readonly { freq: number; duration: number; gain: number }[],
+  gapSec: number,
+): void {
+  specs.forEach((spec, i) => tone({ ...spec, delay: i * gapSec }, 'tempo'))
 }
 
 /** iOS는 미지원. 지원하는 환경에서는 소리와 함께 진동도 준다 */

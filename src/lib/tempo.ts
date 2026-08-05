@@ -110,8 +110,9 @@ export const PHASE_LABEL: Record<PhaseKind, string> = {
  * 원리는 하나 — **"힘쓸 때 내쉰다."** 3초 들숨 / 3초 날숨 같은 대칭 호흡이 아니다
  * (피드백: "3초 들숨 3초 날숨은 생각보다 길다" — 그건 이 규정이 아니었다).
  *
- * 소리·색을 붙이지 않는다: 소리 채널은 글라이드(CC7)가 쓰고, 색은 페이즈 링이 쓴다.
- * 한 줄 텍스트가 맞는 자리다.
+ * 소리·색을 붙이지 않는다: 소리 채널은 페이즈 경계음이 쓰고, 색은 페이즈 링이 쓴다.
+ * 한 줄 텍스트가 맞는 자리다 — 그리고 CC7-R 이후 이 표시가 "화면 안 봐도 따라가기"의
+ * 지분을 더 많이 갖는다 (지속음 계열이 전부 기각됐으므로).
  */
 export const BREATH_LABEL: Record<PhaseKind, string> = {
   concentric: '내쉬기',
@@ -243,52 +244,38 @@ export function tempoRepState(pos: TempoPosition, repMax: number): TempoRepState
 }
 
 /*
- * ─── 페이즈 소리 (CC7 — 연속 글라이드) ─────────────────────────────
+ * ─── 페이즈 소리 (경계음) ────────────────────────────────
  *
- * 이전에는 `phaseTone`이 페이즈 **경계**에서 단발 톤을 냈다 (수축 660Hz 0.3초 등).
- * 경계에서 한 번 울리는 소리는 "방금 바뀌었다"만 말하고 **"언제 바뀔지"를 말하지 못한다** —
- * 피드백의 "이완하다 갑자기 수축 사운드가 들리면 반 박자 늦다"는 사용자 잘못이 아니라
- * 신호 설계의 귀결이었다.
+ * **CC7의 연속 글라이드는 실기기 청감으로 기각됐다** (CC7-R, 2026-08-05):
+ * "사이렌 같다". 후보 5종(글라이드 / 하프 롤 / 호흡 패드 / 밝기 스윕 / 경계음+초읽기 틱)을
+ * 같은 합성 방식으로 만들어 들려준 결과 **"글라이드가 없었던 버전이 최선"**이 판정이었다.
+ * 연속 피치 램프는 곧 사이렌의 정의였고 — 그 설계 착오는 계획서 몫으로 기록됐다.
  *
- * 글라이드는 페이즈 **길이만큼 지속**하고 피치가 그 안에서 움직인다. 진행 방향과 위치가
- * 곧 남은 시간이므로 예측이 소리 안에 들어 있다 (피드백의 "도로로로 올라갔다 내려오는
- * 느낌 · 애플워치 명상처럼").
+ * 그래서 v1.7까지의 **페이즈 경계 단발음**으로 되돌린다. "화면을 안 봐도 따라가기"는
+ * 경계음 + 호흡 표시(CC4) + 마지막 사이클 큐(W3)가 나눠 담당한다.
  *
- * 대역 392~659Hz(G4~E5)는 W2에서 계산한 스피커 유효 대역 안이다 — 그 아래로는 소형
- * 스피커가 12dB/oct 떨어진다. 틱(784)·차임(880~1568)·마지막 큐(1319)와 대역이 겹치지
- * 않으므로 글라이드가 깔린 위로 그 신호들이 그대로 들린다.
+ * 게인은 CC8의 상향 비율(+50%)에 맞춰 올렸다 — 다른 소리(틱·차임·큐)만 커지고 템포 톤만
+ * 옛 크기로 남으면 상대 밸런스가 깨진다. 대역·길이는 청감 판정이 승인한 그대로 둔다.
  */
-export const GLIDE_LOW = 392
-export const GLIDE_HIGH = 659
-export const GLIDE_GAIN = 0.14
-
-/** 신장 정지는 한 단 낮은 게인 — "쉬는 구간"이라는 신호가 음량에도 있어야 한다 */
-export const GLIDE_GAIN_REST = 0.1
-
-export interface PhaseGlide {
-  from: number
-  to: number
-  duration: number
-  gain: number
-}
 
 /**
- * 그 페이즈에 낼 글라이드.
+ * 그 페이즈에 낼 소리.
  *
- * - 수축: 저→고 상행 (밀어 올리는 방향)
- * - 정점 짜내기: 고음 유지 (버티는 구간)
- * - 이완: 고→저 하행, **페이즈 길이 그대로** (언제까지 내려야 하나가 소리에 있다)
- * - 신장 정지: 저음 유지, 게인 한 단 낮게
+ * 수축은 상행, 이완은 하행 롱톤(길이 = 이완 초), 정지·짜내기는 저음 틱.
+ * 이완이 가장 길고 통제가 필요한 구간이므로 소리도 그 길이만큼 이어진다 —
+ * "언제까지 내려야 하나"를 귀로 알 수 있어야 한다.
+ *
+ * **피치를 램프시키지 않는다** (CC7-R). 각 페이즈는 고정 주파수 한 음이고, 구분은
+ * 높이(660/440/290)와 길이로 한다 — 그 사이를 이어 붙이는 순간 사이렌이 된다.
  */
-export function phaseGlide(phase: TempoPhase): PhaseGlide {
+export function phaseTone(phase: TempoPhase): { freq: number; duration: number; gain: number } {
   switch (phase.kind) {
     case 'concentric':
-      return { from: GLIDE_LOW, to: GLIDE_HIGH, duration: phase.seconds, gain: GLIDE_GAIN }
-    case 'squeeze':
-      return { from: GLIDE_HIGH, to: GLIDE_HIGH, duration: phase.seconds, gain: GLIDE_GAIN }
+      return { freq: 660, duration: Math.min(0.3, phase.seconds), gain: 0.27 }
     case 'eccentric':
-      return { from: GLIDE_HIGH, to: GLIDE_LOW, duration: phase.seconds, gain: GLIDE_GAIN }
+      return { freq: 440, duration: phase.seconds * 0.9, gain: 0.21 }
+    case 'squeeze':
     case 'stretch':
-      return { from: GLIDE_LOW, to: GLIDE_LOW, duration: phase.seconds, gain: GLIDE_GAIN_REST }
+      return { freq: 290, duration: 0.08, gain: 0.21 }
   }
 }

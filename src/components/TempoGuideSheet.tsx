@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { cancelTag, glide, lastCycleCue, tick, unlockAudio } from '../lib/beep'
+import { cancelTag, lastCycleCue, tick, tone, unlockAudio } from '../lib/beep'
 import {
   BREATH_LABEL,
   PHASE_LABEL,
   cycleSeconds,
-  phaseGlide,
+  phaseTone,
   tempoPositionAt,
   tempoRepState,
   type TempoPhase,
@@ -74,8 +74,8 @@ export default function TempoGuideSheet({
   /*
    * 시트를 여는 탭이 제스처다 — 여기서 컨텍스트를 열어야 이후 톤이 울린다.
    *
-   * 언마운트에서 **예약된 템포 소리를 취소한다** (CC2). `tone()`/`glide()`는 오디오
-   * 그래프에 예약하므로 React가 정리해도 이미 올라간 소리는 그대로 울린다 —
+   * 언마운트에서 **예약된 템포 소리를 취소한다** (CC2). `tone()`은 오디오 그래프에
+   * 예약하므로 React가 정리해도 이미 올라간 소리는 그대로 울린다 —
    * "가이드를 내린 뒤에도 1틱 남는다"가 그 증상이었다.
    * 태그가 'tempo'라 **동시에 울릴 수 있는 휴식 차임은 건드리지 않는다.**
    */
@@ -147,11 +147,14 @@ export default function TempoGuideSheet({
       return
     }
     /*
-      페이즈 길이만큼 이어지는 글라이드 (CC7). 경계에서 한 번 울리는 소리는 "방금
-      바뀌었다"만 말하고 "언제 바뀔지"를 말하지 못한다 — 반 박자 늦던 이유다.
-      화면 잠금 복귀 시에도 **다음 경계부터** 시작한다 (phaseIndex가 바뀌는 순간이므로).
+      페이즈 경계 단발음 (CC7-R). 연속 글라이드는 실기기에서 "사이렌 같다"로 기각됐고,
+      후보 5종을 들려준 결과 "글라이드가 없었던 버전이 최선"이 판정이었다.
+
+      태그는 `'tempo'`다 (CC2) — 가이드를 닫으면 예약된 이 소리도 함께 취소된다.
+      "가이드 내린 뒤에도 1틱 남는다"는 결함은 글라이드 이전부터 있었고, 되돌린 경계음도
+      같은 방어를 받아야 한다.
     */
-    if (pos.phase) glide(phaseGlide(pos.phase), 'tempo')
+    if (pos.phase) tone(phaseTone(pos.phase), 'tempo')
   }, [pos.phaseIndex, pos.countIn, pos.phase])
 
   /**

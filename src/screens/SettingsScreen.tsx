@@ -6,7 +6,7 @@ import {
   VOLUME_SCALES,
   audioContextState,
   previewSignals,
-  previewTempoGlide,
+  previewTempoTones,
   unlockAudio,
   type SoundVolume,
 } from '../lib/beep'
@@ -20,7 +20,7 @@ import { phaseReadiness } from '../lib/phaseReadiness'
 import { todayLocal } from '../lib/dates'
 import { dayTotalSets, exerciseLabel, useRoutine } from '../lib/useRoutine'
 import { isStandalone } from '../lib/platform'
-import { A_ECCENTRIC_OPTIONS } from '../lib/tempo'
+import { A_ECCENTRIC_OPTIONS, phaseTone } from '../lib/tempo'
 import { useSettings } from '../store/settings'
 import type { Phase } from '../types'
 
@@ -252,18 +252,22 @@ export default function SettingsScreen({ seed }: { seed: SeedResult }) {
           🔊 미리 듣기 (3·2·1 틱 → 종료 차임)
         </button>
         {/*
-          글라이드 미리 듣기 (CC7·CC8) — 게인 기준이 다른 **별 계열의 소리**라
-          틱·차임만으로는 "글라이드가 충분히 큰가"를 판단할 수 없다.
+          템포 경계음 미리 듣기 (CC8 · CC7-R) — 게인 기준이 다른 계열이라 틱·차임만으로는
+          "템포 소리가 충분히 큰가"를 판단할 수 없다. 스펙은 `phaseTone`이 소유한다.
         */}
         <button
           className="btn btn-sm"
           style={{ marginTop: 8 }}
           onClick={() => {
             unlockAudio()
-            previewTempoGlide()
+            // A그룹 한 사이클의 두 경계음을 그 간격대로 (올림 → 1초 뒤 내림)
+            previewTempoTones(
+              [phaseTone({ kind: 'concentric', seconds: 1 }), phaseTone({ kind: 'eccentric', seconds: aEccentricSec })],
+              1,
+            )
           }}
         >
-          🔊 템포 글라이드 미리 듣기 (올림 1초 → 내림 2초)
+          🔊 템포 경계음 미리 듣기 (올림 → 내림)
         </button>
         <p className="row-sub" style={{ marginTop: 8 }}>
           카운트다운 틱 · 종료 차임 · 템포 가이드 소리가 함께 조절됩니다.
@@ -287,7 +291,7 @@ export default function SettingsScreen({ seed }: { seed: SeedResult }) {
           ))}
         </div>
         <p className="row-sub" style={{ marginTop: 8 }}>
-          세트 행의 ♩ 버튼으로 수축·이완 리듬을 <b>연속 글라이드</b>와 링으로 안내합니다
+          세트 행의 ♩ 버튼으로 수축·이완 리듬을 <b>페이즈 경계음</b>과 링으로 안내합니다
           (A그룹 1-{aEccentricSec}초 · B그룹 3-1-1-1 · 코어 2-1-2, 루틴 문서 3장).
           호흡도 함께 표시됩니다 — 원리는 “힘쓸 때 내쉰다” 하나입니다.
           종료하면 카운트된 반복수가 그 세트에 들어갑니다.
