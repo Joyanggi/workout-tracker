@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LOW_KCAL_STREAK_WARN, planTotals } from '../lib/diet'
+import { LOW_KCAL_STREAK_WARN, planDiffText, planTotals, visiblePlans } from '../lib/diet'
 import type { DietPlan } from '../types'
 
 /** "내일부터 N일"의 상한. 4일째부터 경고 대상이므로 3일까지만 미리 잡을 수 있게 한다 */
@@ -27,6 +27,13 @@ export default function DietPlanSheet({
   onClose: () => void
 }) {
   const [ahead, setAhead] = useState<string | null>(null)
+  /*
+   * 대체된 옛 플랜은 목록에서 빼되 **DB에는 남긴다** (DD2) — 과거 날짜가 자기 planId로
+   * 계속 판정돼야 한다. 필터를 `diet.visiblePlans`에 두는 이유는 그 주석 참조.
+   */
+  const listed = visiblePlans(plans)
+  /** diff의 기준 = 기본 플랜. 기본 플랜 자신에는 diff 줄이 없다 */
+  const base = listed.find((p) => p.isDefault)
 
   return (
     <div className="sheet-backdrop" onClick={onClose}>
@@ -42,8 +49,15 @@ export default function DietPlanSheet({
         {ahead === null ? (
           <>
             <div className="check-list" style={{ marginTop: 8 }}>
-              {plans.map((plan) => {
+              {listed.map((plan) => {
                 const { kcal, proteinG } = planTotals(plan)
+                /*
+                  기본 플랜과의 **차이 한 줄** (DD1). 문구를 손으로 적지 않는다 —
+                  플랜 JSON을 고치면 설명이 따라와야 한다 (`diet.planDiffText`).
+                  피드백이 "두 플랜 차이를 앱에서 모르겠다"였고, 실제로 화면에
+                  이름·총량만 있었으니 알 방법이 없었다.
+                */
+                const diff = base && base.id !== plan.id ? planDiffText(base, plan) : ''
                 return (
                   <button
                     key={plan.id}
@@ -62,6 +76,11 @@ export default function DietPlanSheet({
                       <span className="row-sub">
                         {kcal.toLocaleString()}kcal · 단백질 {proteinG}g
                       </span>
+                      {diff !== '' && (
+                        <span className="row-sub diet-plan-diff">
+                          {base?.name} 대비 {diff}
+                        </span>
+                      )}
                     </span>
                   </button>
                 )
@@ -71,7 +90,7 @@ export default function DietPlanSheet({
               고르면 <strong>오늘</strong>만 바뀝니다. 며칠을 미리 정하려면 아래를 쓰세요.
             </p>
             <div className="btn-row" style={{ marginTop: 8 }}>
-              {plans
+              {listed
                 .filter((p) => p.id !== currentPlanId)
                 .map((p) => (
                   <button key={p.id} className="btn btn-sm" onClick={() => setAhead(p.id)}>
@@ -83,7 +102,7 @@ export default function DietPlanSheet({
         ) : (
           <>
             <p className="row-sub" style={{ marginTop: 8 }}>
-              {plans.find((p) => p.id === ahead)?.name}을 <strong>내일부터 며칠</strong> 적용할까요?
+              {listed.find((p) => p.id === ahead)?.name}을 <strong>내일부터 며칠</strong> 적용할까요?
             </p>
             <div className="btn-row" style={{ marginTop: 8 }}>
               {Array.from({ length: MAX_AHEAD }, (_, i) => i + 1).map((n) => (

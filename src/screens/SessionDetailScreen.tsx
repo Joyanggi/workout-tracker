@@ -344,6 +344,7 @@ export default function SessionDetailScreen({
             plans={diet.plans}
             days={diet.days}
             defaultPlanId={diet.defaultPlanId}
+            variantDefaults={diet.variantDefaults}
             trainedThatDay={strengthDates(sessions).has(session.date)}
           />
         </>

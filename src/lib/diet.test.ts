@@ -14,6 +14,7 @@ import {
   planStreak,
   planTotals,
   resolveTrainingDays,
+  restDaySlotsOf,
   slotGrade,
   slotScore,
   slotsFor,
@@ -25,8 +26,19 @@ import { BUNDLED_DIET_PLANS, BUNDLED_DIET_REVISION } from '../db/seed'
 import dietPlansJson from '../data/diet-plans.json'
 import type { DietDay, DietPlan, SlotRecord } from '../types'
 
+/**
+ * ⚠ 이 파일의 `PLAN`·`LOW`는 **옛 플랜**(훈련일 6끼 / 휴식일 5끼)이다.
+ *
+ * DD2에서 매일 같은 5끼로 통일했지만 옛 플랜은 DB에 남아 과거 날짜를 계속 판정한다.
+ * 그래서 이 파일의 기존 테스트를 새 플랜으로 옮기지 않았다 — **이 테스트들이 그대로
+ * 통과하는 것이 "과거 판정 불변"의 증거다.** 새 플랜 쪽 계약은 `v19.test.ts`가 잠근다.
+ */
 const PLAN = BUNDLED_DIET_PLANS.find((p) => p.id === 'cut-1800')!
 const LOW = BUNDLED_DIET_PLANS.find((p) => p.id === 'cut-1500')!
+/** 옛 플랜을 쓰는 날만 훈련일 정규화 대상이다 (DD2) */
+const SPLIT = new Set([PLAN.id, LOW.id])
+/** 옛 플랜의 휴식일 구성 — 타입에서 빠졌으므로 읽기 초크포인트로 꺼낸다 (DD2) */
+const REST = restDaySlotsOf(PLAN)!
 
 const day = (slots: Record<string, SlotRecord>, over: Partial<DietDay> = {}): DietDay => ({
   date: '2026-08-04',
@@ -39,8 +51,14 @@ const day = (slots: Record<string, SlotRecord>, over: Partial<DietDay> = {}): Di
 // ─── 시드 ────────────────────────────────────────────────
 
 describe('번들 식단 플랜', () => {
-  it('두 플랜이 정합성 검사를 통과한다', () => {
-    expect(BUNDLED_DIET_PLANS.map((p) => p.id)).toEqual(['cut-1800', 'cut-1500'])
+  it('네 플랜이 정합성 검사를 통과한다 (새 2 + 숨긴 옛 2)', () => {
+    // DD2: 옛 플랜을 지우지 않고 legacy로 숨긴다 — 과거 날짜가 자기 planId로 판정된다
+    expect(BUNDLED_DIET_PLANS.map((p) => p.id)).toEqual([
+      'cut-1800-u',
+      'cut-1500-u',
+      'cut-1800',
+      'cut-1500',
+    ])
     for (const plan of BUNDLED_DIET_PLANS) {
       expect(validateDietPlan(plan), plan.id).toEqual([])
     }
@@ -48,9 +66,9 @@ describe('번들 식단 플랜', () => {
 
   it('훈련일 6슬롯 · 휴식일 5슬롯 (훈련 전·직후 통합)', () => {
     expect(PLAN.slots).toHaveLength(6)
-    expect(PLAN.restDaySlots).toHaveLength(5)
+    expect(REST).toHaveLength(5)
     expect(PLAN.slots.map((s) => s.id)).toContain('pre')
-    expect(PLAN.restDaySlots.map((s) => s.id)).not.toContain('pre')
+    expect(REST.map((s) => s.id)).not.toContain('pre')
   })
 
   it('휴식일 총량이 훈련일과 같다 (루틴 문서 15장 — 합치는 것이지 줄이는 것이 아니다)', () => {
@@ -89,10 +107,11 @@ describe('번들 식단 플랜', () => {
 
 describe('validateDietPlan', () => {
   it('휴식일이 조용히 덜 먹는 플랜을 잡는다', () => {
-    const broken: DietPlan = {
+    // 옛 플랜의 필드이므로 타입에 없다 — 검사는 여전히 옛 플랜을 잡아야 한다 (DD2)
+    const broken = {
       ...PLAN,
-      restDaySlots: PLAN.restDaySlots.filter((s) => s.id !== 'dinner'),
-    }
+      restDaySlots: REST.filter((s) => s.id !== 'dinner'),
+    } as DietPlan
     expect(validateDietPlan(broken).join(' ')).toContain('총량 불일치')
   })
 
@@ -242,7 +261,7 @@ describe('summarizeDietDay', () => {
   it('휴식일이면 휴식일 슬롯으로 판정한다', () => {
     const rest = day(
       Object.fromEntries(
-        PLAN.restDaySlots.map((s) => [s.id, { checkedItemIds: s.items.map((i) => i.id) }]),
+        REST.map((s) => [s.id, { checkedItemIds: s.items.map((i) => i.id) }]),
       ) as Record<string, SlotRecord>,
       { isTrainingDay: false },
     )
@@ -271,7 +290,7 @@ describe('summarizeDietDay', () => {
 
   it('슬롯 목록은 훈련일 여부로 갈린다', () => {
     expect(slotsFor(PLAN, true)).toBe(PLAN.slots)
-    expect(slotsFor(PLAN, false)).toBe(PLAN.restDaySlots)
+    expect(slotsFor(PLAN, false)).toBe(REST)
   })
 })
 
@@ -387,7 +406,7 @@ describe('nextUnloggedSlot', () => {
   it('휴식일이면 휴식일 슬롯에서 찾는다', () => {
     const rest = day({ breakfast: { checkedItemIds: [] } }, { isTrainingDay: false })
     const next = nextUnloggedSlot(PLAN, rest, false)
-    expect(PLAN.restDaySlots.some((s) => s.id === next?.id)).toBe(true)
+    expect(REST.some((s) => s.id === next?.id)).toBe(true)
     expect(next?.id).not.toBe('pre')
   })
 
@@ -409,14 +428,14 @@ describe('resolveTrainingDays', () => {
 
   it('그 날 완료 세션이 있으면 훈련일로 덮는다', () => {
     // 아침을 운동 전에 기록하면 false로 저장된다. 이후 운동을 마쳐도 저장값은 그대로다
-    const [fixed] = resolveTrainingDays([stored(false)], new Set(['2026-08-03']))
+    const [fixed] = resolveTrainingDays([stored(false)], new Set(['2026-08-03']), SPLIT)
     expect(fixed.isTrainingDay).toBe(true)
   })
 
   it('세션이 없으면 저장값을 그대로 둔다 (수동 토글을 존중한다)', () => {
-    const [kept] = resolveTrainingDays([stored(false)], new Set())
+    const [kept] = resolveTrainingDays([stored(false)], new Set(), SPLIT)
     expect(kept.isTrainingDay).toBe(false)
-    const [keptTrue] = resolveTrainingDays([stored(true)], new Set())
+    const [keptTrue] = resolveTrainingDays([stored(true)], new Set(), SPLIT)
     expect(keptTrue.isTrainingDay).toBe(true)
   })
 
@@ -424,13 +443,13 @@ describe('resolveTrainingDays', () => {
     const raw = stored(false)
     // 화면은 파생값(훈련일 6슬롯)으로 보는데 저장값으로 판정하면 휴식일 5슬롯이 된다
     expect(summarizeDietDay(PLAN, raw).totalSlots).toBe(5)
-    const [fixed] = resolveTrainingDays([raw], new Set(['2026-08-03']))
+    const [fixed] = resolveTrainingDays([raw], new Set(['2026-08-03']), SPLIT)
     expect(summarizeDietDay(PLAN, fixed).totalSlots).toBe(6)
   })
 
   it('원본 객체를 변형하지 않는다', () => {
     const raw = stored(false)
-    resolveTrainingDays([raw], new Set(['2026-08-03']))
+    resolveTrainingDays([raw], new Set(['2026-08-03']), SPLIT)
     expect(raw.isTrainingDay).toBe(false)
   })
 })
@@ -496,7 +515,7 @@ describe('훈련 전·직후 스킵은 더 무겁다 (H3)', () => {
   })
 
   it('휴식일의 통합 슬롯(shake)도 무겁게 본다', () => {
-    const shake = PLAN.restDaySlots.find((s) => s.id === 'shake')!
+    const shake = REST.find((s) => s.id === 'shake')!
     expect(CRITICAL_SKIP_SLOTS).toContain('shake')
     expect(slotScore(shake, { checkedItemIds: [], skipped: true })).toBe(SCORE.skippedCritical)
   })

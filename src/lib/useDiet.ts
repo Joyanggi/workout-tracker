@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, deleteDietDay } from '../db'
 import { requestSync } from './gistSync'
-import { resolveTrainingDays } from './diet'
+import { resolveTrainingDays, splitPlanIds, variantDefaultKey } from './diet'
 import { emptyDietDay } from './dietOps'
 import { strengthDates } from './derive'
 import type { DietDay, DietPlan } from '../types'
@@ -25,27 +25,41 @@ export interface DietData {
   /** 그 달 범위 기록 — 캘린더 링(D3)과 연속 카운트가 같은 데이터를 쓴다 */
   days: DietDay[]
   defaultPlanId: string | null
+  /**
+   * 마지막으로 고른 단백질원 변형 (DD3 5-b) — `${slotId}.${itemId}` → 변형 인덱스.
+   *
+   * 여기서 함께 읽는 이유: 이 훅이 식단 데이터의 **단일 읽기 경로**다. 화면이 각자
+   * settings를 읽으면 "오늘 화면과 과거 편집기가 다른 기본값을 보여주는" 상태가 만들어진다.
+   */
+  variantDefaults: Record<string, number>
   loading: boolean
 }
 
+const EMPTY_DEFAULTS: Record<string, number> = {}
+
 export function useDiet(): DietData {
   const data = useLiveQuery(async () => {
-    const [plans, rawDays, defaultRow, sessions] = await Promise.all([
+    const [plans, rawDays, defaultRow, variantRow, sessions] = await Promise.all([
       db.dietPlans.toArray(),
       db.dietDays.toArray(),
       db.settings.get('defaultDietPlanId'),
+      db.settings.get('variantDefaults'),
       db.sessions.toArray(),
     ])
     /*
      * 훈련일 여부를 **여기서 한 번** 정규화한다 (diet.resolveTrainingDays 주석 참조).
      * 이 훅이 식단 데이터의 단일 읽기 경로이므로, 화면·캘린더·내보내기가 전부 같은 답을 본다.
+     *
+     * DD2 이후로는 **옛 플랜을 쓰는 날만** 정규화 대상이다 (새 플랜은 매일 같은 5끼라
+     * `isTrainingDay`가 판정에 관여하지 않는다).
      */
     // 근력 기준 (X3) — 유산소만 한 날은 휴식일로 남는다
     const trained = strengthDates(sessions)
     return {
       plans,
-      days: resolveTrainingDays(rawDays, trained),
+      days: resolveTrainingDays(rawDays, trained, splitPlanIds(plans)),
       defaultPlanId: (defaultRow?.value as string | undefined) ?? null,
+      variantDefaults: (variantRow?.value as Record<string, number> | undefined) ?? EMPTY_DEFAULTS,
     }
   }, [])
 
@@ -53,8 +67,30 @@ export function useDiet(): DietData {
     plans: data?.plans ?? EMPTY_PLANS,
     days: data?.days ?? [],
     defaultPlanId: data?.defaultPlanId ?? null,
+    variantDefaults: data?.variantDefaults ?? EMPTY_DEFAULTS,
     loading: data === undefined,
   }
+}
+
+/**
+ * 고른 변형을 **다음 날의 기본값으로 기억한다** (DD3 5-b).
+ *
+ * read-modify-write를 트랜잭션으로 하는 이유는 `mutateDietDay`와 같다 — 점심·저녁을
+ * 연달아 고치면 렌더 시점 사본으로 put하는 쪽이 앞선 쓰기를 덮는다.
+ * 과거 기록에는 소급하지 않는다: 이 값은 **아직 기록하지 않은 날의 초기 표시**에만 쓰인다.
+ */
+export function rememberVariantDefault(slotId: string, itemId: string, index: number): void {
+  void db
+    .transaction('rw', db.settings, async () => {
+      const row = await db.settings.get('variantDefaults')
+      const map = { ...((row?.value as Record<string, number> | undefined) ?? {}) }
+      map[variantDefaultKey(slotId, itemId)] = index
+      await db.settings.put({ key: 'variantDefaults', value: map })
+    })
+    .then(scheduleBackup)
+    .catch((err) => {
+      console.error('[diet] 변형 기본값 저장 실패', err)
+    })
 }
 
 export function findPlan(plans: DietPlan[], planId: string | null): DietPlan | undefined {

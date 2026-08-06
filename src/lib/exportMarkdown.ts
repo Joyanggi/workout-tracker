@@ -6,7 +6,16 @@ import { withObjectParticle } from './korean'
 import { completedSessions, doneSets, routineExerciseOfEntry, orderDeviations } from './derive'
 import { progressionSuggestions } from './progression'
 import { buildScaleMap, type WeightScaleMap } from './weightScale'
-import { ADHERENCE_MARK, QUALITY_LABEL, slotScore, slotsFor, summarizeDietDay } from './diet'
+import {
+  ADHERENCE_MARK,
+  hasVariants,
+  itemVariant,
+  QUALITY_LABEL,
+  slotScore,
+  slotsFor,
+  splitsByTrainingDay,
+  summarizeDietDay,
+} from './diet'
 import type { DietDay, DietPlan, ExerciseSetting } from '../types'
 
 /**
@@ -46,8 +55,14 @@ export function dietSectionMarkdown(plan: DietPlan, day: DietDay): string[] {
 
   const summary = summarizeDietDay(plan, day)
   const out: string[] = []
+  /*
+   * 훈련일/휴식일 표기는 **옛 플랜에서만** 낸다 (DD2). 새 플랜은 매일 같은 5끼라
+   * 이 표기가 식단에 대해 아무것도 말하지 않고, "그날 훈련했는가"는 같은 날짜의
+   * 운동 섹션이 이미 말한다 — 아무 의미 없는 라벨을 LLM에 주면 근거 없는 상관을 만든다.
+   */
+  const dayType = splitsByTrainingDay(plan) ? `${day.isTrainingDay ? '훈련일' : '휴식일'} · ` : ''
   out.push(
-    `### 식단 — ${plan.name} · ${day.isTrainingDay ? '훈련일' : '휴식일'} · 준수 ` +
+    `### 식단 — ${plan.name} · ${dayType}준수 ` +
       `${ADHERENCE_MARK[summary.adherence]} (단백질 추정 ${summary.proteinG}g / ${summary.targetProteinG}g)`,
   )
 
@@ -62,9 +77,19 @@ export function dietSectionMarkdown(plan: DietPlan, day: DietDay): string[] {
     if (!record) continue
     const details: string[] = []
     if (record.skipped) details.push('안 먹음')
+    /*
+     * 고른 단백질원을 그대로 적는다 (DD3.6) — LLM이 로테이션 패턴("다리살 주간에 감량이
+     * 멈췄다")을 볼 수 있어야 한다. 기본 변형이면 적지 않는다 (문서가 길어질 뿐이다).
+     */
+    for (const item of slot.items) {
+      const choice = record.variantChoices?.[item.id] ?? 0
+      if (choice === 0 || !hasVariants(item)) continue
+      const variant = itemVariant(item, choice)
+      details.push(`단백질원: ${variant.name} ${variant.qty}`)
+    }
     const missing = slot.items
       .filter((i) => !record.checkedItemIds.includes(i.id))
-      .map((i) => i.name)
+      .map((i) => itemVariant(i, record.variantChoices?.[i.id]).name)
     if (!record.skipped && missing.length > 0 && missing.length < slot.items.length) {
       details.push(`미섭취: ${missing.join(', ')}`)
     }

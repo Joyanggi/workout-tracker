@@ -1,18 +1,23 @@
 import { useState } from 'react'
 import DietPlanSheet from './DietPlanSheet'
 import DietSlotSheet from './DietSlotSheet'
+import DietVariantSheet from './DietVariantSheet'
 import { addDays } from '../lib/dates'
 import {
   additionNote,
   ADHERENCE_MARK,
   SLOT_MARK,
   slotGrade,
+  hasVariants,
+  isReducedPlan,
+  itemVariant,
   LOW_KCAL_STREAK_WARN,
   planStreak,
   slotScore,
   slotsFor,
   substitutionNote,
   summarizeDietDay,
+  variantChoicesFor,
 } from '../lib/diet'
 import {
   applyAddition,
@@ -25,10 +30,17 @@ import {
   applySkipSlot,
   applySubstitution,
   applyToggleItem,
-  applyTrainingDay,
+  applyVariantChoice,
   emptyDietDay,
+  seedVariantChoices,
 } from '../lib/dietOps'
-import { dietDayFor, findPlan, mutateDietDay, removeDietDay } from '../lib/useDiet'
+import {
+  dietDayFor,
+  findPlan,
+  mutateDietDay,
+  rememberVariantDefault,
+  removeDietDay,
+} from '../lib/useDiet'
 import type { DietDay, DietPlan } from '../types'
 import { NO_AUTOFILL } from '../lib/inputProps'
 
@@ -48,11 +60,19 @@ export default function DietDayEditor({
   plans,
   days,
   defaultPlanId,
-  /** 그 날짜에 완료 세션이 있었는가 — 있으면 훈련일로 고정한다 (사실이 토글보다 우선) */
+  /**
+   * 그 날짜에 완료 세션이 있었는가.
+   *
+   * DD2 이후 **화면에는 훈련일/휴식일 조작이 없다** (매일 같은 5끼). 이 값은 새로 만드는
+   * 기록의 `isTrainingDay` 기본값으로만 쓴다 — 옛 플랜을 쓰는 과거 날짜의 판정이
+   * `useDiet`의 정규화와 같은 답을 내야 하고, 둘 다 `strengthDates`를 원천으로 쓴다.
+   */
   trainedThatDay,
   /** 연속 저칼로리 경고는 오늘 화면에서만 의미가 있다 */
   showStreakWarning = false,
   today,
+  /** 마지막으로 고른 단백질원 변형 (DD3 5-b) — 미기록 슬롯의 초기 표시에만 쓴다 */
+  variantDefaults,
 }: {
   date: string
   plans: DietPlan[]
@@ -61,8 +81,10 @@ export default function DietDayEditor({
   trainedThatDay: boolean
   showStreakWarning?: boolean
   today: string
+  variantDefaults: Record<string, number>
 }) {
   const [slotSheet, setSlotSheet] = useState<string | null>(null)
+  const [variantSheet, setVariantSheet] = useState<{ slotId: string; itemId: string } | null>(null)
   const [planSheet, setPlanSheet] = useState(false)
   const [noteDraft, setNoteDraft] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -81,13 +103,26 @@ export default function DietDayEditor({
   /**
    * 변형은 렌더 시점의 `day`가 아니라 **DB의 최신 상태**를 기준으로 적용한다
    * (useDiet.mutateDietDay 주석 — 연타 시 앞선 쓰기가 유실됐다).
+   *
+   * 모든 변경 뒤에 `seedVariantChoices`를 한 번 통과시킨다 (DD3) — 기록이 생기는 순간
+   * 화면에 보였던 단백질원이 기록에 새겨져야 한다. op마다 부르면 새 op에서 빠뜨린다.
    */
   const mutate = (fn: (d: DietDay) => DietDay) =>
-    mutateDietDay(date, { ...day, isTrainingDay }, fn)
+    mutateDietDay(date, { ...day, isTrainingDay }, (d) =>
+      seedVariantChoices(fn(d), slots, variantDefaults),
+    )
 
   const streak = planStreak(days, plan.id, today)
-  const warnStreak = showStreakWarning && !plan.isDefault && streak >= LOW_KCAL_STREAK_WARN
+  const warnStreak =
+    showStreakWarning && isReducedPlan(plan, plans) && streak >= LOW_KCAL_STREAK_WARN
   const openSlot = slots.find((s) => s.id === slotSheet)
+  const openVariant = variantSheet
+    ? (() => {
+        const slot = slots.find((s) => s.id === variantSheet.slotId)
+        const item = slot?.items.find((i) => i.id === variantSheet.itemId)
+        return slot && item ? { slot, item } : null
+      })()
+    : null
 
   return (
     <>
@@ -97,34 +132,13 @@ export default function DietDayEditor({
         </button>
 
         {/*
-          훈련일/휴식일은 **세그먼트 컨트롤**이다 (G3). 이전엔 "훈련일 ⇄" 한 버튼이라
-          현재 상태인지 누르면 바뀌는 값인지 화면에서 읽히지 않았다 (실사용 첫 피드백).
-          끼니 수를 함께 적어 무엇이 달라지는지 보이게 하고, 아래 캡션이 규칙을 설명한다.
+          훈련일/휴식일 세그먼트가 **없어졌다** (DD2). 루틴 문서 15장이 2026-08-06에
+          끼니 배치를 통일했다: 두 구성의 총량·단백질이 완전히 같았고 차이는 쉐이크 배치뿐인데,
+          실사용에서 훈련일에 휴식일 식단을 먹는 실수가 났고 생리학적 차이는 없었다.
+          "매일 같은 숫자가 지키기 쉽다"는 이행률 원칙을 구성까지 확장한 것이고,
+          그래서 화면에서 고를 것도 잠글 것도 없다 — 매일 같은 5끼다.
+          (옛 플랜을 쓰는 과거 날짜는 저장된 구성 그대로 판정된다)
         */}
-        <div className="segment diet-daytype">
-          {([true, false] as const).map((training) => (
-            <button
-              key={String(training)}
-              aria-pressed={isTrainingDay === training}
-              disabled={trainedThatDay}
-              onClick={() => mutate((d) => applyTrainingDay(d, training))}
-            >
-              {training ? '훈련일' : '휴식일'} · {slotsFor(plan, training).length}끼
-            </button>
-          ))}
-        </div>
-        <p className="row-sub diet-daytype-note">
-          {trainedThatDay ? (
-            <>
-              <span aria-hidden="true">🔒 </span>
-              운동 기록이 있어 훈련일로 고정됩니다
-            </>
-          ) : isTrainingDay ? (
-            '훈련 전·직후 쉐이크가 별도 끼니입니다'
-          ) : (
-            '쉐이크·바나나를 오후 간식 한 번으로 합칩니다 (총량 동일)'
-          )}
-        </p>
         <div className="diet-protein">
           <span className="diet-protein-value">
             {summary.proteinG}
@@ -207,22 +221,49 @@ export default function DietDayEditor({
             </div>
 
             <div className="diet-items">
-              {slot.items.map((item) => {
-                const on = record?.checkedItemIds.includes(item.id) ?? false
-                return (
-                  <button
-                    key={item.id}
-                    className={`diet-item${on ? ' diet-item-on' : ''}`}
-                    aria-pressed={on}
-                    onClick={() => mutate((d) => applyToggleItem(d, slot.id, item.id))}
-                  >
-                    <span aria-hidden="true">{on ? '☑' : '☐'}</span>
-                    <span>
-                      {item.name} <span className="row-sub">{item.qty}</span>
-                    </span>
-                  </button>
-                )
-              })}
+              {/*
+                품목 표기는 **고른 변형**을 따른다 (DD3). 기록이 있으면 기록의 선택,
+                없으면 기억된 기본값 — `variantChoicesFor` 한 곳이 그 우선순위를 정한다.
+              */}
+              {(() => {
+                const choices = variantChoicesFor(slot, record, variantDefaults)
+                return slot.items.map((item) => {
+                  const on = record?.checkedItemIds.includes(item.id) ?? false
+                  const variant = itemVariant(item, choices[item.id])
+                  return (
+                    <div className="diet-item-group" key={item.id}>
+                      <button
+                        className={`diet-item${on ? ' diet-item-on' : ''}`}
+                        aria-pressed={on}
+                        onClick={() => mutate((d) => applyToggleItem(d, slot.id, item.id))}
+                      >
+                        <span aria-hidden="true">{on ? '☑' : '☐'}</span>
+                        <span>
+                          {variant.name} <span className="row-sub">{variant.qty}</span>
+                        </span>
+                      </button>
+                      {/*
+                        변형 선택은 **예외 경로**다 (DD3.2) — 정상일 마찰(슬롯당 1탭)을
+                        건드리지 않도록 별도 버튼 하나로만 열린다.
+
+                        라벨에 글자를 넣는다: 처음엔 "▾"만 뒀는데 375px 실측에서 **빈 칸에
+                        점 하나**로 읽혔다 (체크박스처럼 보였다). BB1의 기어 아이콘이
+                        해였던 것과 같은 실패 — 아이콘은 그린 것이 아니라 읽히는 것으로
+                        판정한다.
+                      */}
+                      {hasVariants(item) && (
+                        <button
+                          className="diet-variant-btn"
+                          aria-label={`${slot.name} ${item.name} 다른 단백질원으로 바꾸기`}
+                          onClick={() => setVariantSheet({ slotId: slot.id, itemId: item.id })}
+                        >
+                          바꾸기 ▾
+                        </button>
+                      )}
+                    </div>
+                  )
+                })
+              })()}
             </div>
 
             {/* 문구는 시트의 상태 요약과 공유한다 (AA3) — 같은 사실은 같은 말 */}
@@ -301,6 +342,26 @@ export default function DietDayEditor({
           onClearAddition={() => mutate((d) => applyClearAddition(d, openSlot.id))}
           onClear={() => mutate((d) => applyClearSlot(d, openSlot.id))}
           onClose={() => setSlotSheet(null)}
+        />
+      )}
+
+      {openVariant && (
+        <DietVariantSheet
+          slot={openVariant.slot}
+          item={openVariant.item}
+          choice={variantChoicesFor(openVariant.slot, day.slots[openVariant.slot.id], variantDefaults)[
+            openVariant.item.id
+          ]}
+          onPick={(index) => {
+            /*
+             * 두 곳에 쓴다 (DD3 5-b): 이 날 기록(있을 때만)과 **다음 날의 기본값**.
+             * 기록이 없는 슬롯에는 기록을 만들지 않는다 — 먹기 전 선택이 0점으로
+             * 집계되면 안 된다 (`applyVariantChoice` 주석).
+             */
+            mutate((d) => applyVariantChoice(d, openVariant.slot.id, openVariant.item.id, index))
+            rememberVariantDefault(openVariant.slot.id, openVariant.item.id, index)
+          }}
+          onClose={() => setVariantSheet(null)}
         />
       )}
 

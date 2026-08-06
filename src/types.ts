@@ -309,6 +309,14 @@ export interface Settings {
   tempoGuide?: boolean
   /** 신호 볼륨 (Z1) — 'normal' | 'loud' | 'max' */
   soundVolume?: string
+  /**
+   * 마지막으로 고른 단백질원 변형 (DD3 5-b). 키는 `${slotId}.${itemId}`, 값은 변형 인덱스.
+   *
+   * 사용자는 하나에 꽂히면 오래 먹는다("다리살 한 달 어때?"가 그 증거). 매일 ▾ 2탭은
+   * 불필요한 마찰이므로 한 번 고르면 그 뒤로는 슬롯당 1탭이 유지된다.
+   * **과거에 소급하지 않는다** — 기록된 `SlotRecord.variantChoices`가 항상 우선한다.
+   */
+  variantDefaults?: Record<string, number>
 }
 
 /**
@@ -341,6 +349,19 @@ export interface ExerciseSetting {
 // 앱은 음식의 좋고 나쁨을 판단하지 않는다. 음식 DB·칼로리 검색도 하지 않는다
 // (과설계 + 입력 마찰). 대체 기록은 자가 태그 3단만 받는다.
 
+/**
+ * 품목의 **교체 가능한 형태** (DD3 — 단백질원 로테이션).
+ *
+ * 루틴 문서 15장 "단백질원 로테이션" 표(2026-08-06 신설): 닭가슴살 1년 차 물림에 대한
+ * 대응이고, 등가 기준은 **단백질**이다. 물림은 이행률 문제이므로 앱이 다뤄야 한다.
+ */
+export interface DietItemVariant {
+  name: string // "닭안심"
+  qty: string // "180g"
+  kcal: number
+  proteinG: number
+}
+
 export interface DietItem {
   id: string // "brown-rice"
   name: string // "현미밥"
@@ -348,6 +369,15 @@ export interface DietItem {
   kcal: number
   /** 단백질 진행이 식단 화면의 **핵심 지표**다 (칼로리는 보조 표기) */
   proteinG: number
+  /**
+   * 이 품목의 **대체 변형** (DD3). 없으면 형태가 하나뿐이라는 뜻이다.
+   *
+   * **기본 변형(0번)은 여기 적지 않는다** — 품목 자신(`name`/`qty`/`kcal`/`proteinG`)이
+   * 0번이고, `diet.variantsOf()`가 앞에 합성해 준다. 0번을 JSON에 또 적으면 같은 값이
+   * 두 곳에 생겨 하나만 고쳤을 때 갈라진다 (이 프로젝트의 결함 A). 그래서 여기에는
+   * **대체안만** 들어가고, 점수 가중(`itemWeight`)은 자동으로 기본 변형 기준이 된다.
+   */
+  variants?: DietItemVariant[]
 }
 
 export interface DietSlot {
@@ -367,12 +397,37 @@ export interface DietPlan {
    */
   kcalLabel: string
   isDefault?: boolean
-  /** 훈련일 구성 (6슬롯) */
+  /**
+   * 하루 구성 — **매일 같은 5끼** (DD2, 루틴 문서 15장 2026-08-06 개정).
+   *
+   * 훈련일 6끼/휴식일 5끼 분기가 있었고 그것을 없앴다. 총량·단백질이 완전히 같았고
+   * 차이는 쉐이크 배치뿐인데, 그 분기가 앱에서 반복 혼란원이었다 (G3·X4 계열).
+   * 옛 플랜의 `restDaySlots`는 타입에서 뺐지만 읽기는 지원한다 (`diet.restDaySlotsOf`).
+   */
   slots: DietSlot[]
-  /** 휴식일 구성 (5슬롯 — 훈련 전·직후를 15시 블록으로 통합, 총량 동일) */
-  restDaySlots: DietSlot[]
   /** 시드 리비전 — 루틴과 같은 규칙 (해시 스냅샷 테스트가 강제) */
   seedRevision: number
+  /**
+   * 대체된 옛 플랜 (DD2). **삭제하지 않고 숨긴다.**
+   *
+   * 과거 DietDay는 자기 `planId`로 계속 판정되므로 플랜이 사라지면 과거 날의 마크가
+   * 전부 바뀐다 — 이 라운드의 인바리언트("과거 판정이 하나도 바뀌지 않는다")가 곧
+   * 이 필드의 존재 이유다. 목록(플랜 시트)에서만 빠진다.
+   */
+  legacy?: true
+  /** 이 플랜을 대신하는 새 플랜 id (DD2) — 기본 플랜 설정 이관에 쓴다 */
+  supersededBy?: string
+}
+
+/**
+ * 옛 플랜의 휴식일 구성 (DD2 읽기 하위호환).
+ *
+ * `DietPlan`에서 `restDaySlots`를 뺐지만 **백업·DB에 남아 있는 플랜에는 있다.**
+ * 과거 날짜가 그 플랜으로 판정되므로 읽기는 유지한다 — 해석은 `diet.restDaySlotsOf`
+ * 한 곳에서만 한다 (타입 단정을 여러 곳에 흩으면 새 코드가 옛 필드에 의존하기 시작한다).
+ */
+export interface LegacyRestDayPlan {
+  restDaySlots?: DietSlot[]
 }
 
 /**
@@ -410,6 +465,17 @@ export interface SlotRecord {
   }
   /** 그 끼니 자체를 안 먹음 */
   skipped?: boolean
+  /**
+   * 품목별 **고른 변형** (DD3). `itemId → variantsOf() 인덱스`. 0/부재 = 기본 변형.
+   *
+   * 기록에 담는 이유: 마크로가 정직해야 한다. 다리살 200g은 가슴살 2팩보다 +160kcal이고,
+   * 그 날의 kcal 합계가 실제로 그렇게 나와야 한다 (낙관적으로 뭉개면 지표가 거짓말을 한다).
+   *
+   * **기록된 값이 항상 우선한다** — `settings.variantDefaults`는 아직 기록하지 않은 날의
+   * 초기 표시에만 쓴다. 그래서 기본값을 바꿔도 과거 날의 판정이 소급되지 않는다.
+   * 필드 추가는 하위 호환이라 백업 SCHEMA_VERSION을 올리지 않는다.
+   */
+  variantChoices?: Record<string, number>
 }
 
 /** 하루 기록. `date`가 PK — 하루 하나 */

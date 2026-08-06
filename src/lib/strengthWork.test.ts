@@ -220,15 +220,23 @@ describe('주 카운터와 도트의 기준이 다르다', () => {
 describe('#4 — 식단 훈련일 판정', () => {
   const date = '2026-08-04'
   const restDay = { date, planId: 'cut-1800', isTrainingDay: false, slots: {} }
+  /* 정규화 대상은 **옛 플랜을 쓰는 날**뿐이다 (DD2 — 새 플랜은 매일 같은 5끼) */
+  const SPLIT = new Set(['cut-1800'])
 
   it('유산소만 한 날은 휴식일로 남는다', () => {
     const trained = strengthDates([cardioOnly('d1', date)])
-    expect(resolveTrainingDays([restDay], trained)[0].isTrainingDay).toBe(false)
+    expect(resolveTrainingDays([restDay], trained, SPLIT)[0].isTrainingDay).toBe(false)
   })
 
   it('근력을 한 날은 훈련일로 덮어쓴다 (정규화 자체는 유지)', () => {
     const trained = strengthDates([completedSession({ dayId: 'd1', date, fullReps: true, weight: 30 })])
-    expect(resolveTrainingDays([restDay], trained)[0].isTrainingDay).toBe(true)
+    expect(resolveTrainingDays([restDay], trained, SPLIT)[0].isTrainingDay).toBe(true)
+  })
+
+  it('새 플랜을 쓰는 날은 정규화 대상이 아니다 (판정에 관여하지 않는 값을 흔들지 않는다)', () => {
+    const unified = { ...restDay, planId: 'cut-1800-u' }
+    const trained = strengthDates([completedSession({ dayId: 'd1', date, fullReps: true, weight: 30 })])
+    expect(resolveTrainingDays([unified], trained, SPLIT)[0].isTrainingDay).toBe(false)
   })
 
   it('같은 날 유산소 세션과 근력 세션이 둘 다 있으면 훈련일이다', () => {

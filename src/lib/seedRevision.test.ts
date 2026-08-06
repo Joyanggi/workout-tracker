@@ -54,8 +54,8 @@ const SNAPSHOT = {
   seedRevision: 2,
   routineHash: '0a8dddb4',
   exerciseCount: 29,
-  dietSeedRevision: 1,
-  dietHash: 'f05ea468',
+  dietSeedRevision: 2,
+  dietHash: '7184d442',
 }
 
 describe('시드 리비전 강제', () => {

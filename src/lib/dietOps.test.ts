@@ -10,7 +10,6 @@ import {
   applySkipSlot,
   applySubstitution,
   applyToggleItem,
-  applyTrainingDay,
   emptyDietDay,
 } from './dietOps'
 import { ADDITION_CAP, SCORE, slotScore, summarizeDietDay } from './diet'
@@ -97,22 +96,24 @@ describe('안 먹음 · 대체 · 기록 지우기', () => {
   })
 })
 
-describe('플랜·훈련일 전환', () => {
+describe('플랜 전환', () => {
   it('플랜은 그 날짜만 바꾼다', () => {
-    const day = applyPlan(base(), 'cut-1500')
-    expect(day.planId).toBe('cut-1500')
+    const day = applyPlan(base(), 'cut-1500-u')
+    expect(day.planId).toBe('cut-1500-u')
     expect(day.date).toBe('2026-08-04')
   })
 
-  it('훈련일 토글이 기록을 지우지 않는다', () => {
-    // 잘못 토글했다가 되돌렸을 때 기록이 사라지면 안 된다.
-    // 없는 슬롯 키는 판정에서 자동으로 무시된다 (현재 구성의 슬롯만 순회하므로)
+  /*
+   * `applyTrainingDay`는 DD2에서 삭제했다 (매일 같은 5끼 — 전환 UI 자체가 없다).
+   * 옛 플랜을 쓰는 날의 구성은 저장값 그대로 판정되고, 그 성질은 diet.test.ts가 잠근다.
+   * "op가 없다"는 사실은 v19.test.ts의 소스 스캔이 지킨다 (여기서 부르면 컴파일이 깨진다).
+   */
+  it('옛 플랜의 훈련일 전용 슬롯 기록은 휴식일 판정에서 무시된다 (키는 남는다)', () => {
     const withPre = applyCheckAllItems(base(), PLAN.slots.find((s) => s.id === 'pre')!)
-    const rest = applyTrainingDay(withPre, false)
+    const rest = { ...withPre, isTrainingDay: false }
     expect(rest.slots.pre).toBeDefined()
     expect(summarizeDietDay(PLAN, rest).totalSlots).toBe(5)
-    const backToTraining = applyTrainingDay(rest, true)
-    expect(summarizeDietDay(PLAN, backToTraining).loggedSlots).toBe(1)
+    expect(summarizeDietDay(PLAN, withPre).loggedSlots).toBe(1)
   })
 })
 

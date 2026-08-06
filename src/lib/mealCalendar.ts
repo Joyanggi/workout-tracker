@@ -1,4 +1,5 @@
 import type { DietPlan, DietSlot } from '../types'
+import { restDaySlotsOf } from './diet'
 
 /**
  * 식사 알림 → iOS 캘린더 위임 (Z4).
@@ -41,14 +42,16 @@ export function parseTimeHint(hint: string): { h: number; m: number } | null {
 }
 
 /**
- * 훈련일·휴식일 슬롯의 합집합.
+ * 그 플랜의 알림 대상 슬롯.
  *
- * `shake`(보충 블록)는 **휴식일 목록에만** 있다 — 훈련일에는 훈련 전·직후로 나뉘기 때문이다.
- * `plan.slots`만 보면 사용자가 가장 원한 슬롯이 목록에 나타나지 않는다.
+ * 새 플랜은 매일 같은 5끼라 `plan.slots` 그대로다 (DD2). **옛 플랜에서는 합집합이어야
+ * 한다**: `shake`(보충 블록)가 휴식일 목록에만 있어서 `plan.slots`만 보면 사용자가 가장
+ * 원한 슬롯("오후·보충 블록은 까먹는다")이 목록에서 빠졌다. 그 결함을 다시 만들지 않도록
+ * 옛 플랜 경로를 유지한다 — 백업에서 돌아온 플랜으로 알림을 만들 수 있다.
  */
 export function allSlots(plan: DietPlan): DietSlot[] {
   const byId = new Map<string, DietSlot>()
-  for (const slot of [...plan.slots, ...plan.restDaySlots]) {
+  for (const slot of [...plan.slots, ...(restDaySlotsOf(plan) ?? [])]) {
     if (!byId.has(slot.id)) byId.set(slot.id, slot)
   }
   return [...byId.values()]
@@ -146,9 +149,13 @@ export function defaultSelectedSlots(plan: DietPlan): string[] {
     .map((s) => s.id)
 }
 
-/** 훈련일 전용 슬롯 — 매일 반복이므로 휴식일에도 울린다 (캡션으로 알린다) */
+/**
+ * 훈련일 전용 슬롯 — 매일 반복이므로 휴식일에도 울린다 (캡션으로 알린다).
+ *
+ * 새 플랜에는 그런 슬롯이 없다 (DD2 — 매일 같은 5끼). 옛 플랜에서만 참이 될 수 있다.
+ */
 export function isTrainingOnlySlot(plan: DietPlan, slotId: string): boolean {
-  return (
-    plan.slots.some((s) => s.id === slotId) && !plan.restDaySlots.some((s) => s.id === slotId)
-  )
+  const rest = restDaySlotsOf(plan)
+  if (!rest) return false
+  return plan.slots.some((s) => s.id === slotId) && !rest.some((s) => s.id === slotId)
 }

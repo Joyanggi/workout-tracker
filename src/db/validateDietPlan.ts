@@ -1,5 +1,5 @@
-import type { DietPlan } from '../types'
-import { planTotals } from '../lib/diet'
+import type { DietPlan, DietSlot } from '../types'
+import { planTotals, restDaySlotsOf, variantsOf } from '../lib/diet'
 
 /**
  * 식단 플랜 정합성 검사 (D1).
@@ -18,10 +18,16 @@ export function validateDietPlan(plan: DietPlan): string[] {
   need(typeof plan.name === 'string' && plan.name.length > 0, 'name이 없습니다')
   need(Number.isInteger(plan.seedRevision) && plan.seedRevision > 0, 'seedRevision이 양의 정수가 아닙니다')
 
-  for (const [key, slots] of [
+  /*
+   * `restDaySlots`는 **옛 플랜에만** 있다 (DD2). 있으면 계속 검사한다 — 백업에서 돌아온
+   * 플랜이 과거 날짜를 판정하므로, 검사를 빼면 깨진 옛 플랜이 조용히 통과한다.
+   */
+  const restDaySlots = restDaySlotsOf(plan)
+  const groups: [string, DietSlot[] | undefined][] = [
     ['slots', plan.slots],
-    ['restDaySlots', plan.restDaySlots],
-  ] as const) {
+    ...(restDaySlots ? ([['restDaySlots', restDaySlots]] as [string, DietSlot[]][]) : []),
+  ]
+  for (const [key, slots] of groups) {
     if (!Array.isArray(slots) || slots.length === 0) {
       problems.push(`${key}가 비어 있습니다`)
       continue
@@ -46,6 +52,22 @@ export function validateDietPlan(plan: DietPlan): string[] {
         if (!Number.isFinite(item.proteinG) || item.proteinG < 0) {
           problems.push(`${key}/${slot.id}/${item.id}: proteinG가 올바르지 않습니다`)
         }
+        /*
+         * 변형도 같은 검사를 받는다 (DD3) — 변형의 kcal이 깨지면 그 변형을 고른 날의
+         * 마크로만 조용히 틀린다 (기본 변형만 검사하면 잡히지 않는다).
+         */
+        for (const [i, variant] of variantsOf(item).entries()) {
+          const where = `${key}/${slot.id}/${item.id}/변형${i}`
+          if (variant.name.length === 0 || variant.qty.length === 0) {
+            problems.push(`${where}: 이름·수량이 비어 있습니다`)
+          }
+          if (!Number.isFinite(variant.kcal) || variant.kcal < 0) {
+            problems.push(`${where}: kcal이 올바르지 않습니다`)
+          }
+          if (!Number.isFinite(variant.proteinG) || variant.proteinG < 0) {
+            problems.push(`${where}: proteinG가 올바르지 않습니다`)
+          }
+        }
       }
     }
   }
@@ -55,7 +77,7 @@ export function validateDietPlan(plan: DietPlan): string[] {
    * 한 블록으로 합치는 것이지 총량을 줄이는 것이 아니다).
    * 이 검사가 없으면 휴식일에 조용히 덜 먹는 플랜이 통과한다.
    */
-  if (problems.length === 0) {
+  if (problems.length === 0 && restDaySlots) {
     const t = planTotals(plan, true)
     const r = planTotals(plan, false)
     if (t.kcal !== r.kcal || t.proteinG !== r.proteinG) {

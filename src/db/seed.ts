@@ -1,7 +1,7 @@
 import dietPlansJson from '../data/diet-plans.json'
 import exercisesJson from '../data/exercises.json'
 import routineJson from '../data/routine-v2.4.json'
-import { formatPlanLabel } from '../lib/diet'
+import { formatPlanLabel, successorOf } from '../lib/diet'
 import type { DietPlan, Exercise, RoutineTemplate } from '../types'
 import { validateDietPlan } from './validateDietPlan'
 import { db, deleteSettings, getSetting, setSettings } from './index'
@@ -111,6 +111,19 @@ export async function ensureSeed(): Promise<SeedResult> {
   if ((await db.settings.get('defaultDietPlanId')) === undefined) {
     const fallback = BUNDLED_DIET_PLANS.find((p) => p.isDefault) ?? BUNDLED_DIET_PLANS[0]
     if (fallback) await setSettings({ defaultDietPlanId: fallback.id })
+  } else {
+    /*
+     * 대체된 플랜을 가리키는 기본값을 **후속 플랜으로 이관한다** (DD2).
+     *
+     * 이게 없으면 기존 설치본에서 조용히 망가진다: 플랜 시트는 새 플랜만 보여주는데
+     * `defaultDietPlanId`는 숨긴 옛 플랜(cut-1800)을 계속 가리켜서, 오늘 화면이 6끼
+     * 옛 구성으로 열리고 사용자는 그것을 고른 적도 없다. **선택을 덮는 것이 아니라
+     * 같은 선택을 새 id로 옮기는 것**이므로 "사용자 선택을 존중한다"와 충돌하지 않는다.
+     * 과거 DietDay의 planId는 건드리지 않는다 (판정 불변).
+     */
+    const current = await getSetting<string | null>('defaultDietPlanId', null)
+    const successor = current ? successorOf(BUNDLED_DIET_PLANS, current) : undefined
+    if (successor) await setSettings({ defaultDietPlanId: successor.id })
   }
 
   // 기본 설정값 채우기 (없는 것만)

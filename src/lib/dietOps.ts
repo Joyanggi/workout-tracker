@@ -1,4 +1,5 @@
 import type { DietDay, DietSlot, SlotRecord } from '../types'
+import { hasVariants, variantDefaultKey } from './diet'
 
 /**
  * 식단 기록 변형 — 순수 함수 (D2).
@@ -116,6 +117,63 @@ export function applyClearSubstitution(day: DietDay, slotId: string): DietDay {
   return patchSlot(day, slotId, (record) => ({ ...record, substitution: undefined }))
 }
 
+/**
+ * 단백질원 변형 선택 (DD3).
+ *
+ * **미기록 슬롯에는 기록을 만들지 않는다.** 만들면 `{ checkedItemIds: [] }`가 되어
+ * 그 슬롯이 0점으로 판정에 들어간다 — 먹기 전에 "오늘은 다리살" 하고 고른 것이
+ * "안 먹었다"로 집계되는 셈이다. 그 경우 선택은 `settings.variantDefaults`에만 남고
+ * (표시는 그것으로 충분하다), 체크하는 순간 `seedVariantChoices`가 기록에 새긴다.
+ */
+export function applyVariantChoice(
+  day: DietDay,
+  slotId: string,
+  itemId: string,
+  index: number,
+): DietDay {
+  const record = day.slots[slotId]
+  if (!record) return day
+  return patchSlot(day, slotId, (current) => ({
+    ...current,
+    variantChoices: { ...current.variantChoices, [itemId]: index },
+  }))
+}
+
+/**
+ * 기록이 생기는 순간 **그때 화면에 보였던 변형을 기록에 새긴다** (DD3 5-b).
+ *
+ * 이것이 없으면 화면과 판정이 갈린다 (이 프로젝트의 결함 B): 기억된 기본값이 다리살이면
+ * 카드에는 "닭다리살 200g"이 보이는데, 기록에는 선택이 없으니 요약은 가슴살 kcal로
+ * 계산한다. 그래서 **기록은 항상 자기 자신으로 완결돼야 한다** — 설정을 나중에 바꿔도
+ * 지난 날의 마크로가 흔들리지 않는 것도 같은 성질이다.
+ *
+ * 호출은 편집기의 `mutate` 한 곳에서 한다 (op마다 부르면 새 op를 추가할 때 빠뜨린다).
+ */
+export function seedVariantChoices(
+  day: DietDay,
+  slots: DietSlot[],
+  defaults: Record<string, number> | undefined,
+): DietDay {
+  let next = day
+  for (const slot of slots) {
+    const record = next.slots[slot.id]
+    if (!record) continue
+    let choices = record.variantChoices
+    for (const item of slot.items) {
+      if (!hasVariants(item)) continue
+      if (choices?.[item.id] !== undefined) continue
+      choices = {
+        ...choices,
+        [item.id]: defaults?.[variantDefaultKey(slot.id, item.id)] ?? 0,
+      }
+    }
+    if (choices !== record.variantChoices) {
+      next = { ...next, slots: { ...next.slots, [slot.id]: { ...record, variantChoices: choices } } }
+    }
+  }
+  return next
+}
+
 /** 기록 취소 — 슬롯을 미기록 상태로 되돌린다 (잘못 누른 것을 없앨 수 있어야 한다) */
 export function applyClearSlot(day: DietDay, slotId: string): DietDay {
   return patchSlot(day, slotId, () => undefined)
@@ -131,16 +189,12 @@ export function applyPlan(day: DietDay, planId: string): DietDay {
   return { ...day, planId }
 }
 
-/**
- * 훈련일/휴식일 전환.
- *
- * 슬롯 구성이 바뀌므로 **기록은 유지하되 없는 슬롯의 키는 남는다** — 일부러 지우지 않는다.
- * 잘못 토글했다가 되돌렸을 때 기록이 사라지면 안 되고, 없는 슬롯 키는 판정에서
- * 자동으로 무시된다 (`summarizeDietDay`가 현재 구성의 슬롯만 순회한다).
+/*
+ * `applyTrainingDay`는 **삭제했다** (DD2). 훈련일/휴식일 전환 UI가 없어졌고
+ * (매일 같은 5끼), 남겨 두면 "기각된 구성으로 돌아가는 경로"가 된다 —
+ * CC7-R에서 글라이드 심볼을 전부 지운 것과 같은 이유다.
+ * 새 기록의 `isTrainingDay`는 `emptyDietDay`가 사실(근력 세션 유무)로 채운다.
  */
-export function applyTrainingDay(day: DietDay, isTrainingDay: boolean): DietDay {
-  return { ...day, isTrainingDay }
-}
 
 export function applyNote(day: DietDay, note: string): DietDay {
   return { ...day, note: note.trim() === '' ? undefined : note }
