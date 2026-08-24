@@ -370,6 +370,40 @@ select {
   color: var(--bg);
 }
 
+/*
+  배너 안의 2지 선택 (EE3).
+
+  한 칸 토글("적용됨"↔"무시")은 상태와 동작을 번갈아 말해서 **어느 쪽이 켜져 있는지**
+  읽을 수 없었다. 두 답을 나란히 두면 선택은 비교로 읽힌다 — 채워진 쪽이 현재값이고,
+  다른 쪽은 누르면 갈 곳이다. 색은 배너가 정한 currentColor를 그대로 쓴다.
+*/
+.banner-choice {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: flex;
+  gap: 6px;
+}
+
+.banner-choice button {
+  margin-left: 0;
+  /* 고르지 않은 쪽은 테두리만 — 채운 쪽 하나만 "지금 값"으로 읽혀야 한다 */
+  background: transparent;
+  border: 1px solid currentColor;
+  padding: 6px 12px;
+}
+
+.banner-choice button > span {
+  color: currentColor;
+}
+
+.banner-choice button[aria-pressed='true'] {
+  background: currentColor;
+}
+
+.banner-choice button[aria-pressed='true'] > span {
+  color: var(--bg);
+}
+
 /* ─── 온보딩 ───────────────────────────────────────────── */
 
 .onboarding {

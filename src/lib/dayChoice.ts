@@ -108,3 +108,29 @@ export function homeCardState(args: {
     resuming: false,
   }
 }
+
+/**
+ * 복귀 프로토콜을 **적용하지 않기로 한 상태**의 카드 문구 (EE3).
+ *
+ * 피드백: "맨 위 배너 버튼이 적용됐다는 건지 무시가 됐다는 건지 모르겠다."
+ * 라벨이 상태(적용됨)와 동작(무시)을 번갈아 말한 것이 1차 원인인데, **화면 어디에도
+ * 선택의 결과가 남지 않는 것**이 그 혼동을 굳혔다. 배너 토글은 다음 세션 생성을
+ * 바꾸는데(HomeScreen.create) 카드는 토글을 끈 뒤에도 "가볍게 복귀합니다"라고
+ * 말하고 있었다 — 눌러도 화면이 그대로면 눌린 것인지 알 방법이 없다.
+ *
+ * 배너는 답을 묻고, 카드는 그 답이 반영된 결과를 말한다.
+ */
+export function returnChoiceReason(args: {
+  /** 제안 근거 (suggestNextDay) */
+  suggestionReason: string
+  gapDays: number | null
+  /** 14일+ 공백으로 복귀 프로토콜이 제안됐는가 */
+  hasReturnStep: boolean
+  /** 배너에서 "적용"을 고른 상태인가 */
+  applyReturn: boolean
+}): string {
+  const { suggestionReason, gapDays, hasReturnStep, applyReturn } = args
+  if (!hasReturnStep || applyReturn) return suggestionReason
+  const gap = gapDays === null ? '' : `${gapDays}일 공백 — `
+  return `${gap}복귀 프로토콜 없이 평소 강도로 시작합니다`
+}

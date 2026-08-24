@@ -26,7 +26,7 @@ import { buildScaleMap, formatProgression, isInverseKey } from '../lib/weightSca
 import { useExerciseSettings } from '../lib/useExerciseSettings'
 import { buildSession, withJustFinished } from '../lib/sessionFactory'
 import { bannerQueue, type BannerId } from '../lib/bannerQueue'
-import { homeCardState, pickedIdFor } from '../lib/dayChoice'
+import { homeCardState, pickedIdFor, returnChoiceReason } from '../lib/dayChoice'
 import { suggestNextDay } from '../lib/suggestNextDay'
 import { exerciseLabel, useRoutine } from '../lib/useRoutine'
 import { useSessionStore } from '../store/session'
@@ -200,7 +200,13 @@ export default function HomeScreen({
   const card = homeCardState({
     routine,
     suggested: suggestion.day,
-    suggestionReason: suggestion.reason,
+    // 복귀 배너에서 "안 함"을 고르면 카드도 그 결과를 말한다 (EE3)
+    suggestionReason: returnChoiceReason({
+      suggestionReason: suggestion.reason,
+      gapDays: suggestion.gapDays,
+      hasReturnStep: Boolean(suggestion.returnStep),
+      applyReturn,
+    }),
     pickedDayId,
     openDayId: openSession?.dayId ?? null,
   })
@@ -255,9 +261,26 @@ export default function HomeScreen({
           <br />
           <small>{suggestion.returnStep?.rampWeeks}주간 램프업</small>
         </span>
-        <button onClick={() => setApplyReturn(!applyReturn)}>
-          <span>{applyReturn ? '적용됨' : '무시'}</span>
-        </button>
+        {/*
+          **한 칸짜리 토글을 쓰지 않는다** (EE3).
+
+          피드백: "적용됐다는 건지 무시가 됐다는 건지 모르겠다." 라벨이 한 번은 상태
+          ("적용됨")를, 한 번은 동작("무시")을 말했다 — 같은 자리의 글자가 문법을 바꾸면
+          지금 상태를 읽은 것인지 누르면 벌어질 일을 읽은 것인지 구분할 방법이 없다.
+          게다가 배너가 던진 것은 "복귀할까요?"라는 **질문**인데 답이 하나만 보였다.
+
+          두 답을 나란히 놓고 고른 쪽을 채운다. 어느 것이 켜져 있는지는 비교로 읽히고,
+          누르면 벌어질 일은 라벨이 그대로 말한다. 결과는 아래 카드 문구가 받는다
+          (`returnChoiceReason`) — 눌렀는데 화면이 그대로면 눌린 줄 모른다.
+        */}
+        <div className="banner-choice" role="group" aria-label="복귀 프로토콜 적용 여부">
+          <button aria-pressed={applyReturn} onClick={() => setApplyReturn(true)}>
+            <span>적용</span>
+          </button>
+          <button aria-pressed={!applyReturn} onClick={() => setApplyReturn(false)}>
+            <span>안 함</span>
+          </button>
+        </div>
       </div>
     ),
     deload: (

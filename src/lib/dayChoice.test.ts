@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dayChoiceReason, displayDay, pickedIdFor } from './dayChoice'
+import { dayChoiceReason, displayDay, pickedIdFor, returnChoiceReason } from './dayChoice'
 import { BUNDLED_ROUTINE } from '../db/seed'
 import { stripComments } from './sourceScan'
 
@@ -143,5 +143,73 @@ describe('AA2 — 변경이 보이는 버튼이다', () => {
     const src = home()
     const card = /className="card today-card[^"]*"\s*onClick=\{([^}]*)\}/.exec(src)?.[1]
     expect(card).toMatch(/setPicking\(true\)/)
+  })
+})
+
+/**
+ * EE3 — 복귀 배너의 답이 화면에 남는다.
+ *
+ * 피드백: "적용됐다는 건지 무시가 됐다는 건지 모르겠다." 라벨 문법(상태↔동작)이 1차
+ * 원인이고, 눌러도 카드 문구가 그대로인 것이 그 혼동을 굳혔다. 둘 다 잠근다 —
+ * 문구는 순수 함수로, 배너 배선은 소스 스캔으로.
+ */
+describe('복귀 선택이 카드 문구에 반영된다 (returnChoiceReason)', () => {
+  const base = { suggestionReason: '19일 공백 — Day 1로 가볍게 복귀합니다', gapDays: 19 }
+
+  it('적용 상태면 제안 근거를 그대로 쓴다', () => {
+    expect(returnChoiceReason({ ...base, hasReturnStep: true, applyReturn: true })).toBe(
+      base.suggestionReason,
+    )
+  })
+
+  it('"안 함"을 고르면 복귀하지 않는다고 말한다 — 카드가 계속 "가볍게 복귀"라고 하면 안 된다', () => {
+    const text = returnChoiceReason({ ...base, hasReturnStep: true, applyReturn: false })
+    expect(text).toContain('19일 공백')
+    expect(text).not.toContain('가볍게 복귀')
+    expect(text).toContain('평소 강도')
+  })
+
+  it('복귀 제안 자체가 없으면 토글과 무관하게 제안 근거다', () => {
+    const reason = '상부가 3일 밀렸어요'
+    expect(
+      returnChoiceReason({ suggestionReason: reason, gapDays: 3, hasReturnStep: false, applyReturn: false }),
+    ).toBe(reason)
+  })
+
+  it('공백 일수를 모르면 일수 없이 말한다 (문구에 "null일"이 새지 않는다)', () => {
+    const text = returnChoiceReason({ ...base, gapDays: null, hasReturnStep: true, applyReturn: false })
+    expect(text).not.toContain('null')
+    expect(text).toContain('복귀 프로토콜 없이')
+  })
+})
+
+describe('EE3 — 복귀 배너가 두 답을 나란히 보여준다', () => {
+  const sources = import.meta.glob('/src/**/*.tsx', {
+    query: '?raw',
+    import: 'default',
+    eager: true,
+  }) as Record<string, string>
+  const home = () => stripComments(sources['/src/screens/HomeScreen.tsx']!)
+
+  it('상태와 동작을 번갈아 말하던 한 칸 토글이 없다', () => {
+    const src = home()
+    expect(src).not.toContain('적용됨')
+    expect(src).not.toMatch(/applyReturn \? '[^']*' : '[^']*'/)
+    // 토글 뒤집기(!applyReturn)가 아니라 고른 값을 그대로 넣는다
+    expect(src).not.toContain('setApplyReturn(!applyReturn)')
+  })
+
+  it('두 버튼이 각각 적용 / 안 함을 고르고, 고른 쪽이 aria-pressed다', () => {
+    const choice = /className="banner-choice"[\s\S]*?<\/div>/.exec(home())?.[0]
+    expect(choice, '복귀 선택 버튼을 찾지 못했다 — 이 검사가 헛돌고 있다').toBeDefined()
+    expect(choice).toMatch(/aria-pressed=\{applyReturn\}[\s\S]*setApplyReturn\(true\)/)
+    expect(choice).toMatch(/aria-pressed=\{!applyReturn\}[\s\S]*setApplyReturn\(false\)/)
+  })
+
+  it('카드 문구가 returnChoiceReason을 거친다 — 선택의 결과가 화면에 남아야 한다', () => {
+    const call = /const card = homeCardState\(\{[\s\S]*?\n  \}\)/.exec(home())?.[0]
+    expect(call, 'homeCardState 호출을 찾지 못했다 — 이 검사가 헛돌고 있다').toBeDefined()
+    expect(call).toMatch(/returnChoiceReason\(\{/)
+    expect(call).toMatch(/applyReturn,/)
   })
 })
