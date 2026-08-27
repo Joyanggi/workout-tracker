@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  COUNT_IN_SEC,
+  COUNT_IN_OPTIONS,
+  DEFAULT_COUNT_IN_SEC,
   PHASE_LABEL,
   TEMPO,
   cycleSeconds,
@@ -55,11 +56,31 @@ describe('템포 상수 (루틴 문서 3장)', () => {
 })
 
 describe('카운트인', () => {
-  it('3·2·1로 센다', () => {
-    expect(tempoPositionAt(0, TEMPO.B).countIn).toBe(3)
-    expect(tempoPositionAt(s(0.5), TEMPO.B).countIn).toBe(3)
-    expect(tempoPositionAt(s(1.5), TEMPO.B).countIn).toBe(2)
-    expect(tempoPositionAt(s(2.5), TEMPO.B).countIn).toBe(1)
+  it('기본 5초에서 5·4·3·2·1로 센다 (2026-08-27 — 3초는 준비에 짧다)', () => {
+    expect(tempoPositionAt(0, TEMPO.B).countIn).toBe(DEFAULT_COUNT_IN_SEC)
+    expect(tempoPositionAt(s(0.5), TEMPO.B).countIn).toBe(5)
+    expect(tempoPositionAt(s(1.5), TEMPO.B).countIn).toBe(4)
+    expect(tempoPositionAt(s(4.5), TEMPO.B).countIn).toBe(1)
+  })
+
+  it('설정한 초를 쓴다 — 3·5·8 전부', () => {
+    for (const sec of COUNT_IN_OPTIONS) {
+      expect(tempoPositionAt(0, TEMPO.B, sec).countIn, `${sec}초`).toBe(sec)
+      // 그 초가 지나면 첫 페이즈가 시작된다
+      expect(tempoPositionAt(s(sec), TEMPO.B, sec).phase, `${sec}초`).toEqual(TEMPO.B[0])
+      expect(tempoPositionAt(s(sec - 0.1), TEMPO.B, sec).phase, `${sec}초`).toBeNull()
+    }
+  })
+
+  it('기본값이 3초가 아니다 (피드백: 자세 잡고 호흡 가다듬는 데 5초는 필요하다)', () => {
+    expect(DEFAULT_COUNT_IN_SEC).toBe(5)
+    expect(COUNT_IN_OPTIONS).toContain(3)
+  })
+
+  it('깨진 설정값은 기본으로 떨어진다 (가이드가 죽지 않는다)', () => {
+    for (const bad of [0, -1, Number.NaN]) {
+      expect(tempoPositionAt(0, TEMPO.B, bad).countIn, String(bad)).toBe(DEFAULT_COUNT_IN_SEC)
+    }
   })
 
   it('카운트인 중에는 페이즈가 없다', () => {
@@ -74,8 +95,8 @@ describe('카운트인', () => {
     expect(at(1.1)).not.toBe(at(2.1))
   })
 
-  it(`카운트인이 끝나면 첫 페이즈로 넘어간다 (${COUNT_IN_SEC}초)`, () => {
-    const p = tempoPositionAt(s(COUNT_IN_SEC), TEMPO.B)
+  it(`카운트인이 끝나면 첫 페이즈로 넘어간다 (${DEFAULT_COUNT_IN_SEC}초)`, () => {
+    const p = tempoPositionAt(s(DEFAULT_COUNT_IN_SEC), TEMPO.B)
     expect(p.countIn).toBeNull()
     expect(p.phase?.kind).toBe('concentric')
   })
@@ -83,7 +104,7 @@ describe('카운트인', () => {
 
 describe('페이즈 진행 (B그룹 3-1-1-1)', () => {
   /** 카운트인 이후 t초 */
-  const at = (t: number) => tempoPositionAt(s(COUNT_IN_SEC + t), TEMPO.B)
+  const at = (t: number) => tempoPositionAt(s(DEFAULT_COUNT_IN_SEC + t), TEMPO.B)
 
   it('수축 → 짜내기 → 이완 → 늘림 순서로 간다', () => {
     expect(at(0.5).phase?.kind).toBe('concentric')
@@ -122,13 +143,13 @@ describe('복귀 안전성 — 누적하지 않는다', () => {
   it('중간을 건너뛰어도 그 시점의 위치가 정확하다', () => {
     // 화면이 꺼져 있다가 20초 뒤에 복귀한 경우 — 밀린 페이즈를 재생하지 않고
     // "지금 어디인가"만 답한다
-    const jumped = tempoPositionAt(s(COUNT_IN_SEC + 20), TEMPO.B)
+    const jumped = tempoPositionAt(s(DEFAULT_COUNT_IN_SEC + 20), TEMPO.B)
     expect(jumped.reps).toBe(3) // 20 / 6 = 3회 완료
     expect(jumped.phase?.kind).toBe('eccentric') // 20 - 18 = 2초 → 수축1+짜내기1 끝, 이완 시작
   })
 
   it('음수 경과 시간도 안전하다', () => {
-    expect(tempoPositionAt(-1000, TEMPO.B).countIn).toBe(COUNT_IN_SEC)
+    expect(tempoPositionAt(-1000, TEMPO.B).countIn).toBe(DEFAULT_COUNT_IN_SEC)
   })
 
   it('빈 페이즈 목록에서도 던지지 않는다', () => {
@@ -172,14 +193,24 @@ describe('페이즈 경계음 (CC7-R)', () => {
     expect(phaseTone({ kind: 'concentric', seconds: 0.2 }).duration).toBeLessThanOrEqual(0.2)
   })
 
-  it('게인이 CC8 상향 비율(+50%)에 맞춰 올랐다', () => {
+  it('게인이 틱·차임과 같은 비율로 올랐다 (2026-08-27 상향)', () => {
     /*
-      다른 소리(틱 0.2→0.3, 차임 0.26→0.36, 큐 0.22→0.3)만 커지고 템포 톤만 옛 크기면
-      상대 밸런스가 깨진다. 구 값 0.18 / 0.14 → 0.27 / 0.21.
+      틱·차임만 커지고 템포 톤이 옛 크기면 상대 밸런스가 깨진다 — CC8에서 세운 규칙이고
+      이번 상향(틱 0.3→0.42, 차임 0.36→0.5)에도 같이 적용한다. 0.27→0.38 / 0.21→0.3.
+      값 자체가 아니라 **같이 움직인다는 것**이 계약이므로 비율을 검사한다.
     */
-    expect(phaseTone({ kind: 'concentric', seconds: 1 }).gain).toBeCloseTo(0.27, 5)
-    expect(phaseTone({ kind: 'eccentric', seconds: 2 }).gain).toBeCloseTo(0.21, 5)
-    expect(phaseTone({ kind: 'squeeze', seconds: 1 }).gain).toBeCloseTo(0.21, 5)
+    const c = phaseTone({ kind: 'concentric', seconds: 1 }).gain
+    const e = phaseTone({ kind: 'eccentric', seconds: 2 }).gain
+    expect(c).toBeCloseTo(0.38, 5)
+    expect(e).toBeCloseTo(0.3, 5)
+    expect(phaseTone({ kind: 'squeeze', seconds: 1 }).gain).toBeCloseTo(e, 5)
+    // 수축이 이완보다 크다 (경계가 뚜렷해야 한다) — 상향 전후 모두 지켜야 할 성질
+    expect(c).toBeGreaterThan(e)
+  })
+
+  it('정지음이 귀의 적분 창 쪽으로 길어졌다 (W2 — 짧으면 손해를 본다)', () => {
+    // 0.08초는 200ms 적분 창에 한참 못 미쳐 실효 음량을 잃었다
+    expect(phaseTone({ kind: 'squeeze', seconds: 1 }).duration).toBeGreaterThanOrEqual(0.12)
   })
 
   it('세 페이즈 계열이 서로 다른 높이다 — 구분은 피치와 길이로 한다', () => {
@@ -214,19 +245,19 @@ describe('W3 — 상단 반복수 판정', () => {
   })
 
   it('사이클이 끝날 때마다 한 회씩 는다', () => {
-    expect(state(COUNT_IN_SEC + 0.1).reps).toBe(0) // 1회째 진행 중
-    expect(state(COUNT_IN_SEC + 6.1).reps).toBe(1)
-    expect(state(COUNT_IN_SEC + 12.1).reps).toBe(2)
+    expect(state(DEFAULT_COUNT_IN_SEC + 0.1).reps).toBe(0) // 1회째 진행 중
+    expect(state(DEFAULT_COUNT_IN_SEC + 6.1).reps).toBe(1)
+    expect(state(DEFAULT_COUNT_IN_SEC + 12.1).reps).toBe(2)
   })
 
   it('상단 직전 사이클에서 "마지막"을 알린다 (갑자기 끊기지 않게)', () => {
     // repMax 10 → 10번째 사이클(reps === 9) 도는 동안 마지막이다
-    expect(state(COUNT_IN_SEC + 6 * 9 + 0.1, 10)).toMatchObject({ reps: 9, lastCycle: true })
-    expect(state(COUNT_IN_SEC + 6 * 8 + 0.1, 10).lastCycle).toBe(false)
+    expect(state(DEFAULT_COUNT_IN_SEC + 6 * 9 + 0.1, 10)).toMatchObject({ reps: 9, lastCycle: true })
+    expect(state(DEFAULT_COUNT_IN_SEC + 6 * 8 + 0.1, 10).lastCycle).toBe(false)
   })
 
   it('상단에 도달하면 complete이고, 그때는 "마지막"이 아니라 "끝"이다', () => {
-    const s = state(COUNT_IN_SEC + 6 * 10 + 0.1, 10)
+    const s = state(DEFAULT_COUNT_IN_SEC + 6 * 10 + 0.1, 10)
     expect(s.complete).toBe(true)
     expect(s.lastCycle).toBe(false)
     expect(s.reps).toBe(10)
@@ -234,19 +265,19 @@ describe('W3 — 상단 반복수 판정', () => {
 
   it('상단을 넘겨 계속 돌아도 기록될 값은 repMax를 넘지 않는다', () => {
     // 이 상황이 원래 버그였다 — 30회를 넘겨도 계속 돌았다
-    const s = state(COUNT_IN_SEC + 6 * 30, 10)
+    const s = state(DEFAULT_COUNT_IN_SEC + 6 * 30, 10)
     expect(s.reps).toBe(10)
     expect(s.complete).toBe(true)
   })
 
   it('repMax 1이어도 경계가 성립한다 (lastCycle이 먼저, 그다음 complete)', () => {
-    expect(state(COUNT_IN_SEC + 0.1, 1)).toMatchObject({ reps: 0, lastCycle: true, complete: false })
-    expect(state(COUNT_IN_SEC + 6.1, 1)).toMatchObject({ reps: 1, complete: true })
+    expect(state(DEFAULT_COUNT_IN_SEC + 0.1, 1)).toMatchObject({ reps: 0, lastCycle: true, complete: false })
+    expect(state(DEFAULT_COUNT_IN_SEC + 6.1, 1)).toMatchObject({ reps: 1, complete: true })
   })
 
   it('repMax가 0 이하면 자동 종료를 하지 않는다 (시드 이상값 방어)', () => {
-    expect(state(COUNT_IN_SEC + 60, 0)).toEqual({ reps: 0, currentRep: 0, lastCycle: false, complete: false })
-    expect(state(COUNT_IN_SEC + 60, -1)).toEqual({ reps: 0, currentRep: 0, lastCycle: false, complete: false })
+    expect(state(DEFAULT_COUNT_IN_SEC + 60, 0)).toEqual({ reps: 0, currentRep: 0, lastCycle: false, complete: false })
+    expect(state(DEFAULT_COUNT_IN_SEC + 60, -1)).toEqual({ reps: 0, currentRep: 0, lastCycle: false, complete: false })
   })
 
   it('lastCycle과 complete는 동시에 참이 될 수 없다', () => {
@@ -257,7 +288,7 @@ describe('W3 — 상단 반복수 판정', () => {
   })
 
   it('같은 경과 시간이면 같은 판정이다 (복귀 안전 — 프레임마다 재발화 금지의 근거)', () => {
-    const ms = COUNT_IN_SEC * 1000 + 6 * 9 * 1000 + 500
+    const ms = DEFAULT_COUNT_IN_SEC * 1000 + 6 * 9 * 1000 + 500
     expect(tempoRepState(tempoPositionAt(ms, B), 10)).toEqual(
       tempoRepState(tempoPositionAt(ms, B), 10),
     )
@@ -268,8 +299,8 @@ describe('W3 — 상단 반복수 판정', () => {
     for (const [name, phases] of Object.entries(TEMPO)) {
       for (const repMax of [6, 10, 20]) {
         const cycle = cycleSeconds(phases)
-        const justBefore = (COUNT_IN_SEC + cycle * repMax - 0.1) * 1000
-        const justAfter = (COUNT_IN_SEC + cycle * repMax + 0.1) * 1000
+        const justBefore = (DEFAULT_COUNT_IN_SEC + cycle * repMax - 0.1) * 1000
+        const justAfter = (DEFAULT_COUNT_IN_SEC + cycle * repMax + 0.1) * 1000
         expect(
           tempoRepState(tempoPositionAt(justBefore, phases), repMax).complete,
           `${name} repMax ${repMax} — 상단 직전`,
@@ -344,14 +375,14 @@ describe('진행 회차 표시 (완료 수와 분리)', () => {
   const cycle = cycleSeconds(B)
 
   it('첫 사이클을 도는 동안 "1회째"다 (완료 수는 0)', () => {
-    const s = state(COUNT_IN_SEC + 0.1)
+    const s = state(DEFAULT_COUNT_IN_SEC + 0.1)
     expect(s.currentRep).toBe(1)
     expect(s.reps).toBe(0)
   })
 
   it('마지막 사이클을 도는 동안 화면이 상단 값에 닿는다', () => {
     // 이것이 피드백의 핵심 — 예전에는 여기서 9가 떠 있었다
-    const s = state(COUNT_IN_SEC + cycle * 9 + 0.1, 10)
+    const s = state(DEFAULT_COUNT_IN_SEC + cycle * 9 + 0.1, 10)
     expect(s.currentRep).toBe(10)
     expect(s.lastCycle).toBe(true)
     expect(s.reps).toBe(9) // 기록·종료 라벨은 여전히 완료 수를 쓴다
@@ -359,17 +390,17 @@ describe('진행 회차 표시 (완료 수와 분리)', () => {
 
   it('진행 회차는 상단을 넘지 않는다', () => {
     for (const sec of [cycle * 10, cycle * 15, cycle * 40]) {
-      expect(state(COUNT_IN_SEC + sec, 10).currentRep).toBe(10)
+      expect(state(DEFAULT_COUNT_IN_SEC + sec, 10).currentRep).toBe(10)
     }
   })
 
   it('카운트인 중에는 0이다 (아직 시작하지 않았다)', () => {
     expect(state(0).currentRep).toBe(0)
-    expect(state(COUNT_IN_SEC - 0.1).currentRep).toBe(0)
+    expect(state(DEFAULT_COUNT_IN_SEC - 0.1).currentRep).toBe(0)
   })
 
   it('진행 회차 = 완료 수 + 1 (상단에서만 같아진다)', () => {
-    for (let ms = COUNT_IN_SEC * 1000; ms < 70_000; ms += 250) {
+    for (let ms = DEFAULT_COUNT_IN_SEC * 1000; ms < 70_000; ms += 250) {
       const s = tempoRepState(tempoPositionAt(ms, B), 10)
       expect(s.currentRep).toBe(s.complete ? 10 : s.reps + 1)
     }
@@ -379,7 +410,7 @@ describe('진행 회차 표시 (완료 수와 분리)', () => {
     for (const phases of Object.values(TEMPO)) {
       for (const repMax of [6, 10, 20]) {
         const c = cycleSeconds(phases)
-        const s = tempoRepState(tempoPositionAt((COUNT_IN_SEC + c * (repMax - 1) + 0.1) * 1000, phases), repMax)
+        const s = tempoRepState(tempoPositionAt((DEFAULT_COUNT_IN_SEC + c * (repMax - 1) + 0.1) * 1000, phases), repMax)
         expect(s.currentRep).toBe(repMax)
         expect(s.complete).toBe(false) // 아직 도는 중 — 보여줄 시간이 한 사이클 있다
       }

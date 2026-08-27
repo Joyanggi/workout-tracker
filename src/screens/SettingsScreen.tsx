@@ -5,6 +5,8 @@ import GistPanel from '../components/GistPanel'
 import {
   VOLUME_SCALES,
   audioContextState,
+  audioDiagnostics,
+  audioSessionType,
   previewSignals,
   previewTempoTones,
   unlockAudio,
@@ -20,7 +22,7 @@ import { phaseReadiness } from '../lib/phaseReadiness'
 import { todayLocal } from '../lib/dates'
 import { dayTotalSets, exerciseLabel, useRoutine } from '../lib/useRoutine'
 import { isStandalone } from '../lib/platform'
-import { A_ECCENTRIC_OPTIONS, phaseTone } from '../lib/tempo'
+import { A_ECCENTRIC_OPTIONS, COUNT_IN_OPTIONS, phaseTone } from '../lib/tempo'
 import { useSettings } from '../store/settings'
 import type { Phase } from '../types'
 
@@ -51,6 +53,10 @@ export default function SettingsScreen({ seed }: { seed: SeedResult }) {
     setSoundVolume,
     aEccentricSec,
     setAEccentricSec,
+    tempoCountInSec,
+    setTempoCountInSec,
+    duckOthers,
+    setDuckOthers,
   } = useSettings()
   const sessionCount = useLiveQuery(() => db.sessions.count(), [], 0)
   const sessions = useLiveQuery(() => db.sessions.toArray(), [], [])
@@ -274,6 +280,32 @@ export default function SettingsScreen({ seed }: { seed: SeedResult }) {
           무음 스위치가 켜져 있으면 어떤 크기로도 소리가 나지 않습니다 (음악을 끊지 않기
           위한 맞바꿈 — README 참조).
         </p>
+
+        {/*
+          음악 덕킹 (2026-08-27). 앱 게인은 이미 천장이라(beep.ts 볼륨 주석) 음악과 경쟁하는
+          문제의 나머지 절반은 여기서만 풀린다. **기본 꺼짐** — G8의 회귀(음악이 끊긴다)가
+          기기·iOS 버전에 따라 재현될 수 있고, 이 창에서는 어느 쪽인지 확인할 수 없다.
+        */}
+        <div className="card-label" style={{ marginTop: 16 }}>
+          신호음이 음악을 뚫지 못할 때
+        </div>
+        <div className="segment">
+          {([false, true] as const).map((on) => (
+            <button
+              key={String(on)}
+              aria-pressed={duckOthers === on}
+              onClick={() => void setDuckOthers(on)}
+            >
+              {on ? '음악 잠깐 줄이기' : '섞어서 재생'}
+            </button>
+          ))}
+        </div>
+        <p className="row-sub" style={{ marginTop: 8 }}>
+          <b>음악 잠깐 줄이기</b>는 신호음이 나는 동안만 다른 앱 소리를 낮춥니다(iOS 16.4+).
+          기기에 따라 <b>음악이 잠깐 멈추거나 무음 스위치를 무시</b>할 수 있습니다 —
+          그렇게 동작하면 “섞어서 재생”으로 되돌리세요. 소리 크기를 최대로 해도 음악에
+          묻힐 때만 쓰는 선택지입니다.
+        </p>
       </div>
 
       {/* 템포 가이드 (G7). 기본 꺼짐 — 세트 행에 버튼이 늘어나므로 원할 때만 켠다 */}
@@ -324,6 +356,29 @@ export default function SettingsScreen({ seed }: { seed: SeedResult }) {
           것이 조건입니다 — 반동이 생기면 느린 쪽이 맞습니다. B그룹·코어는 감각 점수 체계의
           전제라 고정입니다. 레그 컬은 문서의 예외 행(1-1-2)을 따릅니다.
         </p>
+
+        {/*
+          카운트인 (2026-08-27). "3초는 자세 잡고 호흡 가다듬기에 짧다"가 실사용 피드백이고,
+          기본을 5초로 올렸다 — 준비가 안 된 채 시작하면 첫 반복의 자세가 무너진다.
+        */}
+        <div className="card-label" style={{ marginTop: 16 }}>
+          시작 전 준비 시간
+        </div>
+        <div className="segment">
+          {COUNT_IN_OPTIONS.map((sec) => (
+            <button
+              key={sec}
+              aria-pressed={tempoCountInSec === sec}
+              onClick={() => void setTempoCountInSec(sec)}
+            >
+              {sec}초
+            </button>
+          ))}
+        </div>
+        <p className="row-sub" style={{ marginTop: 8 }}>
+          가이드를 연 뒤 첫 반복이 시작되기까지의 카운트다운입니다. 매 초 틱이 울리고,
+          그동안 자세를 잡고 호흡을 가다듬습니다.
+        </p>
       </div>
 
       {bundle && <RoutineIoPanel routine={bundle.routine} catalog={bundle.catalog} />}
@@ -366,6 +421,30 @@ export default function SettingsScreen({ seed }: { seed: SeedResult }) {
             <div className="row-sub">running인데 안 들리면 무음 스위치·볼륨·출력 기기 확인</div>
           </div>
           <div className="row-meta">{audioContextState() ?? '아직 안 열림'}</div>
+        </div>
+        {/*
+          복구 카운터 (2026-08-27). 앱 전환 후 무음 문제는 이 창에서 재현할 수 없다
+          (개발 창은 visibilityState가 항상 hidden). 실기기에서 사용자가 **읽어서 알려줄 수
+          있는 값**을 남긴다 — 재생성이 오르는데 소리가 안 나면 원인이 컨텍스트가 아니다.
+        */}
+        <div className="row">
+          <div className="row-main">
+            <div className="row-title">오디오 복구</div>
+            <div className="row-sub">생성 / 재생성 / 정지 후 복구 / 컨텍스트 없어 유실</div>
+          </div>
+          <div className="row-meta">
+            {(() => {
+              const d = audioDiagnostics()
+              return `${d.created} / ${d.recreated} / ${d.recovered} / ${d.droppedNoCtx}`
+            })()}
+          </div>
+        </div>
+        <div className="row">
+          <div className="row-main">
+            <div className="row-title">오디오 세션</div>
+            <div className="row-sub">transient = 음악을 잠깐 줄임 / ambient = 섞어서 재생</div>
+          </div>
+          <div className="row-meta">{audioSessionType()}</div>
         </div>
         <div className="row">
           <div className="row-main">

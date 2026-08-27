@@ -77,6 +77,7 @@ export default function SessionScreen({
   const watches = useMemo(() => compensationWatches(allSessions), [allSessions])
   const bodyWeightKg = useSettings((st) => st.bodyWeightKg)
   const tempoGuide = useSettings((st) => st.tempoGuide)
+  const tempoCountInSec = useSettings((st) => st.tempoCountInSec)
   const aEccentricSec = useSettings((st) => st.aEccentricSec)
   const setBodyWeight = useSettings((st) => st.setBodyWeight)
 
@@ -256,6 +257,7 @@ export default function SessionScreen({
               tempoGuide={tempoGuide}
               /* 종목 오버라이드(CC5) + A그룹 이완 설정(CC16)의 갈림은 tempoPhasesFor 한 곳 */
               tempoPhases={tempoPhasesFor(exercise?.tempo, routineExercise.group, aEccentricSec)}
+              tempoCountInSec={tempoCountInSec}
               prefill={prefills.get(entry.recordKey)}
               showProgression={session.mode === 'normal'}
               actions={actions}

@@ -3,7 +3,7 @@ import TabBar, { type TabId } from './components/TabBar'
 import SessionResumeStrip from './components/SessionResumeStrip'
 import UpdatePrompt from './components/UpdatePrompt'
 import { ensureSeed, type SeedResult } from './db/seed'
-import { configureAudioSession } from './lib/beep'
+import { configureAudioSession, installAudioRecovery } from './lib/beep'
 import { flushPendingSync, installSyncLifecycle } from './lib/gistSync'
 import { usePwaUpdate } from './lib/usePwaUpdate'
 import { useRoutine } from './lib/useRoutine'
@@ -52,6 +52,15 @@ export default function App() {
   const timer = useRestTimer()
   const bundle = useRoutine()
 
+  /*
+   * 오디오 복구 배선 (2026-08-27). **앱 수명 내내 살아 있어야 한다.**
+   *
+   * 예전에는 `useRestTimer` 안에만 있었다 — 휴식 타이머가 떠 있는 동안에만 복구가 돌았고,
+   * 세트 중이나 타이머가 없을 때 앱을 나갔다 오면 아무도 복구하지 않았다. 그게
+   * "다른 앱 갔다 오면 소리 안 남"이 CC1 이후에도 남아 있던 이유다 (beep.installAudioRecovery).
+   */
+  useEffect(() => installAudioRecovery(), [])
+
   useEffect(() => {
     // 시드 주입 → 설정 로드 → 진행 중 세션 복구 순서를 지킨다 (시드가 activeRoutineId를 쓴다)
     void (async () => {
@@ -60,8 +69,9 @@ export default function App() {
         void navigator.storage?.persist?.().catch(() => undefined)
 
         /*
-         * 오디오 세션을 ambient로 (G8). **AudioContext를 만들기 전에** 지정해야
+         * 오디오 세션을 지정한다 (G8). **AudioContext를 만들기 전에** 해야
          * iOS가 이 앱을 재생 앱으로 잡아 다른 앱 음악을 끊는 것을 막는다.
+         * (`load()`가 저장된 덕킹 설정으로 한 번 더 밀어 넣는다)
          */
         configureAudioSession()
 

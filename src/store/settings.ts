@@ -1,7 +1,13 @@
 import { create } from 'zustand'
 import { getSetting, setSetting } from '../db'
-import { DEFAULT_SOUND_VOLUME, setVolumeScale, volumeScaleFor, type SoundVolume } from '../lib/beep'
-import { DEFAULT_A_ECCENTRIC, type AEccentricSec } from '../lib/tempo'
+import {
+  DEFAULT_SOUND_VOLUME,
+  setDuckOthers,
+  setVolumeScale,
+  volumeScaleFor,
+  type SoundVolume,
+} from '../lib/beep'
+import { DEFAULT_A_ECCENTRIC, DEFAULT_COUNT_IN_SEC, type AEccentricSec, type CountInSec } from '../lib/tempo'
 import type { Phase } from '../types'
 
 interface SettingsState {
@@ -23,6 +29,13 @@ interface SettingsState {
    * 범위 밖 값은 설정에 없다. B그룹·코어는 열지 않는다 (감각 점수 체계의 전제).
    */
   aEccentricSec: AEccentricSec
+  /**
+   * 템포 카운트인 초 (2026-08-27). "3초는 자세 잡고 호흡 가다듬기에 짧다"가 피드백이다.
+   * 값의 의미는 `tempo.ts`가 소유하고 여기는 저장된 선택일 뿐이다.
+   */
+  tempoCountInSec: CountInSec
+  /** 신호음 동안 다른 앱 음악을 잠깐 줄인다 (2026-08-27). 기본 꺼짐 — beep.ts 주석 참조 */
+  duckOthers: boolean
 
   load: () => Promise<void>
   setPhase: (phase: Phase) => Promise<void>
@@ -31,6 +44,8 @@ interface SettingsState {
   setTempoGuide: (on: boolean) => Promise<void>
   setSoundVolume: (volume: SoundVolume) => Promise<void>
   setAEccentricSec: (sec: AEccentricSec) => Promise<void>
+  setTempoCountInSec: (sec: CountInSec) => Promise<void>
+  setDuckOthers: (on: boolean) => Promise<void>
 }
 
 /**
@@ -44,25 +59,39 @@ export const useSettings = create<SettingsState>((set) => ({
   tempoGuide: false,
   soundVolume: DEFAULT_SOUND_VOLUME,
   aEccentricSec: DEFAULT_A_ECCENTRIC,
+  tempoCountInSec: DEFAULT_COUNT_IN_SEC,
+  duckOthers: false,
 
   load: async () => {
     // activeRoutineId는 여기 두지 않는다 — 루틴 교체 시 낡은 값이 남고,
     // 실제 소비처인 getActiveRoutine()이 Dexie에서 직접 읽는다
-    const [currentPhase, onboardingDone, bodyWeightKg, tempoGuide, soundVolume, aEccentricSec] =
-      await Promise.all([
-        getSetting<Phase>('currentPhase', 0),
-        getSetting<boolean>('onboardingDone', false),
-        getSetting<number | undefined>('bodyWeightKg', undefined),
-        getSetting<boolean>('tempoGuide', false),
-        getSetting<SoundVolume>('soundVolume', DEFAULT_SOUND_VOLUME),
-        getSetting<AEccentricSec>('aEccentricSec', DEFAULT_A_ECCENTRIC),
-      ])
+    const [
+      currentPhase,
+      onboardingDone,
+      bodyWeightKg,
+      tempoGuide,
+      soundVolume,
+      aEccentricSec,
+      tempoCountInSec,
+      duckOthers,
+    ] = await Promise.all([
+      getSetting<Phase>('currentPhase', 0),
+      getSetting<boolean>('onboardingDone', false),
+      getSetting<number | undefined>('bodyWeightKg', undefined),
+      getSetting<boolean>('tempoGuide', false),
+      getSetting<SoundVolume>('soundVolume', DEFAULT_SOUND_VOLUME),
+      getSetting<AEccentricSec>('aEccentricSec', DEFAULT_A_ECCENTRIC),
+      getSetting<CountInSec>('tempoCountInSec', DEFAULT_COUNT_IN_SEC),
+      getSetting<boolean>('duckOthers', false),
+    ])
     /*
      * 부팅 시 배율을 오디오 모듈에 밀어 넣는다 (Z1).
      * 저장값이 이상해도 `volumeScaleFor`가 기본값으로 떨어뜨린다 — 소리가 사라지는
      * 방향으로 실패하지 않는다.
      */
     setVolumeScale(volumeScaleFor(soundVolume))
+    // 세션 종류도 부팅 시 한 번 밀어 넣는다 — 저장값과 실제 동작이 갈리면 안 된다
+    setDuckOthers(duckOthers === true)
     set({
       loaded: true,
       currentPhase,
@@ -71,6 +100,8 @@ export const useSettings = create<SettingsState>((set) => ({
       tempoGuide,
       soundVolume,
       aEccentricSec,
+      tempoCountInSec,
+      duckOthers: duckOthers === true,
     })
   },
 
@@ -108,5 +139,17 @@ export const useSettings = create<SettingsState>((set) => ({
   setAEccentricSec: async (sec) => {
     await setSetting('aEccentricSec', sec)
     set({ aEccentricSec: sec })
+  },
+
+  setTempoCountInSec: async (sec) => {
+    await setSetting('tempoCountInSec', sec)
+    set({ tempoCountInSec: sec })
+  },
+
+  setDuckOthers: async (on) => {
+    // 배율과 같은 순서 — 저장보다 먼저 적용해야 바로 이어지는 미리 듣기가 새 설정으로 들린다
+    setDuckOthers(on)
+    await setSetting('duckOthers', on)
+    set({ duckOthers: on })
   },
 }))

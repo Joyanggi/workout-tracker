@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { chime, resumeAudio, tick, vibrate } from './beep'
+import { chime, tick, vibrate } from './beep'
 
 const STORAGE_KEY = 'workout-tracker.restTimer'
 const TICK_MS = 250
@@ -163,11 +163,16 @@ export function useRestTimer(): RestTimer {
     return () => window.clearInterval(id)
   }, [running])
 
-  // 화면 복귀 시 즉시 재계산 (틱을 기다리며 최대 250ms 낡은 값을 보여주지 않도록)
+  /*
+   * 화면 복귀 시 즉시 재계산 (틱을 기다리며 최대 250ms 낡은 값을 보여주지 않도록).
+   *
+   * **오디오 복구는 여기서 하지 않는다** (2026-08-27). 예전에는 이 자리에서
+   * `resumeAudio()`를 불렀는데, 그러면 **휴식 타이머가 떠 있을 때만** 복구가 돌았다.
+   * 이제 `App`이 `installAudioRecovery()`로 앱 수명 내내 건다.
+   */
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState !== 'visible') return
-      resumeAudio()
       setNow(Date.now())
     }
     document.addEventListener('visibilitychange', onVisible)

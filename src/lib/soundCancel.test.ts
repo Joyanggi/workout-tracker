@@ -25,54 +25,99 @@ let nodes: Node[] = []
 let now = 0
 let seq = 0
 
+/**
+ * 페이크 구조 (2026-08-27 개정).
+ *
+ * 한 소리가 **기본파 + 배음 2개**로 만들어지도록 바뀌었다. 그래서 "노드"의 단위를
+ * 오실레이터가 아니라 **엔벨로프 게인**으로 잡는다 — 취소가 지켜야 할 성질은
+ * "소리 하나가 멈추는가"이고, 그 소리의 오실레이터 셋은 같은 엔벨로프를 공유한다.
+ *
+ * 엔벨로프 판정 근거: 램프가 걸리는 게인 노드다 (배음 비율 게인은 `.value =`만 쓴다).
+ */
 class FakeGain {
-  node: Node
-  constructor(node: Node) {
-    this.node = node
+  /** 램프가 걸리면 그때 "소리"가 된다 */
+  node: Node | null = null
+  target: FakeGain | null = null
+  gain: Record<string, unknown>
+  constructor() {
+    const self = this
+    this.gain = {
+      value: 0.2,
+      setValueAtTime: vi.fn(() => self.ensure()),
+      linearRampToValueAtTime: vi.fn((v: number) => {
+        self.ensure().gainRampTargets.push(v)
+      }),
+      exponentialRampToValueAtTime: vi.fn(() => self.ensure()),
+      cancelScheduledValues: vi.fn(() => {
+        self.ensure().cancelled = true
+      }),
+    }
   }
-  gain = {
-    value: 0.2,
-    setValueAtTime: vi.fn(),
-    linearRampToValueAtTime: vi.fn((v: number) => {
-      this.node.gainRampTargets.push(v)
-    }),
-    exponentialRampToValueAtTime: vi.fn(),
-    cancelScheduledValues: vi.fn(() => {
-      this.node.cancelled = true
-    }),
+  ensure(): Node {
+    if (!this.node) {
+      seq += 1
+      this.node = {
+        id: seq,
+        tagHint: '',
+        freqs: [],
+        stoppedAt: null,
+        gainRampTargets: [],
+        cancelled: false,
+      }
+      nodes.push(this.node)
+    }
+    return this.node
   }
-  connect = vi.fn(() => this)
+  /** 이 노드가 속한 소리 — 배음 비율 게인은 엔벨로프로 이어진다 */
+  sound(): Node | null {
+    return this.node ?? this.target?.sound() ?? null
+  }
+  connect = vi.fn((dest: FakeGain) => {
+    this.target = dest
+    return dest
+  })
 }
 
 class FakeOsc {
-  node: Node
   type = 'sine'
   #onended: (() => void) | null = null
+  private dest: FakeGain | null = null
   get onended() {
     return this.#onended
   }
   set onended(fn: (() => void) | null) {
     this.#onended = fn
-    this.node.fireEnded = () => fn?.()
-  }
-  constructor(node: Node) {
-    this.node = node
+    const node = this.dest?.sound()
+    if (node) node.fireEnded = () => fn?.()
   }
   frequency = {
     value: 0,
     setValueAtTime: vi.fn((v: number, at: number) => {
-      this.node.freqs.push({ at, value: v, ramp: false })
+      this.dest?.sound()?.freqs.push({ at, value: v, ramp: false })
     }),
     linearRampToValueAtTime: vi.fn((v: number, at: number) => {
-      this.node.freqs.push({ at, value: v, ramp: true })
+      this.dest?.sound()?.freqs.push({ at, value: v, ramp: true })
     }),
   }
-  connect = vi.fn(() => new FakeGain(this.node))
+  connect = vi.fn((dest: FakeGain) => {
+    this.dest = dest
+    return dest
+  })
   start = vi.fn()
   stop = vi.fn((at: number) => {
     // 두 번째 stop(취소)이 첫 예약을 덮어쓴다 — 실제 Web Audio도 마지막 stop이 이긴다
-    this.node.stoppedAt = at
+    const node = this.dest?.sound()
+    if (node) node.stoppedAt = at
   })
+}
+
+class FakeCompressor {
+  threshold = { value: 0 }
+  knee = { value: 0 }
+  ratio = { value: 0 }
+  attack = { value: 0 }
+  release = { value: 0 }
+  connect = vi.fn((dest: unknown) => dest)
 }
 
 class FakeCtx {
@@ -81,20 +126,10 @@ class FakeCtx {
   }
   state: AudioContextState = 'running'
   resume = vi.fn(async () => undefined)
-  createOscillator = () => {
-    seq += 1
-    const node: Node = {
-      id: seq,
-      tagHint: '',
-      freqs: [],
-      stoppedAt: null,
-      gainRampTargets: [],
-      cancelled: false,
-    }
-    nodes.push(node)
-    return new FakeOsc(node) as unknown as OscillatorNode
-  }
-  createGain = () => new FakeGain(nodes[nodes.length - 1]) as unknown as GainNode
+  close = vi.fn(async () => undefined)
+  createOscillator = () => new FakeOsc() as unknown as OscillatorNode
+  createGain = () => new FakeGain() as unknown as GainNode
+  createDynamicsCompressor = () => new FakeCompressor() as unknown as DynamicsCompressorNode
   destination = {} as AudioDestinationNode
 }
 
@@ -242,9 +277,11 @@ describe('CC7-R — 페이즈 경계음', () => {
     const mod = await freshModule()
     const { phaseTone } = await import('./tempo')
     mod.setVolumeScale(2)
-    mod.tone(phaseTone({ kind: 'eccentric', seconds: 2 }), 'tempo')
-    // 0.21 × 2 = 0.42
-    expect(nodes[0].gainRampTargets.some((g) => Math.abs(g - 0.42) < 1e-9)).toBe(true)
+    const spec = phaseTone({ kind: 'eccentric', seconds: 2 })
+    mod.tone(spec, 'tempo')
+    // 배율은 tone() 한 곳에서만 곱해진다 — 값을 여기 베껴 적지 않는다 (스펙이 바뀌면 따라온다)
+    const expected = spec.gain * 2
+    expect(nodes[0].gainRampTargets.some((g) => Math.abs(g - expected) < 1e-9)).toBe(true)
   })
 
   it('미리 듣기가 실제 신호를 그대로 낸다 (규격을 베끼지 않는다)', async () => {

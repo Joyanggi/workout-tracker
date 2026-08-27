@@ -42,6 +42,7 @@ export default function TempoGuideSheet({
   setNumber,
   routineExercise,
   phases,
+  countInSec,
   onDone,
   onComplete,
   onClose,
@@ -55,6 +56,8 @@ export default function TempoGuideSheet({
    * 시트가 `TEMPO[group]`을 직접 읽으면 그 갈림이 두 곳이 된다.
    */
   phases: TempoPhase[]
+  /** 카운트인 초 (2026-08-27 설정) — 시트가 설정을 직접 읽지 않는다 (호출부가 넘긴다) */
+  countInSec: number
   /**
    * 수동 종료 — 사이클 수에서 **추정한** 반복수.
    * Z2부터 자동 종료와 **같은 체인**을 탄다 (기록 + 체크 + 휴식). 호출부가 처리한다.
@@ -112,7 +115,7 @@ export default function TempoGuideSheet({
     }
   }, [])
 
-  const pos = tempoPositionAt(elapsed, phases)
+  const pos = tempoPositionAt(elapsed, phases, countInSec)
   const rep = tempoRepState(pos, routineExercise.repMax)
 
   /*

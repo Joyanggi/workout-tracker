@@ -121,8 +121,20 @@ export const BREATH_LABEL: Record<PhaseKind, string> = {
   stretch: '들숨 유지',
 }
 
-/** 카운트인 초 (G1 틱과 같은 소리를 쓴다) */
-export const COUNT_IN_SEC = 3
+/**
+ * 카운트인 초 (G1 틱과 같은 소리를 쓴다) — **설정값** (2026-08-27).
+ *
+ * 피드백: "3초는 너무 짧다. 자세 잡고 호흡 가다듬는 데 못해도 5초는 필요하다."
+ * 고정 상수였던 것을 선택지로 연다. 기본을 **5초로 올린다** — 짧아서 못 따라가는 쪽이
+ * 길어서 지루한 쪽보다 나쁘다 (준비가 안 된 채 시작하면 첫 반복의 자세가 무너지고,
+ * 그건 문서 12장의 보상작용 체크리스트가 막으려는 것이다).
+ *
+ * 8초를 넣은 이유: 무거운 A그룹 첫 세트는 그립·호흡 세팅에 더 걸린다는 것이 같은 피드백의
+ * 연장이다. 3초는 **남긴다** — 가벼운 B그룹에서 이미 익숙한 리듬이다.
+ */
+export const COUNT_IN_OPTIONS = [3, 5, 8] as const
+export type CountInSec = (typeof COUNT_IN_OPTIONS)[number]
+export const DEFAULT_COUNT_IN_SEC: CountInSec = 5
 
 export function cycleSeconds(phases: TempoPhase[]): number {
   return phases.reduce((n, p) => n + p.seconds, 0)
@@ -148,17 +160,23 @@ export interface TempoPosition {
  * `phaseIndex`는 "몇 번째 페이즈 구간인가"이고, 호출부는 이 값이 바뀌는 순간에만
  * 소리를 낸다 (매 프레임 재생 방지).
  */
-export function tempoPositionAt(elapsedMs: number, phases: TempoPhase[]): TempoPosition {
+export function tempoPositionAt(
+  elapsedMs: number,
+  phases: TempoPhase[],
+  countInSec: number = DEFAULT_COUNT_IN_SEC,
+): TempoPosition {
   const elapsed = Math.max(0, elapsedMs) / 1000
+  // 설정값이 깨져 있어도 가이드가 죽지 않아야 한다 (구버전 백업 복원 대비)
+  const countIn = Number.isFinite(countInSec) && countInSec > 0 ? countInSec : DEFAULT_COUNT_IN_SEC
 
-  if (elapsed < COUNT_IN_SEC) {
+  if (elapsed < countIn) {
     return {
-      countIn: Math.ceil(COUNT_IN_SEC - elapsed),
+      countIn: Math.ceil(countIn - elapsed),
       phase: null,
       phaseProgress: 0,
       reps: 0,
       // 카운트인 초마다 다른 인덱스를 줘서 틱이 초당 한 번만 울리게 한다
-      phaseIndex: -Math.ceil(COUNT_IN_SEC - elapsed),
+      phaseIndex: -Math.ceil(countIn - elapsed),
     }
   }
 
@@ -167,7 +185,7 @@ export function tempoPositionAt(elapsedMs: number, phases: TempoPhase[]): TempoP
     return { countIn: null, phase: null, phaseProgress: 0, reps: 0, phaseIndex: 0 }
   }
 
-  const afterCountIn = elapsed - COUNT_IN_SEC
+  const afterCountIn = elapsed - countIn
   const reps = Math.floor(afterCountIn / cycle)
   let within = afterCountIn - reps * cycle
 
@@ -271,11 +289,11 @@ export function tempoRepState(pos: TempoPosition, repMax: number): TempoRepState
 export function phaseTone(phase: TempoPhase): { freq: number; duration: number; gain: number } {
   switch (phase.kind) {
     case 'concentric':
-      return { freq: 660, duration: Math.min(0.3, phase.seconds), gain: 0.27 }
+      return { freq: 660, duration: Math.min(0.3, phase.seconds), gain: 0.38 }
     case 'eccentric':
-      return { freq: 440, duration: phase.seconds * 0.9, gain: 0.21 }
+      return { freq: 440, duration: phase.seconds * 0.9, gain: 0.3 }
     case 'squeeze':
     case 'stretch':
-      return { freq: 290, duration: 0.08, gain: 0.21 }
+      return { freq: 290, duration: 0.14, gain: 0.3 }
   }
 }

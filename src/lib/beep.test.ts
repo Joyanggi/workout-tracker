@@ -22,36 +22,90 @@ let recorded: Recorded[] = []
 let ctxState: AudioContextState = 'running'
 let created = 0
 
-/** 마지막으로 만들어진 게인 노드의 목표값 — tone()이 linearRamp로 지정한다 */
-let lastGain = 0
-
+/**
+ * 페이크 구조 (2026-08-27 개정).
+ *
+ * 한 소리가 **기본파 + 배음 2개**로 만들어지도록 바뀌었다(`beep.PARTIALS`). 그래서
+ * `recorded`는 **소리 하나당 한 줄**을 유지한다 — 기본파만 기록한다. 판정 근거는 배선이다:
+ * 기본파는 엔벨로프 게인에 **직접** 연결되고(램프가 걸린 노드), 배음은 비율 게인을 거친다.
+ * 배음 자체는 `partials`가 따로 센다 (그쪽을 검사하는 테스트가 따로 있다).
+ */
 class FakeGain {
-  gain = {
-    setValueAtTime: vi.fn(),
-    linearRampToValueAtTime: vi.fn((value: number) => {
-      lastGain = value
-    }),
-    exponentialRampToValueAtTime: vi.fn(),
+  /** 엔벨로프 램프의 최댓값 — tone()이 지정한 실효 레벨 */
+  peak = 0
+  /** 배음 비율 게인은 `.value =`로 설정된다 (램프를 걸지 않는다) */
+  amp = 1
+  target: FakeGain | FakeCompressor | null = null
+  gain: {
+    value: number
+    setValueAtTime: (v: number, at?: number) => void
+    linearRampToValueAtTime: (v: number, at?: number) => void
+    exponentialRampToValueAtTime: (v: number, at?: number) => void
+    cancelScheduledValues: (at?: number) => void
   }
-  connect = vi.fn(() => this)
+  constructor() {
+    const self = this
+    const mark = (v: number) => {
+      self.peak = Math.max(self.peak, v)
+    }
+    this.gain = {
+      get value() {
+        return self.amp
+      },
+      set value(v: number) {
+        self.amp = v
+      },
+      setValueAtTime: vi.fn(mark),
+      linearRampToValueAtTime: vi.fn(mark),
+      exponentialRampToValueAtTime: vi.fn(mark),
+      cancelScheduledValues: vi.fn(),
+    } as unknown as FakeGain['gain']
+  }
+  connect = vi.fn((dest: FakeGain | FakeCompressor) => {
+    this.target = dest
+    return dest
+  })
 }
+
+class FakeCompressor {
+  threshold = { value: 0 }
+  knee = { value: 0 }
+  ratio = { value: 0 }
+  attack = { value: 0 }
+  release = { value: 0 }
+  connect = vi.fn((dest: unknown) => dest)
+}
+
+/** 배음(비율 게인을 거친 오실레이터) 수 */
+let partials = 0
+/** 만들어진 리미터 수 — 컨텍스트당 한 번이어야 한다 */
+let compressors = 0
 
 class FakeOsc {
   type = 'sine'
   frequency = { value: 0 }
   private startAt = 0
-  connect = vi.fn(() => new FakeGain())
+  private dest: FakeGain | null = null
+  connect = vi.fn((dest: FakeGain) => {
+    this.dest = dest
+    return dest
+  })
   start = (at: number) => {
     this.startAt = at
   }
   stop = (at: number) => {
-    recorded.push({
-      freq: this.frequency.value,
-      type: this.type,
-      startAt: this.startAt,
-      stopAt: at,
-      gain: lastGain,
-    })
+    // 엔벨로프에 직접 붙은 것이 기본파다 (배음은 비율 게인을 한 단계 거친다)
+    if (this.dest && this.dest.peak > 0) {
+      recorded.push({
+        freq: this.frequency.value,
+        type: this.type,
+        startAt: this.startAt,
+        stopAt: at,
+        gain: this.dest.peak,
+      })
+    } else {
+      partials += 1
+    }
   }
 }
 
@@ -63,8 +117,15 @@ class FakeCtx {
   resume = vi.fn(async () => {
     ctxState = 'running'
   })
+  close = vi.fn(async () => {
+    ctxState = 'closed'
+  })
   createOscillator = () => new FakeOsc() as unknown as OscillatorNode
   createGain = () => new FakeGain() as unknown as GainNode
+  createDynamicsCompressor = () => {
+    compressors += 1
+    return new FakeCompressor() as unknown as DynamicsCompressorNode
+  }
   destination = {} as AudioDestinationNode
   constructor() {
     created += 1
@@ -88,7 +149,8 @@ function stubAudio(Ctor: unknown = FakeCtx) {
 
 beforeEach(() => {
   recorded = []
-  lastGain = 0
+  partials = 0
+  compressors = 0
   ctxState = 'running'
   created = 0
   stubAudio()
@@ -270,12 +332,24 @@ describe('G1 카운트다운 틱 · 종료 차임', () => {
     expect(recorded).toEqual([])
   })
 
-  it('suspended 상태면 resume을 시도한다 (백그라운드 복귀)', async () => {
-    const { unlockAudio, resumeAudio } = await freshModule()
+  it('정지 상태면 컨텍스트를 **버린다** (2026-08-27 — resume을 기다리지 않는다)', async () => {
+    /*
+      CC1은 resume을 시도했다. 그런데 실기기에서 증상이 그대로였다 — iOS는 인터럽트 뒤
+      컨텍스트를 살려는 주지만 출력이 죽어 있는 사례가 있고, 그 상태를 붙들면
+      "running인데 무음"이 되어 진단조차 어긋난다. 버리고 다음 제스처에서 새로 만든다.
+    */
+    const { unlockAudio, resumeAudio, audioContextState, audioDiagnostics } = await freshModule()
     unlockAudio()
     ctxState = 'suspended'
     resumeAudio()
-    expect(ctxState).toBe('running')
+    expect(audioContextState()).toBeNull()
+    expect(audioDiagnostics().recreated).toBe(1)
+
+    // 다음 제스처가 새 컨텍스트를 만든다 — 실패 방향이 "다음 터치에 복구"다
+    ctxState = 'running'
+    unlockAudio()
+    expect(audioContextState()).toBe('running')
+    expect(audioDiagnostics().created).toBe(2)
   })
 
   it('컨텍스트를 한 번만 만든다 (반복 unlock에도)', async () => {
@@ -353,12 +427,31 @@ describe('Z1 — 볼륨 배율', () => {
     expect(cueLoud / cueNormal).toBeCloseTo(1.8, 5)
   })
 
-  it('1을 넘지 않게 클램프한다 (클리핑 방지)', async () => {
+  it('리미터 입력 상한을 넘지 않는다 (설정이 깨져도 오버슈트하지 않게)', async () => {
     const mod = await freshModule()
     mod.unlockAudio()
     mod.setVolumeScale(100)
     mod.chime()
-    for (const r of recorded) expect(r.gain).toBeLessThanOrEqual(1)
+    // per-tone 1.0 클램프는 없앴다 (리미터가 클리핑을 막는다). 상한은 남긴다 —
+    // DynamicsCompressor는 진짜 리미터가 아니라 극단 입력에서 오버슈트할 수 있다
+    for (const r of recorded) expect(r.gain).toBeLessThanOrEqual(2)
+  })
+
+  it('모든 소리가 리미터를 지난다 (컨텍스트당 하나)', async () => {
+    const mod = await freshModule()
+    mod.unlockAudio()
+    mod.chime()
+    mod.tick()
+    expect(compressors).toBe(1)
+  })
+
+  it('한 소리가 기본파 + 배음 2개로 만들어진다 (같은 피크에서 더 크게 들리게)', async () => {
+    const mod = await freshModule()
+    mod.unlockAudio()
+    mod.tick()
+    // 기록은 소리 하나 = 한 줄이고, 배음은 따로 센다
+    expect(recorded).toHaveLength(1)
+    expect(partials).toBe(2)
   })
 
   it('상한 배율에서도 피크가 1에 닿지 않는다 (여유가 있다)', async () => {
@@ -367,13 +460,12 @@ describe('Z1 — 볼륨 배율', () => {
     mod.setVolumeScale(mod.VOLUME_SCALES.max)
     mod.chime()
     /*
-      CC8에서 게인·배율을 올렸다. 가장 큰 신호가 CHIME 0.36 × 2.2 = **0.792**.
-      이 숫자는 실측 계약이다 (v1.7 §6-18) — 다음에 또 올릴 때 여유가 남았는지
-      여기서 먼저 확인하게 된다. 1.0까지 21% 여유가 있고 인접 톤 램프가 겹쳐도
-      앞 음이 지수 감쇠 끝에 있어 합산 피크가 개별 피크를 넘지 않는다.
+      2026-08-27: 가장 큰 신호가 CHIME 0.5 × 3.0 = **1.5**다. 예전(0.792)과 달리 1.0을
+      넘는다 — **리미터가 뒤에 있기 때문**이고, 그것이 이번 라운드의 설계다
+      ("게인 천장은 이미 다 썼다. 남은 것은 RMS와 스펙트럼"). 상한 2.0 아래다.
     */
-    expect(Math.max(...recorded.map((r) => r.gain))).toBeCloseTo(0.792, 3)
-    expect(Math.max(...recorded.map((r) => r.gain))).toBeLessThan(0.85)
+    expect(Math.max(...recorded.map((r) => r.gain))).toBeCloseTo(1.5, 3)
+    expect(compressors).toBe(1)
   })
 
   it('이상한 배율은 기본값으로 되돌린다 — 소리가 사라지는 방향으로 실패하지 않는다', async () => {

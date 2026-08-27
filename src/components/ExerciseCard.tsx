@@ -14,7 +14,7 @@ import { commitPendingEdits } from '../lib/commitEdits'
 import { doneSetsAll } from '../lib/derive'
 import { noteLineText, type NoteEntry } from '../lib/noteHistory'
 import { setRowClass, zeroWeightHint } from '../lib/setRowState'
-import { tempoPhasesFor, type TempoPhase } from '../lib/tempo'
+import { DEFAULT_COUNT_IN_SEC, tempoPhasesFor, type TempoPhase } from '../lib/tempo'
 import type { RecordPrefill } from '../lib/prefill'
 import type { RecordKey, RoutineExercise, SessionEntry, SetRecord } from '../types'
 import { NO_AUTOFILL } from '../lib/inputProps'
@@ -82,6 +82,7 @@ export default function ExerciseCard({
   compensationWatch,
   tempoGuide = false,
   tempoPhases,
+  tempoCountInSec,
   previousNote,
   actions,
   open,
@@ -124,6 +125,8 @@ export default function ExerciseCard({
    * 카드가 `TEMPO[group]`을 직접 읽으면 종목 오버라이드와 설정이 반영되지 않는다.
    */
   tempoPhases?: TempoPhase[]
+  /** 카운트인 초 (2026-08-27 설정). 미지정이면 tempoPositionAt의 기본값 */
+  tempoCountInSec?: number
   /** 이 종목의 직전 감각 메모·보상작용 (CC14). 없으면 줄이 안 보인다 */
   previousNote?: NoteEntry
   actions: EntryActions
@@ -624,6 +627,7 @@ export default function ExerciseCard({
           setNumber={guideSet + 1}
           routineExercise={routineExercise}
           phases={tempoPhases ?? tempoPhasesFor(undefined, routineExercise.group)}
+          countInSec={tempoCountInSec ?? DEFAULT_COUNT_IN_SEC}
           /*
             수동 종료와 자동 종료가 **같은 체인**을 지난다 (Z2).
             기록 → 미체크면 세트 체크 → (그 경로가) 휴식 타이머 시작.
