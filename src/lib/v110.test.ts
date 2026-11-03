@@ -46,12 +46,14 @@ describe('EE1 — 저녁 다리살 변형', () => {
     }
   })
 
-  it('점심 오일·아몬드를 생략하면 실효 +14kcal다 (문서의 실효 수치)', () => {
-    const [base, , thigh] = variantsOf(dinnerChicken(NEW))
-    const oil = slotOf(NEW, 'lunch').items.find((i) => i.id === 'olive-oil')!
-    const almond = slotOf(NEW, 'afternoon').items.find((i) => i.id === 'almonds')!
-    expect(thigh.kcal - base.kcal).toBe(274)
-    expect(thigh.kcal - base.kcal - oil.kcal - almond.kcal).toBe(14)
+  it('점심 오일·아몬드를 생략하면 실효 +14kcal다 (문서의 실효 수치) — 두 플랜 모두', () => {
+    for (const plan of [NEW, NEW_LOW]) {
+      const [base, , thigh] = variantsOf(dinnerChicken(plan))
+      const oil = slotOf(plan, 'lunch').items.find((i) => i.id === 'olive-oil')!
+      const almond = slotOf(plan, 'afternoon').items.find((i) => i.id === 'almonds')!
+      expect(thigh.kcal - base.kcal, plan.id).toBe(274)
+      expect(thigh.kcal - base.kcal - oil.kcal - almond.kcal, plan.id).toBe(14)
+    }
   })
 
   it('플랜 id는 유지된다 — 변형 추가는 새 플랜이 아니다', () => {
@@ -64,6 +66,13 @@ describe('EE1 — 저녁 다리살 변형', () => {
     expect(s.kcal).toBe(1781)
     expect(s.proteinG).toBe(166)
     expect(itemVariant(dinnerChicken(NEW), undefined)).toEqual(variantsOf(dinnerChicken(NEW))[0])
+    // 이미 기록된 선택 인덱스의 뜻도 변하지 않는다 (1 = 안심, 새 3번째 다리살이 끼어들지 않는다)
+    for (const plan of [NEW, NEW_LOW]) {
+      const chicken = dinnerChicken(plan)
+      expect(itemVariant(chicken, 0).name).toBe('닭가슴살')
+      expect(itemVariant(chicken, 1)).toMatchObject({ name: '닭안심', qty: '270g', kcal: 284, proteinG: 51 })
+      expect(itemVariant(chicken, 2).name).toBe('닭다리살')
+    }
   })
 
   it('옛 플랜은 여전히 변형이 없다', () => {
