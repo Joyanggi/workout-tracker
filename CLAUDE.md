@@ -46,6 +46,10 @@
 ## 환경
 
 - Windows, Orca 작업 트리(작업마다 별도 폴더). Claude Code의 셸은 Git Bash다.
+- **PowerShell로 명령을 실행하는 에이전트(Codex 등)는 한글 인코딩에 주의한다.**
+  Windows PowerShell 5.1은 기본이 CP949라 UTF-8 파일의 한글이 깨진다.
+  - 읽을 때: 처음에 `[Console]::OutputEncoding=[Text.UTF8Encoding]::new()`를 실행하고, `Get-Content`에는 항상 `-Encoding UTF8`을 붙인다.
+  - 쓸 때: PowerShell(`Set-Content`, `Out-File`, `>`)로 파일을 쓰지 않는다. 한글이 깨지거나 BOM이 붙는다. 에이전트의 파일 편집 도구를 쓴다.
 - 커밋 메시지는 `git commit -F - <<'MSG'`로 쓴다.
 - 줄바꿈은 LF로 고정돼 있다(`.gitattributes`).
 - 되돌리기는 `git checkout <파일>`이 아니라 `cp` 백업으로 한다. 커밋 안 된 작업을 날리지 않기 위해서다.

@@ -25,11 +25,14 @@ agents/DESIGNER.md를 읽고 설계해.
 끝나면 5절 형식의 보고를 worker_done 요약으로 보내.
 ```
 
-검토자 (①②같은 문장):
+검토자 (①②같은 문장, `<이름>`만 codex / antigravity로 바꾼다):
 ```
 CLAUDE.md와 agents/PLAN-REVIEWER.md를 읽고 <PLAN 파일>을 설계 검토해.
-원래 문제는 <주제 원문>이야. 파일은 고치지 마. 보고 전문을 worker_done 요약으로 보내.
+원래 문제는 <주제 원문>이야. 레포 파일은 고치지 마.
+보고는 PLAN-REVIEWER.md 3절대로 .reports/<PLAN 버전>-<이름>.md에 쓰고 --report-path로 알려줘.
 ```
+
+검토자의 판정과 "고칠 것"은 그 보고 파일에서 읽는다. 보고 파일은 문서라 읽어도 된다.
 
 ## 사람에게 넘기기
 
