@@ -9,6 +9,8 @@
 
 | 역할 | 파일 |
 |---|---|
+| 설계자 | `agents/DESIGNER.md` |
+| 설계 검토자 | `agents/PLAN-REVIEWER.md` |
 | 구현자 | `agents/IMPLEMENTER.md` |
 | 리뷰어 | `agents/REVIEWER.md` |
 | 지휘자 | `agents/COORDINATOR.md` |
@@ -32,6 +34,8 @@
 - 그래서 에이전트는 `main`에 머지하거나 push하지 않는다. 머지와 push는 사람이 한다.
 - 작업은 항상 별도 브랜치에서 한다. 브랜치는 최신 `main`에서 시작한다.
 - 브랜치 이름은 `feature/<PLAN 버전>-<작업 ID>` 형식이다. 예: `feature/v1.10-ee2`
+  Orca가 앞에 `Joyanggi/`를 붙여 만드는 것(`Joyanggi/feature-v1.10-ee2`)은 그대로 둔다.
+  설계 작업은 `plan-<PLAN 버전>` 형식이다. 예: `plan-v1.11`
 - `package.json` 버전은 PLAN이 정한 시점에만 올린다.
 
 ## 문서
