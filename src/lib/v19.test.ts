@@ -387,10 +387,9 @@ describe('DD3 — 변형 정의가 문서 로테이션 표와 1:1', () => {
     ])
   })
 
-  it('저녁은 2택이고 다리살이 없다 (문서: 뺄 지방원이 없어 쓰지 않는다)', () => {
+  it('저녁의 처음 두 선택은 가슴살/안심이다 (다리살은 v1.10 EE1에서 3번째로 추가 — v110.test.ts)', () => {
     const v = variantsOf(dinnerChicken())
-    expect(v.map((x) => `${x.name} ${x.qty}`)).toEqual(['닭가슴살 3팩', '닭안심 270g'])
-    expect(v.some((x) => x.name.includes('다리살'))).toBe(false)
+    expect(v.slice(0, 2).map((x) => `${x.name} ${x.qty}`)).toEqual(['닭가슴살 3팩', '닭안심 270g'])
   })
 
   it('안심은 단백질 등가다 (등가 기준이 단백질이라는 문서 규칙)', () => {
@@ -449,7 +448,12 @@ describe('DD4 — 그램 표기', () => {
     const qtys = slotsFor(NEW)
       .flatMap((s) => s.items)
       .flatMap((i) => (i.variants ?? []).map((v) => v.qty))
-    expect(qtys).toEqual(['180g', '200g · 그날 올리브오일 생략', '270g'])
+    expect(qtys).toEqual([
+      '180g',
+      '200g · 그날 올리브오일 생략',
+      '270g',
+      '320g · 그날 점심 오일·오후 아몬드 생략',
+    ])
   })
 
   it('새 플랜에 "1접시"가 남아 있지 않다', () => {

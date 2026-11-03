@@ -1,5 +1,5 @@
 {
-  "seedRevision": 2,
+  "seedRevision": 3,
   "plans": [
     {
       "id": "cut-1800-u",
@@ -142,6 +142,12 @@
                   "name": "닭안심",
                   "qty": "270g",
                   "kcal": 284,
+                  "proteinG": 51
+                },
+                {
+                  "name": "닭다리살",
+                  "qty": "320g · 그날 점심 오일·오후 아몬드 생략",
+                  "kcal": 544,
                   "proteinG": 51
                 }
               ]
@@ -304,6 +310,12 @@
                   "name": "닭안심",
                   "qty": "270g",
                   "kcal": 284,
+                  "proteinG": 51
+                },
+                {
+                  "name": "닭다리살",
+                  "qty": "320g · 그날 점심 오일·오후 아몬드 생략",
+                  "kcal": 544,
                   "proteinG": 51
                 }
               ]
