@@ -11,7 +11,7 @@
 |---|---|
 | 구현자 | `agents/IMPLEMENTER.md` |
 | 리뷰어 | `agents/REVIEWER.md` |
-| 지휘자 | `agents/COORDINATOR.md` (아직 없음) |
+| 지휘자 | `agents/COORDINATOR.md` |
 
 역할을 지정받지 않았으면 일반 대화다. 코드를 고치기 전에 무엇을 바꿀지 먼저 말한다.
 
