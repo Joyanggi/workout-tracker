@@ -17,6 +17,7 @@ import {
   slotsFor,
   substitutionNote,
   summarizeDietDay,
+  todayVariantChoices,
   variantChoicesFor,
 } from '../lib/diet'
 import {
@@ -223,10 +224,11 @@ export default function DietDayEditor({
             <div className="diet-items">
               {/*
                 품목 표기는 **고른 변형**을 따른다 (DD3). 기록이 있으면 기록의 선택,
-                없으면 기억된 기본값 — `variantChoicesFor` 한 곳이 그 우선순위를 정한다.
+                없으면 같은 날 짝(v1.10 EE2) → 기억된 기본값 — `variantChoicesFor`가
+                `pairedVariant` 한 곳으로 그 우선순위를 정한다.
               */}
               {(() => {
-                const choices = variantChoicesFor(slot, record, variantDefaults)
+                const choices = variantChoicesFor(slot, record, variantDefaults, todayVariantChoices(day))
                 return slot.items.map((item) => {
                   const on = record?.checkedItemIds.includes(item.id) ?? false
                   const variant = itemVariant(item, choices[item.id])
@@ -349,7 +351,12 @@ export default function DietDayEditor({
         <DietVariantSheet
           slot={openVariant.slot}
           item={openVariant.item}
-          choice={variantChoicesFor(openVariant.slot, day.slots[openVariant.slot.id], variantDefaults)[
+          choice={variantChoicesFor(
+            openVariant.slot,
+            day.slots[openVariant.slot.id],
+            variantDefaults,
+            todayVariantChoices(day),
+          )[
             openVariant.item.id
           ]}
           onPick={(index) => {

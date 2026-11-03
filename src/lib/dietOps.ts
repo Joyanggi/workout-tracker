@@ -1,5 +1,5 @@
 import type { DietDay, DietSlot, SlotRecord } from '../types'
-import { hasVariants, variantDefaultKey } from './diet'
+import { hasVariants, pairedVariant, todayVariantChoices } from './diet'
 
 /**
  * 식단 기록 변형 — 순수 함수 (D2).
@@ -147,6 +147,11 @@ export function applyVariantChoice(
  * 계산한다. 그래서 **기록은 항상 자기 자신으로 완결돼야 한다** — 설정을 나중에 바꿔도
  * 지난 날의 마크로가 흔들리지 않는 것도 같은 성질이다.
  *
+ * 새기는 값은 화면과 같은 규칙(`pairedVariant`)으로 정한다 (v1.10 EE2) — 같은 날 짝 슬롯이
+ * 기록돼 있으면 그 짝이 기억된 기본값보다 앞선다. 화면이 "닭안심"을 보여줬는데 기록이
+ * 기억값(다리살)을 새기면 결함 B가 되살아난다. 짝이 기록을 **만들지는** 않는다 — 기록이
+ * 없는 슬롯은 여전히 건너뛴다 (v1.9 §5.3 유령 기록 금지).
+ *
  * 호출은 편집기의 `mutate` 한 곳에서 한다 (op마다 부르면 새 op를 추가할 때 빠뜨린다).
  */
 export function seedVariantChoices(
@@ -155,6 +160,9 @@ export function seedVariantChoices(
   defaults: Record<string, number> | undefined,
 ): DietDay {
   let next = day
+  // 짝은 **들어온 그대로의** 기록에서 파생한다 — 이 패스에서 막 새긴 값이 다른 슬롯의 짝이 되면
+  // 화면에 보였던 값과 달라진다 (화면은 새기기 전 상태를 보고 그렸다).
+  const today = todayVariantChoices(day)
   for (const slot of slots) {
     const record = next.slots[slot.id]
     if (!record) continue
@@ -164,7 +172,7 @@ export function seedVariantChoices(
       if (choices?.[item.id] !== undefined) continue
       choices = {
         ...choices,
-        [item.id]: defaults?.[variantDefaultKey(slot.id, item.id)] ?? 0,
+        [item.id]: pairedVariant(slot.id, item.id, today, defaults),
       }
     }
     if (choices !== record.variantChoices) {

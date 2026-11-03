@@ -185,23 +185,85 @@ export function variantDefaultKey(slotId: string, itemId: string): string {
   return `${slotId}.${itemId}`
 }
 
+/** 같은 날 각 슬롯에 **기록된** 변형 선택 — `slotId → SlotRecord.variantChoices` */
+export type TodayVariantChoices = Record<string, Record<string, number> | undefined>
+
+/** 하루 기록에서 슬롯별 기록된 선택만 뽑는다 (미기록 슬롯은 키가 없다) */
+export function todayVariantChoices(day: DietDay | undefined): TodayVariantChoices {
+  const out: TodayVariantChoices = {}
+  if (!day) return out
+  for (const [slotId, record] of Object.entries(day.slots)) {
+    if (record) out[slotId] = record.variantChoices
+  }
+  return out
+}
+
 /**
- * 그 슬롯에서 **지금 화면이 보여줄** 변형 선택 (DD3 5-b).
+ * 단백질원 짝 (v1.10 EE2 — 문서 "다리살은 하루 한 끼만").
  *
- * 우선순위: 기록된 값 → 기억된 기본값 → 0번. 기록이 항상 이기므로 기본값을 바꿔도
- * 과거 날짜에 소급되지 않는다. 판정(`summarizeDietDay`)은 **기록만** 본다 — 여기서
- * 기억값을 섞으면 "안 적은 날의 kcal이 설정에 따라 달라지는" 파생값이 생긴다.
+ * 점심 `chicken-2` ↔ 저녁 `chicken-3`. 인덱스는 두 품목 모두 0 가슴살 · 1 안심 · 2 다리살이다
+ * (`v110.test.ts`가 두 `-u` 플랜의 데이터로 잠근다). 다리살 ↔ 안심만 짝이 있고, 가슴살은
+ * 짝이 없다 — 그날은 기억된 기본값이 그대로 쓰인다.
+ */
+const PAIRED_ITEMS: Record<string, string> = {
+  [variantDefaultKey('lunch', 'chicken-2')]: variantDefaultKey('dinner', 'chicken-3'),
+  [variantDefaultKey('dinner', 'chicken-3')]: variantDefaultKey('lunch', 'chicken-2'),
+}
+const TENDERLOIN = 1
+const THIGH = 2
+const PAIRED_CHOICE: Record<number, number> = { [THIGH]: TENDERLOIN, [TENDERLOIN]: THIGH }
+
+/**
+ * 그 슬롯·품목이 **지금 화면에 보여줄** 변형 (v1.10 EE2).
+ *
+ * 우선순위: ① 그 슬롯의 기록된 선택 > ② 같은 날 짝 슬롯의 기록에서 파생된 짝 >
+ * ③ 기억된 기본값 > ④ 0번.
+ *
+ * ②가 ③보다 앞서는 이유: 기억은 "평소의 나"이고 짝은 "오늘의 사실"이다. 이것은
+ * **표시 기본값일 뿐 기록이 아니다** — 기록은 체크하는 순간 `seedVariantChoices`가
+ * 이 값을 새길 때 생긴다. 짝 파생은 오일·아몬드 슬롯을 건드리지 않고, 두 끼 다리살을
+ * 막지도 않는다 (합계가 말한다).
+ */
+export function pairedVariant(
+  slotId: string,
+  itemId: string,
+  todayChoices: TodayVariantChoices,
+  defaults: Record<string, number> | undefined,
+): number {
+  const recorded = todayChoices[slotId]?.[itemId]
+  if (recorded !== undefined) return recorded
+
+  const key = variantDefaultKey(slotId, itemId)
+  const partner = PAIRED_ITEMS[key]
+  if (partner) {
+    const dot = partner.indexOf('.')
+    const partnerChoice = todayChoices[partner.slice(0, dot)]?.[partner.slice(dot + 1)]
+    const paired = partnerChoice === undefined ? undefined : PAIRED_CHOICE[partnerChoice]
+    if (paired !== undefined) return paired
+  }
+
+  return defaults?.[key] ?? 0
+}
+
+/**
+ * 그 슬롯에서 **지금 화면이 보여줄** 변형 선택 (DD3 5-b · v1.10 EE2).
+ *
+ * 우선순위는 `pairedVariant` 한 곳이 정한다: 기록된 값 → 같은 날 짝 → 기억된 기본값 → 0번.
+ * 기록이 항상 이기므로 기본값을 바꿔도 과거 날짜에 소급되지 않는다. 판정(`summarizeDietDay`)은
+ * **기록만** 본다 — 여기서 기억값을 섞으면 "안 적은 날의 kcal이 설정에 따라 달라지는"
+ * 파생값이 생긴다.
  */
 export function variantChoicesFor(
   slot: DietSlot,
   record: SlotRecord | undefined,
   defaults: Record<string, number> | undefined,
+  today: TodayVariantChoices = {},
 ): Record<string, number> {
+  const choices: TodayVariantChoices = { ...today, [slot.id]: record?.variantChoices }
   const out: Record<string, number> = {}
   for (const item of slot.items) {
     if (!hasVariants(item)) continue
-    out[item.id] =
-      record?.variantChoices?.[item.id] ?? defaults?.[variantDefaultKey(slot.id, item.id)] ?? 0
+    out[item.id] = pairedVariant(slot.id, item.id, choices, defaults)
   }
   return out
 }
