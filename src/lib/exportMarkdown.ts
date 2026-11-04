@@ -8,6 +8,7 @@ import { holdReasonText, progressionVerdicts, type ProgressionVerdict } from './
 import { buildScaleMap, formatWeight, type WeightScaleMap } from './weightScale'
 import {
   dietDayStatusText,
+  dietMarkLegend,
   hasVariants,
   itemVariant,
   QUALITY_LABEL,
@@ -332,17 +333,20 @@ export function exportMarkdown(args: {
    * LLM이 이걸 휴식 시간으로 읽으면 "휴식을 줄여 밀도를 올리자" 같은 엉뚱한 조언이 나오고,
    * 그건 이 프로그램의 과부하 축(더블 프로그레션)과 경쟁한다.
    */
-  const head = [
-    `# 운동 기록 ${range.from} ~ ${range.to}`,
-    '',
-    '> 간격 = 앞 세트 체크 ~ 이 세트 체크. **수행 시간이 포함되므로 순수 휴식이 아니다.**',
-    '> 첫 세트는 앞이 없어 생략한다. (`—`는 그 세트에 타임스탬프가 없는 옛 기록)',
-  ].join('\n')
   /*
    * 식단만 기록한 날도 내보낸다 — 빼면 "회식 다음 날" 같은 패턴을 LLM이 볼 수 없다.
    * 운동이 있는 날은 운동 섹션 아래에 붙이고, 없는 날은 날짜 헤더만 세워 붙인다.
    */
   const dates = [...new Set([...inRange.map((s) => s.date), ...dietByDate.keys()])].sort()
+  // 식단 섹션이 실제로 나올 때만 범례를 붙인다 (II3) — 머리는 dates 계산 뒤에 만든다
+  const hasDiet = dates.some((d) => dietLines(d).length > 0)
+  const head = [
+    `# 운동 기록 ${range.from} ~ ${range.to}`,
+    '',
+    '> 간격 = 앞 세트 체크 ~ 이 세트 체크. **수행 시간이 포함되므로 순수 휴식이 아니다.**',
+    '> 첫 세트는 앞이 없어 생략한다. (`—`는 그 세트에 타임스탬프가 없는 옛 기록)',
+    ...(hasDiet ? dietMarkLegend().map((l) => `> ${l}`) : []),
+  ].join('\n')
   if (dates.length === 0) return `${head}\n\n(기간 내 기록 없음)\n`
 
   const body = dates.flatMap((date) => {

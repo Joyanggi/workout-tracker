@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { dietSectionMarkdown } from './exportMarkdown'
+import { dietSectionMarkdown, exportMarkdown } from './exportMarkdown'
 import {
+  ADHERENCE_GOOD,
+  ADHERENCE_MARK,
+  ADHERENCE_MID,
+  MIN_SLOTS_FOR_VERDICT,
+  dietMarkLegend,
   SLOT_GRADE_HIGH,
   SLOT_GRADE_MID,
   SLOT_MARK,
@@ -12,7 +17,9 @@ import {
 } from './diet'
 import { stripComments } from './sourceScan'
 import { BUNDLED_DIET_PLANS } from '../db/seed'
-import type { DietDay, SlotRecord } from '../types'
+import { ROUTINE, completedSession } from './testFixtures'
+import EXERCISES from '../data/exercises.json'
+import type { DietDay, Exercise, SlotRecord } from '../types'
 
 /** v1.11.2 II1 — 내보내기 슬롯 마크를 화면과 같은 slotGrade·SLOT_MARK로 */
 
@@ -220,5 +227,79 @@ describe('II2 — 소스 스캔', () => {
       expect(src).not.toContain('summary.score')
       expect(src).toContain('dietDayStatusText(')
     }
+  })
+})
+
+/** II3 — 식단 범례를 문서 머리에 */
+describe('II3', () => {
+  const catalog = new Map<string, Exercise>((EXERCISES as Exercise[]).map((e) => [e.id, e]))
+  const session = completedSession({ dayId: 'd1', date: '2026-08-24', weight: 40 })
+  const run = (dietDays: DietDay[], sessions = [session]) =>
+    exportMarkdown({
+      sessions, routine: ROUTINE, catalog, phase: 1,
+      range: { from: '2026-08-01', to: '2026-08-31' },
+      dietPlans: BUNDLED_DIET_PLANS, dietDays,
+    })
+  const legend = dietMarkLegend()
+  const pct = (n: number) => `${Math.round(n * 100)}%`
+
+  it('식단이 있으면 범례 두 줄이 간격 캡션 뒤에 온다', () => {
+    const head = run([day(allChecked())]).split('\n')
+    expect(head[2]).toMatch(/^> 간격 = /)
+    expect(head[3]).toMatch(/^> 첫 세트는/)
+    expect(head[4]).toBe(`> ${legend[0]}`)
+    expect(head[5]).toBe(`> ${legend[1]}`)
+  })
+
+  it('식단만 있는 기간에도 범례가 있다', () => {
+    const out = run([day(allChecked())], [])
+    expect(out).toContain(legend[0])
+    expect(out).toContain(legend[1])
+  })
+
+  it('식단이 없으면 머리가 그대로다', () => {
+    const out = run([])
+    expect(out).not.toContain(legend[0])
+    expect(out.split('\n').slice(0, 4)).toEqual([
+      '# 운동 기록 2026-08-01 ~ 2026-08-31',
+      '',
+      '> 간격 = 앞 세트 체크 ~ 이 세트 체크. **수행 시간이 포함되므로 순수 휴식이 아니다.**',
+      '> 첫 세트는 앞이 없어 생략한다. (`—`는 그 세트에 타임스탬프가 없는 옛 기록)',
+    ])
+    expect(out.split('\n')[4]).not.toMatch(/^> 식단/)
+  })
+
+  it('기록 슬롯이 0인 식단일만 있으면 범례가 없다', () => {
+    const out = run([day({})], [])
+    expect(out).not.toContain(legend[0])
+  })
+
+  it('범례 퍼센트가 상수와 맞는다', () => {
+    expect(legend[0]).toContain(pct(SLOT_GRADE_HIGH))
+    expect(legend[0]).toContain(pct(SLOT_GRADE_MID))
+    expect(legend[1]).toContain(pct(ADHERENCE_GOOD))
+    expect(legend[1]).toContain(pct(ADHERENCE_MID))
+    expect(legend[1]).toContain(`${MIN_SLOTS_FOR_VERDICT}슬롯 미만`)
+  })
+
+  it('범례가 모든 마크를 말한다', () => {
+    for (const k of ['full', 'high', 'mid', 'low', 'zero'] as const) {
+      expect(legend[0]).toContain(SLOT_MARK[k])
+    }
+    for (const k of ['good', 'mid', 'poor'] as const) {
+      expect(legend[1]).toContain(ADHERENCE_MARK[k])
+    }
+  })
+})
+
+describe('II3 — 소스 스캔', () => {
+  const raw = import.meta.glob('/src/lib/diet.ts', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
+  it('dietMarkLegend에 마크 글자와 임계 숫자 리터럴이 없다', () => {
+    const src = stripComments(raw['/src/lib/diet.ts'])
+    const start = src.indexOf('export function dietMarkLegend(')
+    expect(start).toBeGreaterThan(-1)
+    const body = src.slice(start, src.indexOf('\n}\n', start))
+    for (const ch of ['●', '◕', '◐', '◔', '✗', '○']) expect(body).not.toContain(ch)
+    for (const n of ['80', '45', '85', '50']) expect(body).not.toMatch(new RegExp(`(?<![\\w.])${n}(?![\\w])`))
   })
 })
