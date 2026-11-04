@@ -16,6 +16,7 @@ import { snapDownToScale, stepBelow, type WeightScale, type WeightScaleMap } fro
 import { applySubstitute, applyAddExercise } from './sessionOps'
 import { applyDayChange } from './dayChange'
 import { stripComments } from './sourceScan'
+import { dayLastDone, lastDoneText, staleDaysLine } from './dayGap'
 import { exportMarkdown, sessionToMarkdown } from './exportMarkdown'
 import { validateRoutine } from '../db/validateRoutine'
 import { ROUTINE, completedSession } from './testFixtures'
@@ -28,6 +29,7 @@ import type {
   Exercise,
   Phase,
   ReturnProtocolStep,
+  RoutineDay,
   RoutineTemplate,
   Session,
   SessionMode,
@@ -668,6 +670,120 @@ describe('KK2', () => {
       expect(s).toContain('LEGACY_RETURN_PROTOCOL')
       const body = s.slice(s.indexOf('export function resolveSessionAdjust'), s.indexOf('export interface EntrySetPlan'))
       expect(body).not.toContain('returnStepFor(')
+    })
+  })
+})
+
+// ─── KK3 ─────────────────────────────────────────────────
+
+describe('KK3', () => {
+  const day = (id: string) => ROUTINE.days.find((d) => d.id === id)!
+  const FALLBACK_PULL = ROUTINE.fallbackDays.find((d) => d.id === 'fallback-pull')!
+  /** today 이전 세션만 (그날 세션 전 시점) */
+  const before = (today: string) => buildFieldSessions().filter((s) => s.date < today)
+  const line = (sessions: Session[], today: string, displayed: RoutineDay) =>
+    staleDaysLine(dayLastDone(sessions, ROUTINE, today), sessions, today, displayed)
+  const ago = (today: string, n: number) => {
+    const d = new Date(`${today}T00:00:00Z`)
+    d.setUTCDate(d.getUTCDate() - n)
+    return d.toISOString().slice(0, 10)
+  }
+  const strength = (dayId: string, date: string) => completedSession({ dayId, date })
+
+  it('dayLastDone @ 11-04: D1 29 · D2 19 · D3 6 · D4 null', () => {
+    const r = dayLastDone(before('2026-11-04'), ROUTINE, '2026-11-04')
+    expect(r.map((x) => [x.day.id, x.days])).toEqual([
+      ['d1', 29],
+      ['d2', 19],
+      ['d3', 6],
+      ['d4', null],
+    ])
+  })
+  it('staleDaysLine @ 11-04, 표시 D1', () => {
+    expect(line(before('2026-11-04'), '2026-11-04', day('d1'))).toBe(
+      '오래 안 한 Day — Day 4 피지크 보완 기록 없음 · Day 2 Pull 19일',
+    )
+  })
+  it('@ 10-29, 표시 D3 → D2는 13일이라 빠진다', () => {
+    expect(line(before('2026-10-29'), '2026-10-29', day('d3'))).toBe(
+      '오래 안 한 Day — Day 4 피지크 보완 기록 없음 · Day 1 Push 23일',
+    )
+  })
+  it('@ 10-16, 표시 D1 → 둘 다 기록 없음(routine.days 순서) · 표시 D2면 D2가 빠진다', () => {
+    const s = before('2026-10-16')
+    expect(line(s, '2026-10-16', day('d1'))).toBe(
+      '오래 안 한 Day — Day 2 Pull 기록 없음 · Day 4 피지크 보완 기록 없음',
+    )
+    expect(line(s, '2026-10-16', day('d2'))).toBe('오래 안 한 Day — Day 4 피지크 보완 기록 없음')
+  })
+  it('표시가 fallback-pull이면 D2가 빠진다(기록 라인 d2)', () => {
+    const out = line(before('2026-10-16'), '2026-10-16', FALLBACK_PULL)
+    expect(out).toBe('오래 안 한 Day — Day 4 피지크 보완 기록 없음')
+    expect(out).not.toContain('Day 2')
+  })
+  it('경계: 다른 Day 13일 → 빠짐 · 14일 → 포함', () => {
+    const today = '2026-11-04'
+    const base = [strength('d3', ago(today, 60))]
+    const mk = (n: number) => [...base, strength('d1', ago(today, n)), strength('d2', ago(today, 1)), strength('d4', ago(today, 1)), strength('d3', ago(today, 2))]
+    expect(line(mk(13), today, day('d3'))).toBeUndefined()
+    expect(line(mk(14), today, day('d3'))).toBe('오래 안 한 Day — Day 1 Push 14일')
+  })
+  it('기록 없음 + 첫 근력 세션 10일 전 → 빠짐 · 14일 전 → 포함', () => {
+    const today = '2026-11-04'
+    expect(line([strength('d1', ago(today, 10))], today, day('d1'))).toBeUndefined()
+    expect(line([strength('d1', ago(today, 14))], today, day('d1'))).toBe(
+      '오래 안 한 Day — Day 2 Pull 기록 없음 · Day 3 하체 + 코어 기록 없음 · Day 4 피지크 보완 기록 없음',
+    )
+  })
+  it('주 4회 픽스처(D1 월 · D2 화 · D4 목 · D3 토, 3주) → 어느 날이든 undefined', () => {
+    const mon = '2026-10-12'
+    const sessions: Session[] = []
+    for (let w = 0; w < 3; w++) {
+      for (const [id, off] of [['d1', 0], ['d2', 1], ['d4', 3], ['d3', 5]] as const) {
+        sessions.push(strength(id, ago(mon, -(w * 7 + off))))
+      }
+    }
+    for (let n = 0; n <= 21; n++) {
+      const t = ago(mon, -n)
+      const seen = sessions.filter((s) => s.date < t)
+      for (const d of ROUTINE.days) expect(line(seen, t, d), `${t} ${d.id}`).toBeUndefined()
+    }
+  })
+  it('세션 없음 · 유산소만 세션뿐 → undefined (근력 기준)', () => {
+    expect(line([], '2026-11-04', day('d1'))).toBeUndefined()
+    const cardioOnly = buildFieldSessions().filter((s) => s.date === '2026-08-03')
+    expect(line(cardioOnly, '2026-11-04', day('d1'))).toBeUndefined()
+  })
+  it('lastDoneText: null → 기록 없음 · 0 → 오늘 · 19 → 마지막 19일 전', () => {
+    expect(lastDoneText(null)).toBe('기록 없음')
+    expect(lastDoneText(0)).toBe('오늘')
+    expect(lastDoneText(19)).toBe('마지막 19일 전')
+  })
+
+  describe('소스 스캔', () => {
+    const raw = import.meta.glob(
+      [
+        '/src/components/DayPickerSheet.tsx',
+        '/src/screens/HomeScreen.tsx',
+        '/src/lib/dayGap.ts',
+        '/src/lib/exportMarkdown.ts',
+      ],
+      { query: '?raw', import: 'default', eager: true },
+    ) as Record<string, string>
+    const src = (name: string) => stripComments(raw[name])
+    it('DayPickerSheet.tsx·HomeScreen.tsx에 daysSinceDay( 없음', () => {
+      expect(src('/src/components/DayPickerSheet.tsx')).not.toContain('daysSinceDay(')
+      expect(src('/src/screens/HomeScreen.tsx')).not.toContain('daysSinceDay(')
+    })
+    it('HomeScreen.tsx에 dayLastDone( 한 번', () => {
+      expect(src('/src/screens/HomeScreen.tsx').split('dayLastDone(').length - 1).toBe(1)
+    })
+    it('dayGap.ts의 staleDaysLine 본문에 dayLastDone( 없음', () => {
+      const s = src('/src/lib/dayGap.ts')
+      expect(s.slice(s.indexOf('export function staleDaysLine'))).not.toContain('dayLastDone(')
+    })
+    it('exportMarkdown.ts에 function dayLabel 없음', () => {
+      expect(src('/src/lib/exportMarkdown.ts')).not.toContain('function dayLabel')
     })
   })
 })

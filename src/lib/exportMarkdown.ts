@@ -2,6 +2,7 @@ import type { Exercise, Phase, RoutineTemplate, Session, SessionEntry } from '..
 import { parseRecordKey } from '../types'
 import { hasCompensation } from './compensation'
 import { formatClock, weekdayKo } from './dates'
+import { dayLabel } from './dayGap'
 import { withObjectParticle } from './korean'
 import { completedSessions, doneSets, routineExerciseOfEntry, orderDeviations } from './derive'
 import { holdReasonText, progressionVerdicts, type ProgressionVerdict } from './progression'
@@ -116,11 +117,6 @@ export function dietSectionMarkdown(plan: DietPlan, day: DietDay): string[] {
 
   if (day.note) out.push(`- 메모: ${day.note}`)
   return out
-}
-
-/** "Day 1 — Push" → "Day 1 Push" (§6 예시 표기) */
-function dayLabel(name: string): string {
-  return name.replace(' — ', ' ')
 }
 
 function entryLine(

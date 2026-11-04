@@ -1,4 +1,5 @@
 import type { RoutineDay, RoutineTemplate } from '../types'
+import { lastDoneText } from '../lib/dayGap'
 import { dayTotalSets } from '../lib/useRoutine'
 
 /**
@@ -15,12 +16,15 @@ export default function DayPickerSheet({
   suggestedDayId,
   /** 지금 직접 고른 Day (없으면 제안이 기준) — 무엇이 선택돼 있는지 시트가 말해야 한다 */
   pickedDayId,
+  lastDone,
   onPick,
   onClose,
 }: {
   routine: RoutineTemplate
   suggestedDayId?: string
   pickedDayId?: string | null
+  /** 정규 Day id → 마지막 근력 수행 후 경과일 (KK3). 하한 모드 행에는 쓰지 않는다 */
+  lastDone?: Map<string, number | null>
   onPick: (day: RoutineDay) => void
   onClose: () => void
 }) {
@@ -45,7 +49,11 @@ export default function DayPickerSheet({
             </span>
           )}
         </div>
-        <div className="row-sub">{day.subtitle}</div>
+        <div className="row-sub">
+          {lastDone && lastDone.has(day.id)
+            ? `${day.subtitle} · ${lastDoneText(lastDone.get(day.id) ?? null)}`
+            : day.subtitle}
+        </div>
       </div>
       <div className="row-meta">
         {day.exercises.length}종목

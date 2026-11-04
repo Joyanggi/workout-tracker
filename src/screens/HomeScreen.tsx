@@ -28,6 +28,7 @@ import { useExerciseSettings } from '../lib/useExerciseSettings'
 import { buildSession, withJustFinished } from '../lib/sessionFactory'
 import { bannerQueue, type BannerId } from '../lib/bannerQueue'
 import { homeCardState, pickedIdFor, returnChoiceReason } from '../lib/dayChoice'
+import { dayLastDone, staleDaysLine } from '../lib/dayGap'
 import { suggestNextDay } from '../lib/suggestNextDay'
 import { exerciseLabel, useRoutine } from '../lib/useRoutine'
 import { useSessionStore } from '../store/session'
@@ -109,6 +110,7 @@ export default function HomeScreen({
     return {
       suggestion: suggestNextDay({ sessions, routine, today }),
       dots: weekDots(sessions, today),
+      lastDone: dayLastDone(sessions, routine, today),
       strengthWeek: strengthCountThisWeek(sessions, today),
       volume: muscleBars(sessions, routine, today),
       deload: deloadState(sessions, routine, today),
@@ -212,6 +214,10 @@ export default function HomeScreen({
     openDayId: openSession?.dayId ?? null,
   })
   const displayed = card.day
+  // KK3 — 카드의 추가 줄은 최대 두 줄 (KK4 dayGapNotice가 먼저, 이 줄이 다음)
+  const staleLine = card.resuming
+    ? undefined
+    : staleDaysLine(dash.lastDone, sessions, today, displayed)
 
   /*
    * 세션 모드 카드의 부제 (CC11). 경과 분은 `startedAt`에서 파생한다 (§5.2 타임스탬프
@@ -479,6 +485,7 @@ export default function HomeScreen({
           {card.resuming ? sessionProgress : displayed.subtitle}
         </div>
         <div className="today-reason">{card.reason}</div>
+        {staleLine && <div className="today-sub">{staleLine}</div>}
         <div className="today-sub" style={{ marginTop: 8 }}>
           {displayed.exercises
             .slice()
@@ -618,6 +625,7 @@ export default function HomeScreen({
           routine={routine}
           suggestedDayId={suggestion.day.id}
           pickedDayId={pickedDayId}
+          lastDone={new Map(dash.lastDone.map((x) => [x.day.id, x.days]))}
           /*
             **시트는 선택만 바꾼다** (AA1) — 세션을 만들지 않는다.
             제안 Day를 다시 고르면 override가 지워진다 (pickedIdFor).

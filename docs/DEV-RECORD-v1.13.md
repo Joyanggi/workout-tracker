@@ -175,3 +175,47 @@ npm run build: 성공
 ### 하지 않은 것
 
 - 실기기에서 카드 칩 확인(RTL 없음 — 소스 스캔과 `sessionReturnRirText` 순수 함수로만 잠금).
+
+---
+
+## KK3. Day별 마지막 수행일을 보인다
+
+### 범위
+
+| 커밋 | 내용 | 바뀐 파일 |
+|---|---|---|
+| KK3 (이 커밋) | `src/lib/dayGap.ts` 신설(`dayLabel` 이동·`dayLastDone`·`lastDoneText`·`staleDaysLine`), 홈 카드 `today-sub` 한 줄, Day 선택 시트 `lastDone` prop | `src/lib/dayGap.ts`(신설) · `src/lib/exportMarkdown.ts` · `src/screens/HomeScreen.tsx` · `src/components/DayPickerSheet.tsx` · `src/lib/v113.test.ts` · 이 문서 (6개) |
+
+- 기존 테스트 수정 없음. `dashboard.ts` `judgeable` 줄 무변경(`git diff --stat -- src/lib/dashboard.ts` 출력 없음).
+- 홈 카드는 KK4 `dayGapNotice`가 아직 없어 이 줄만 추가한다(KK4에서 그 줄이 먼저 오게 한다).
+
+### 테스트 이름과 PLAN 검증 항목 (describe `KK3`, 14건)
+
+| PLAN 항목 | 테스트 |
+|---|---|
+| `dayLastDone` @ 11-04 | `dayLastDone @ 11-04: …` |
+| `staleDaysLine` 11-04 · 10-29 · 10-16 | 같은 이름 3건 |
+| fallback-pull | `표시가 fallback-pull이면 …` |
+| 경계 13/14일 · 첫 세션 10/14일 | `경계: …` · `기록 없음 + 첫 근력 세션 …` |
+| 주 4회 · 세션 없음/유산소만 | 2건 |
+| `lastDoneText` | 1건 |
+| 소스 스캔 4종 | `소스 스캔` 4건 |
+
+### 결함 복원
+
+| # | 되살린 결함 | 실패한 테스트 | 원상복구 |
+|---|---|---|---|
+| ⑧ | `staleDaysLine`에서 첫 세션 14일 조건 삭제 | `첫 근력 세션 10일 전…` · `주 4회 픽스처…` | `cmp` 같음 |
+| (추가) | 기록 없음/일수 정렬 순서 반전 | 2건 실패 | `cmp` 같음 |
+
+### 실행 결과
+
+```
+Test Files  54 passed (54)
+Tests  1236 passed (1236)
+npm run build: 성공
+```
+
+### 하지 않은 것
+
+- 실기기에서 카드 줄·시트 문구 확인(RTL 없음).
