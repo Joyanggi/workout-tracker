@@ -21,6 +21,7 @@ import type { RestTimer } from '../lib/useRestTimer'
 import type { RoutineBundle } from '../lib/useRoutine'
 import { useSessionStore } from '../store/session'
 import { tempoPhasesFor } from '../lib/tempo'
+import { sessionReturnRirText } from '../lib/setPlan'
 import { useSettings } from '../store/settings'
 import { parseRecordKey, type RecordKey } from '../types'
 
@@ -260,6 +261,7 @@ export default function SessionScreen({
               tempoCountInSec={tempoCountInSec}
               prefill={prefills.get(entry.recordKey)}
               sessionMode={session.mode}
+              modeIntensity={sessionReturnRirText(session, entry)}
               actions={actions}
               open={openKey === entry.recordKey}
               onToggleOpen={() => setOpenKey(openKey === entry.recordKey ? null : entry.recordKey)}

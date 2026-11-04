@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildPrefill, computeProgression, defaultSetFor } from './prefill'
-import { buildSession, roundToHalf } from './sessionFactory'
+import { buildSession } from './sessionFactory'
 import { ROUTINE, completedSession } from './testFixtures'
 import type { Session } from '../types'
 
@@ -200,8 +200,8 @@ describe('세션 생성', () => {
     })
     // 4세트 → 2세트
     expect(session.entries[0].sets.length).toBe(2)
-    // 40kg → 32kg (무게 손실은 작으므로 조절 폭이 세트보다 작다)
-    expect(session.entries[0].sets[0].weight).toBe(32)
+    // KK1(PLAN-v1.13): 40kg → 30kg. 40 × 0.8 = 32를 기구 무게(2.5 단위)로 내림 — 기구에 없는 32는 만들지 않는다
+    expect(session.entries[0].sets[0].weight).toBe(30)
     expect(session.mode).toBe('return')
   })
 
@@ -281,15 +281,6 @@ describe('세션 생성', () => {
   })
 })
 
-describe('roundToHalf', () => {
-  it('0.5kg 단위로 맞춘다', () => {
-    expect(roundToHalf(38.0)).toBe(38)
-    expect(roundToHalf(36.1)).toBe(36)
-    expect(roundToHalf(36.3)).toBe(36.5)
-    expect(roundToHalf(32.0000001)).toBe(32)
-  })
-})
-
 describe('리뷰 P0 회귀 — 증량 판정과 모드 상호작용', () => {
   const four = (reps: number) => Array.from({ length: 4 }, () => ({ weight: 40, reps }))
 
@@ -342,11 +333,11 @@ describe('리뷰 P0 회귀 — 증량 판정과 모드 상호작용', () => {
       sessions: history,
       phase: 0,
       today: '2026-09-01',
-      returnStep: ROUTINE.rules.returnProtocol[0], // −5% 무게
+      returnStep: ROUTINE.rules.returnProtocol[0], // 1단계: 무게 유지
     })
     const incline = session.entries.find((e) => e.recordKey === INCLINE_D1)!
-    // 40 × 0.95 = 38. (42.5 × 0.95 = 40.375 → 40.5가 되면 안 된다)
-    expect(incline.sets[0].weight).toBe(38)
+    // KK1(PLAN-v1.13): 1단계는 무게를 유지한다 — 40 그대로 (v1.12는 38). 증량분(42.5)이 섞이면 안 된다는 뜻은 같다
+    expect(incline.sets[0].weight).toBe(40)
   })
 
   it('normal 세션은 증량 무게를 그대로 프리필한다', () => {

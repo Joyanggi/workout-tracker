@@ -1,5 +1,6 @@
 import type {
   ReturnProtocolStep,
+  ReturnWeightRule,
   RoutineTemplate,
   Session,
   SessionAdjust,
@@ -8,7 +9,7 @@ import type {
 } from '../types'
 import { daysBetween } from './dates'
 import { doneSets, routineExerciseOfEntry, strengthSessions, workSetRows } from './derive'
-import { returnStepFor } from './suggestNextDay'
+import { easierWeight, formatWeight, snapDownToScale, stepBelow, type WeightScale } from './weightScale'
 
 /**
  * 세트 계획 초크포인트 (JJ1).
@@ -30,15 +31,82 @@ export function adjustedSetCount(planned: number, setPct: number): number {
   return Math.max(1, Math.round(planned * (1 + setPct / 100)))
 }
 
+/** 복귀 단계의 무게 규칙 (KK1). 단계가 없으면 유지, 필드가 없는 옛 루틴은 weightPct로 읽는다 */
+export function returnWeightRuleOf(step?: ReturnProtocolStep): ReturnWeightRule {
+  if (!step) return 'keep'
+  if (step.weightRule) return step.weightRule
+  return step.weightPct === 0 ? 'keep' : 'pctSnapDown'
+}
+
 /** 모드가 정하는 조정. normal이면 없다 */
 export function modeAdjustFor(
   mode: SessionMode,
   returnStep?: ReturnProtocolStep,
 ): SessionAdjust | undefined {
   if (mode === 'deload') return { setPct: DELOAD_SET_PCT, weightPct: 0 }
-  if (mode === 'return') return { setPct: returnStep?.setPct ?? 0, weightPct: returnStep?.weightPct ?? 0 }
+  if (mode === 'return') {
+    const rule = returnWeightRuleOf(returnStep)
+    return {
+      setPct: returnStep?.setPct ?? 0,
+      weightPct: rule === 'pctSnapDown' ? (returnStep?.weightPct ?? 0) : 0,
+      weightRule: rule,
+      ...(returnStep ? { targetRIR: returnStep.targetRIR } : {}),
+    }
+  }
   return undefined
 }
+
+/**
+ * 복귀 무게 (KK1) — 기구에 실제로 있는 무게만 낸다. `weightRule` 키가 없으면(v1.12 저장값 모양) 유지다.
+ * 어시스티드(`inverse`)는 두 감량 규칙 모두 한 칸 쉽게(보조를 올림)다 — 곱셈은 보조를 줄여 더 어렵게 만든다.
+ */
+export function returnWeightFor(
+  base: number,
+  adjust: Pick<SessionAdjust, 'weightPct' | 'weightRule'>,
+  scale: WeightScale,
+): number {
+  if (base <= 0) return base
+  switch (adjust.weightRule) {
+    case 'oneStep':
+      return scale.inverse ? easierWeight(base, scale) : stepBelow(base, scale)
+    case 'pctSnapDown':
+      return scale.inverse
+        ? easierWeight(base, scale)
+        : snapDownToScale(base * (1 + adjust.weightPct / 100), scale)
+    default:
+      return base
+  }
+}
+
+/** 복귀 무게 규칙의 화면 문구 (KK1 8번, KK2도 쓴다) */
+export function returnWeightText(rule: ReturnWeightRule, weightPct: number): string {
+  if (rule === 'keep') return '무게 유지'
+  if (rule === 'oneStep') return '무게 한 단계 내림'
+  return `무게 ${signedPct(weightPct)} (기구 무게로 내림)`
+}
+
+export function returnRirText(targetRIR: number): string {
+  return `반복 ${targetRIR}회 남기기`
+}
+
+/** 홈 복귀 배너의 조정 요약 (KK1 8번) */
+export function returnStepText(step: ReturnProtocolStep): string {
+  return [
+    `세트 ${signedPct(step.setPct)}`,
+    returnWeightText(returnWeightRuleOf(step), step.weightPct),
+    returnRirText(step.targetRIR),
+  ].join(' · ')
+}
+
+/**
+ * KK 이전 복귀 단계 (seedRevision 2, 스캐폴드 이후 불변). 저장값 없는 JJ 이전 세션 되짚기 전용.
+ * 그날 실제로 쓰인 표라 현재 루틴을 읽지 않는다 — KK1이 단계 값·경계를 바꿔도 과거 세션의 조정률이 변하지 않는다.
+ */
+export const LEGACY_RETURN_PROTOCOL = [
+  { gapWeeksMin: 2, weightPct: -5, setPct: -30 },
+  { gapWeeksMin: 4, weightPct: -10, setPct: -40 },
+  { gapWeeksMin: 8, weightPct: -20, setPct: -50 },
+] as const
 
 export type ResolvedAdjust =
   | { kind: 'none' } // normal
@@ -46,6 +114,8 @@ export type ResolvedAdjust =
       kind: 'known'
       setPct: number
       weightPct: number
+      weightRule?: ReturnWeightRule // 저장값(KK 이후)에서만
+      targetRIR?: number
       source: 'stored' | 'derived'
       gapDays?: number // 복귀 되짚기일 때만
     }
@@ -57,7 +127,7 @@ export type ResolvedAdjust =
  */
 export function resolveSessionAdjust(
   session: Session,
-  routine: RoutineTemplate,
+  _routine: RoutineTemplate, // 호출부 호환 — 되짚기는 현재 루틴이 아니라 LEGACY_RETURN_PROTOCOL을 읽는다 (KK1)
   sessions?: Session[],
 ): ResolvedAdjust {
   if (session.mode === 'normal') return { kind: 'none' }
@@ -71,7 +141,9 @@ export function resolveSessionAdjust(
     const prev = strengthSessions(sessions).find((s) => s.id !== session.id && s.date < session.date)
     if (prev) {
       const gapDays = daysBetween(prev.date, session.date)
-      const step = returnStepFor(routine, gapDays)
+      // 옛 경계: 공백/7 >= gapWeeksMin 인 마지막 단계 (KK1 이전 규칙)
+      let step: (typeof LEGACY_RETURN_PROTOCOL)[number] | undefined
+      for (const s of LEGACY_RETURN_PROTOCOL) if (gapDays / 7 >= s.gapWeeksMin) step = s
       if (step) {
         return {
           kind: 'known',
@@ -170,7 +242,23 @@ export function sessionAdjustText(
     const parts =
       adjust.setPct === 0 && adjust.weightPct === 0
         ? '없음'
-        : [`세트 ${signedPct(adjust.setPct)}`, ...(adjust.weightPct !== 0 ? [`무게 ${signedPct(adjust.weightPct)}`] : [])].join(' · ')
+        : adjust.weightRule !== undefined
+          ? // KK 이후 저장값: 실제 적용분(규칙)과 여유 반복을 말한다
+            [
+              `세트 ${signedPct(adjust.setPct)}`,
+              returnWeightText(adjust.weightRule, adjust.weightPct),
+              ...(adjust.targetRIR !== undefined ? [returnRirText(adjust.targetRIR)] : []),
+            ].join(' · ')
+          : [
+              `세트 ${signedPct(adjust.setPct)}`,
+              ...(adjust.weightPct !== 0
+                ? [
+                    `무게 ${signedPct(adjust.weightPct)}` +
+                      // KK2: 규칙 이름이 없는 복귀는 KK 이전 곱셈 규칙이다 — 결과처럼 읽히지 않게 밝힌다
+                      (session.mode === 'return' ? ' (당시 규칙)' : ''),
+                  ]
+                : []),
+            ].join(' · ')
     const derived =
       adjust.source === 'derived'
         ? adjust.gapDays !== undefined
@@ -192,6 +280,26 @@ export function entrySetLine(plan: EntrySetPlan, mode: SessionMode): string | un
     return `세트: 계획 ${plan.planned} · 완료 ${plan.done}`
   }
   return `세트: 계획 ${plan.planned} → ${MODE_NAME[mode]} 조정 ${plan.given} · 완료 ${plan.done}`
+}
+
+/**
+ * 종목 줄 `무게:` (KK2) — 복귀 감량이 실제로 걸린 entry만. `기준`·`복귀`는 생성 때 저장한 `returnWeight`,
+ * `수행`은 그 종목 완료 세트의 최고 무게(헤더 무게와 같은 값). 대체·얹은 종목·KK 이전 세션은 `undefined`.
+ */
+export function entryWeightLine(entry: SessionEntry, mode: SessionMode): string | undefined {
+  const rw = entry.returnWeight
+  if (mode !== 'return' || !rw || entry.substituteFor || entry.extra) return undefined
+  const sets = doneSets(entry)
+  const done = sets.length > 0 ? ` · 수행 ${formatWeight(Math.max(...sets.map((s) => s.weight)))}` : ''
+  if (rw.given === rw.base) return `무게: 기준 ${formatWeight(rw.base)} · 내릴 무게 없음${done}`
+  return `무게: 기준 ${formatWeight(rw.base)} → 복귀 ${formatWeight(rw.given)}${done}`
+}
+
+/** 종목 카드 칩 (KK2) — KK 이후 복귀 세션의 계획 종목(대체 포함, 얹은 종목 제외) */
+export function sessionReturnRirText(session: Session, entry: SessionEntry): string | undefined {
+  const rir = session.modeAdjust?.targetRIR
+  if (session.mode !== 'return' || rir === undefined || entry.extra) return undefined
+  return `복귀 — ${returnRirText(rir)}`
 }
 
 export interface PartialEntry {

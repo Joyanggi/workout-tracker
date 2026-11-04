@@ -15,6 +15,7 @@ import {
 } from '../lib/dashboard'
 import { todayLocal } from '../lib/dates'
 import { phaseReadiness } from '../lib/phaseReadiness'
+import { returnStepText } from '../lib/setPlan'
 import { backupReminder, isGistConfigured } from '../lib/gistSync'
 import { completedSessions, doneSetsAll, findDay } from '../lib/derive'
 import { ADHERENCE_MARK, nextUnloggedSlot, summarizeDietDay } from '../lib/diet'
@@ -27,6 +28,7 @@ import { useExerciseSettings } from '../lib/useExerciseSettings'
 import { buildSession, withJustFinished } from '../lib/sessionFactory'
 import { bannerQueue, type BannerId } from '../lib/bannerQueue'
 import { homeCardState, pickedIdFor, returnChoiceReason } from '../lib/dayChoice'
+import { dayGapNotice, dayLastDone, staleDaysLine } from '../lib/dayGap'
 import { suggestNextDay } from '../lib/suggestNextDay'
 import { exerciseLabel, useRoutine } from '../lib/useRoutine'
 import { useSessionStore } from '../store/session'
@@ -108,6 +110,7 @@ export default function HomeScreen({
     return {
       suggestion: suggestNextDay({ sessions, routine, today }),
       dots: weekDots(sessions, today),
+      lastDone: dayLastDone(sessions, routine, today),
       strengthWeek: strengthCountThisWeek(sessions, today),
       volume: muscleBars(sessions, routine, today),
       deload: deloadState(sessions, routine, today),
@@ -211,6 +214,19 @@ export default function HomeScreen({
     openDayId: openSession?.dayId ?? null,
   })
   const displayed = card.day
+  // KK3 — 카드의 추가 줄은 최대 두 줄 (KK4 dayGapNotice가 먼저, 이 줄이 다음)
+  const gapNotice = card.resuming
+    ? undefined
+    : dayGapNotice({
+        sessions,
+        routine,
+        day: displayed,
+        today,
+        returnSuggested: Boolean(suggestion.returnStep),
+      })
+  const staleLine = card.resuming
+    ? undefined
+    : staleDaysLine(dash.lastDone, sessions, today, displayed)
 
   /*
    * 세션 모드 카드의 부제 (CC11). 경과 분은 `startedAt`에서 파생한다 (§5.2 타임스탬프
@@ -256,8 +272,8 @@ export default function HomeScreen({
     return: (
       <div className="banner banner-info" style={{ alignItems: 'flex-start' }} key="return">
         <span>
-          {suggestion.gapDays}일 공백 — 무게 {suggestion.returnStep?.weightPct}%, 세트{' '}
-          {suggestion.returnStep?.setPct}%, RIR {suggestion.returnStep?.targetRIR}로 복귀할까요?
+          {suggestion.gapDays}일 공백 —{' '}
+          {suggestion.returnStep ? `${returnStepText(suggestion.returnStep)}로` : '조정 없이'} 복귀할까요?
           <br />
           <small>복귀 조정은 이번 세션에만 적용</small>
         </span>
@@ -478,6 +494,8 @@ export default function HomeScreen({
           {card.resuming ? sessionProgress : displayed.subtitle}
         </div>
         <div className="today-reason">{card.reason}</div>
+        {gapNotice && <div className="today-sub">{gapNotice}</div>}
+        {staleLine && <div className="today-sub">{staleLine}</div>}
         <div className="today-sub" style={{ marginTop: 8 }}>
           {displayed.exercises
             .slice()
@@ -617,6 +635,7 @@ export default function HomeScreen({
           routine={routine}
           suggestedDayId={suggestion.day.id}
           pickedDayId={pickedDayId}
+          lastDone={new Map(dash.lastDone.map((x) => [x.day.id, x.days]))}
           /*
             **시트는 선택만 바꾼다** (AA1) — 세션을 만들지 않는다.
             제안 Day를 다시 고르면 override가 지워진다 (pickedIdFor).

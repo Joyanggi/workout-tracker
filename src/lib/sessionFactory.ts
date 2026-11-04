@@ -9,13 +9,8 @@ import type {
 } from '../types'
 import { NO_COMPENSATION, makeRecordKey, recordDayIdOf } from '../types'
 import { buildPrefill, defaultSetFor, type RecordPrefill } from './prefill'
-import { adjustedSetCount, modeAdjustFor } from './setPlan'
-import type { WeightScaleMap } from './weightScale'
-
-/** 머신 무게는 2.5kg 단위가 많지만 조절 결과가 애매하게 떨어지므로 0.5kg 단위로 맞춘다 */
-export function roundToHalf(kg: number): number {
-  return Math.round(kg * 2) / 2
-}
+import { adjustedSetCount, modeAdjustFor, returnWeightFor } from './setPlan'
+import { scaleFor, type WeightScaleMap } from './weightScale'
 
 /**
  * 방금 마감한 세션을 목록에 합류시킨다 (R4).
@@ -64,7 +59,6 @@ export function buildSession(args: {
   // 조정률은 setPlan 한 곳에서 정하고 세션에 남긴다 (JJ1) — 나중에 "앱이 줄였나"를 되짚지 않아도 된다
   const modeAdjust = modeAdjustFor(mode, returnStep)
   const setPct = modeAdjust?.setPct ?? 0
-  const weightPct = modeAdjust?.weightPct ?? 0
 
   const prefills = new Map<string, RecordPrefill>()
   const entries: SessionEntry[] = day.exercises
@@ -89,12 +83,32 @@ export function buildSession(args: {
       // 세트 수 조절. 최소 1세트는 남긴다
       const setCount = adjustedSetCount(routineExercise.sets, setPct)
 
+      /*
+       * 복귀 무게 (KK1). 기구에 있는 무게만 쓴다. **기록 없는 종목(추정 시작 무게)에는 걸지 않는다** —
+       * 추정이 이미 가벼운 쪽 규칙이고(CC13) "기준"이라 부를 직전 수행이 없다.
+       */
+      const applies =
+        mode === 'return' &&
+        modeAdjust !== undefined &&
+        modeAdjust.weightRule !== 'keep' &&
+        prefill.startEstimate === undefined
+      const scale = {
+        ...scaleFor(args.scales, recordKey, routine.rules.weightIncrementKg),
+        inverse: args.isInverse?.(recordKey) ?? false,
+      }
+      let baseMax = 0
       const sets = Array.from({ length: setCount }, (_, i) => {
         const base = defaultSetFor(prefill, i, routineExercise, mode)
-        return weightPct === 0
-          ? base
-          : { ...base, weight: roundToHalf(base.weight * (1 + weightPct / 100)) }
+        baseMax = Math.max(baseMax, base.weight)
+        return applies && modeAdjust
+          ? { ...base, weight: returnWeightFor(base.weight, modeAdjust, scale) }
+          : base
       })
+      // given === baseMax(사다리 최하단 등)도 남긴다 — "내릴 무게가 없었다"는 사실이다. 0kg 종목은 남기지 않는다
+      const returnWeight =
+        applies && modeAdjust && baseMax > 0
+          ? { base: baseMax, given: returnWeightFor(baseMax, modeAdjust, scale) }
+          : undefined
 
       return {
         recordKey,
@@ -105,6 +119,7 @@ export function buildSession(args: {
         skipped: false,
         // normal이면 키를 만들지 않는다 (JJ1)
         ...(modeAdjust ? { plannedSets: routineExercise.sets } : {}),
+        ...(returnWeight ? { returnWeight } : {}),
       }
     })
 

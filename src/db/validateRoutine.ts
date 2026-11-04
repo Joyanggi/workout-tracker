@@ -96,5 +96,25 @@ export function validateRoutine(routine: RoutineTemplate, catalog: Exercise[]): 
     problems.push('rules.returnProtocol의 gapWeeksMin이 오름차순이 아님')
   }
 
+  // 7. 복귀 무게 규칙 (KK1). 형식과 서로 모순되는 조합만 막는다 — 14/29/56 같은 값은 루틴 데이터의 몫이다
+  const steps = routine.rules.returnProtocol
+  const withDays = steps.filter((r) => r.gapDaysMin !== undefined).length
+  if (withDays !== 0 && withDays !== steps.length) {
+    problems.push('rules.returnProtocol의 gapDaysMin은 모든 단계에 있거나 모두 없어야 함')
+  } else if (withDays > 0) {
+    const days = steps.map((r) => r.gapDaysMin as number)
+    if (days.some((d, i) => i > 0 && d <= days[i - 1])) {
+      problems.push('rules.returnProtocol의 gapDaysMin이 오름차순이 아님')
+    }
+  }
+  for (const [i, step] of steps.entries()) {
+    if ((step.weightRule === 'keep' || step.weightRule === 'oneStep') && step.weightPct !== 0) {
+      problems.push(`rules.returnProtocol[${i}]: weightRule ${step.weightRule}은 weightPct가 0이어야 함`)
+    }
+    if (step.weightRule === 'pctSnapDown' && !(step.weightPct < 0)) {
+      problems.push(`rules.returnProtocol[${i}]: weightRule pctSnapDown은 weightPct가 음수여야 함`)
+    }
+  }
+
   return problems
 }

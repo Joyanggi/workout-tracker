@@ -110,10 +110,12 @@ describe('규칙 우선순위', () => {
     })
     expect(result.rule).toBe('returnGap')
     expect(result.day.id).toBe('d1')
-    // 33일 = 4.7주 → gapWeeksMin 4 구간
+    // 33일 → gapWeeksMin 4 구간 (KK1: 29일부터. 단계 값은 새 배포 루틴)
     expect(result.returnStep).toEqual({
       gapWeeksMin: 4,
-      weightPct: -10,
+      gapDaysMin: 29,
+      weightPct: 0,
+      weightRule: 'oneStep',
       setPct: -40,
       targetRIR: 3,
       rampWeeks: 2,
@@ -205,7 +207,9 @@ describe('복귀 프로토콜 구간 선택', () => {
   it('가장 큰 gapWeeksMin 구간이 이긴다', () => {
     expect(returnStepFor(ROUTINE, 13)?.gapWeeksMin).toBe(undefined) // 1.9주 → 해당 없음
     expect(returnStepFor(ROUTINE, 14)?.gapWeeksMin).toBe(2)
-    expect(returnStepFor(ROUTINE, 28)?.gapWeeksMin).toBe(4)
+    // KK1(PLAN-v1.13): 정확히 28일은 4주 이하 → 1단계. 29일부터 2단계
+    expect(returnStepFor(ROUTINE, 28)?.gapWeeksMin).toBe(2)
+    expect(returnStepFor(ROUTINE, 29)?.gapWeeksMin).toBe(4)
     expect(returnStepFor(ROUTINE, 60)?.gapWeeksMin).toBe(8)
   })
 })

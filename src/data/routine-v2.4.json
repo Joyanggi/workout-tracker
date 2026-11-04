@@ -2,7 +2,7 @@
   "id": "physique-v2.4",
   "name": "피지크형 상체 루틴 v2.4",
   "version": "2.4",
-  "seedRevision": 2,
+  "seedRevision": 3,
   "createdAt": "2026-07-31T00:00:00.000Z",
   "isActive": true,
   "muscleTargets": {
@@ -526,21 +526,27 @@
     "returnProtocol": [
       {
         "gapWeeksMin": 2,
-        "weightPct": -5,
+        "gapDaysMin": 14,
+        "weightPct": 0,
+        "weightRule": "keep",
         "setPct": -30,
         "targetRIR": 3,
         "rampWeeks": 1
       },
       {
         "gapWeeksMin": 4,
-        "weightPct": -10,
+        "gapDaysMin": 29,
+        "weightPct": 0,
+        "weightRule": "oneStep",
         "setPct": -40,
         "targetRIR": 3,
         "rampWeeks": 2
       },
       {
         "gapWeeksMin": 8,
+        "gapDaysMin": 56,
         "weightPct": -20,
+        "weightRule": "pctSnapDown",
         "setPct": -50,
         "targetRIR": 4,
         "rampWeeks": 3

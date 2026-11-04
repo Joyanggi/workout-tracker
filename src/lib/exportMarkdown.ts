@@ -2,11 +2,19 @@ import type { Exercise, Phase, RoutineTemplate, Session, SessionEntry } from '..
 import { parseRecordKey } from '../types'
 import { hasCompensation } from './compensation'
 import { formatClock, weekdayKo } from './dates'
+import { dayLabel, sessionDayGapLine } from './dayGap'
 import { withObjectParticle } from './korean'
-import { completedSessions, doneSets, routineExerciseOfEntry, orderDeviations } from './derive'
+import {
+  completedSessions,
+  doneSets,
+  hasStrengthWork,
+  routineExerciseOfEntry,
+  orderDeviations,
+} from './derive'
 import { holdReasonText, progressionVerdicts, type ProgressionVerdict } from './progression'
 import {
   entrySetLine,
+  entryWeightLine,
   entrySetPlan,
   resolveSessionAdjust,
   sessionAdjustText,
@@ -117,11 +125,6 @@ export function dietSectionMarkdown(plan: DietPlan, day: DietDay): string[] {
   return out
 }
 
-/** "Day 1 — Push" → "Day 1 Push" (§6 예시 표기) */
-function dayLabel(name: string): string {
-  return name.replace(' — ', ' ')
-}
-
 function entryLine(
   entry: SessionEntry,
   session: Session,
@@ -159,6 +162,8 @@ function entryLine(
   const setPlan = session.mode !== 'normal' ? entrySetPlan(entry, routine, adjust) : undefined
   const setLine = setPlan ? entrySetLine(setPlan, session.mode) : undefined
   if (setLine) lines.push(setLine)
+  const weightLine = entryWeightLine(entry, session.mode)
+  if (weightLine) lines.push(weightLine)
 
   /*
    * 세트 간 간격 (Z3) — **파생값만 낸다. 입력 UI는 만들지 않는다.**
@@ -210,6 +215,17 @@ function entryLine(
   return lines
 }
 
+/** 유산소·메모 줄 — 근력 세션과 유산소만 세션이 같이 쓴다 (KK5) */
+function cardioNoteLines(session: Session): string[] {
+  const out: string[] = []
+  if (session.cardio) {
+    const note = session.cardio.note ? `${session.cardio.note} · ` : ''
+    out.push(`유산소: ${session.cardio.type} ${note}${session.cardio.minutes}분`)
+  }
+  if (session.sessionNote) out.push(`메모: ${session.sessionNote}`)
+  return out
+}
+
 export function sessionToMarkdown(
   session: Session,
   routine: RoutineTemplate,
@@ -234,6 +250,19 @@ export function sessionToMarkdown(
   const modeTag =
     session.mode === 'deload' ? ' [디로드]' : session.mode === 'return' ? ' [복귀]' : ''
 
+  /*
+   * 근력 작업 세트가 없는 세션(유산소만)은 Day 헤더와 `미수행:` 일곱 줄이 "Push를 통째로
+   * 건너뛰었다"로 읽힌다. 앱은 이런 세션을 근력 세션이 아니라고 정의하므로(`hasStrengthWork`)
+   * 내보내기도 같은 정의로 유산소·메모만 남긴다 (KK5).
+   */
+  if (!hasStrengthWork(session)) {
+    const label = session.cardio ? '유산소만' : '근력 기록 없음'
+    return [
+      `## ${session.date} (${weekdayKo(session.date)}) — ${label}  ${time}`,
+      ...cardioNoteLines(session),
+    ].join('\n')
+  }
+
   const out: string[] = []
   out.push(
     `## ${session.date} (${weekdayKo(session.date)}) — ${dayLabel(day?.name ?? session.dayId)}${modeTag}  ${time}`,
@@ -242,6 +271,8 @@ export function sessionToMarkdown(
   const adjust = resolveSessionAdjust(session, routine, sessions)
   const adjustLine = sessionAdjustText(session, sessionSetPlan(session, routine, adjust), adjust)
   if (adjustLine) out.push(adjustLine)
+  const gapLine = sessionDayGapLine(session, routine, sessions)
+  if (gapLine) out.push(gapLine)
 
   const timeline = orderDeviations(session)
   if (timeline.length > 0) {
@@ -285,11 +316,7 @@ export function sessionToMarkdown(
     out.push(`미수행: ${notDone.map((e) => nameOf(e.recordKey)).join(', ')}`)
   }
 
-  if (session.cardio) {
-    const note = session.cardio.note ? `${session.cardio.note} · ` : ''
-    out.push(`유산소: ${session.cardio.type} ${note}${session.cardio.minutes}분`)
-  }
-  if (session.sessionNote) out.push(`메모: ${session.sessionNote}`)
+  out.push(...cardioNoteLines(session))
 
   return out.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd()
 }
@@ -350,7 +377,9 @@ export function exportMarkdown(args: {
    * 식단만 기록한 날도 내보낸다 — 빼면 "회식 다음 날" 같은 패턴을 LLM이 볼 수 없다.
    * 운동이 있는 날은 운동 섹션 아래에 붙이고, 없는 날은 날짜 헤더만 세워 붙인다.
    */
-  const dates = [...new Set([...inRange.map((s) => s.date), ...dietByDate.keys()])].sort()
+  // 슬롯 기록이 없어 식단 절이 비는 날은 넣지 않는다 — 빈 날짜 줄이 남는다 (KK5)
+  const dietDates = [...dietByDate.keys()].filter((d) => dietLines(d).length > 0)
+  const dates = [...new Set([...inRange.map((s) => s.date), ...dietDates])].sort()
   // 식단 섹션이 실제로 나올 때만 범례를 붙인다 (II3) — 머리는 dates 계산 뒤에 만든다
   const hasDiet = dates.some((d) => dietLines(d).length > 0)
   /*

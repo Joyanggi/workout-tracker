@@ -100,7 +100,7 @@ describe('HH1', () => {
 
   it('복귀 세션: 사유 접미사와 무게가 같이 맞다', () => {
     const m = md({ weight: 8.75, reps: [10, 10, 10], mode: 'return', scale: S125 })
-    expect(next(m)).toBe(`다음: 8.75kg 유지 (반복 상단 도달 · 계획 ${NORMAL_RE.sets}세트 중 3세트 · 복귀 세션)`)
+    expect(next(m)).toBe(`다음: 8.75kg 유지 (반복 상단 도달 · 계획 ${NORMAL_RE.sets}세트 중 3세트 · 복귀 세션 — ${NORMAL_RE.sets}세트로는 아직 시험 안 됨)`) // KK4(PLAN-v1.13)
   })
 
   it('디로드 세션: 헤더 무게', () => {

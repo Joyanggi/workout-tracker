@@ -405,16 +405,16 @@ describe('GG1 — 보류 사유', () => {
   it('필드리포트 재현: 인클라인 30kg 10/10/10 · 복귀 → sets 3/4 복귀 세션, 체스트프레스 12/12 → 3세트 중 2세트', () => {
     const v = inclineJudge([10, 10, 10], { mode: 'return' })
     expect(v).toEqual({ kind: 'hold', from: 30, reason: { kind: 'sets', done: 3, planned: 4, mode: 'return' } })
-    expect(holdReasonText(reasonOf(v))).toBe('반복 상단 도달 · 계획 4세트 중 3세트 · 복귀 세션')
+    expect(holdReasonText(reasonOf(v))).toBe('반복 상단 도달 · 계획 4세트 중 3세트 · 복귀 세션 — 4세트로는 아직 시험 안 됨') // KK4(PLAN-v1.13): 세트 부족 사유 끝에 다음 시험을 말한다
     const chest = judgeProgression({
       routine: ROUTINE, routineExercise: planned('d1', 'flat-chest-press'), phase: PHASE, sets: refs(25, [12, 12]),
     })
-    expect(holdReasonText(reasonOf(chest))).toBe('반복 상단 도달 · 계획 3세트 중 2세트')
+    expect(holdReasonText(reasonOf(chest))).toBe('반복 상단 도달 · 계획 3세트 중 2세트 — 3세트로는 아직 시험 안 됨') // KK4(PLAN-v1.13)
   })
 
   it('디로드: 같은 입력, mode deload → "· 디로드 세션"', () => {
     const v = inclineJudge([10, 10, 10], { mode: 'deload' })
-    expect(holdReasonText(reasonOf(v))).toBe('반복 상단 도달 · 계획 4세트 중 3세트 · 디로드 세션')
+    expect(holdReasonText(reasonOf(v))).toBe('반복 상단 도달 · 계획 4세트 중 3세트 · 디로드 세션 — 4세트로는 아직 시험 안 됨') // KK4(PLAN-v1.13)
   })
 
   it('반복 미달 문구: 10/8/7, repMax 10 → "반복 상단(10회) 미달 — 3세트 중 1세트 도달"', () => {
@@ -555,7 +555,7 @@ describe('GG1 — 내보내기', () => {
   const sets = (reps: number[]) => reps.map((r) => ({ weight: 30, reps: r, done: true, doneAt: '2026-08-26T09:10:00.000Z' }))
 
   it('사유 4종의 "다음:" 줄', () => {
-    expect(line(one((e) => (e.sets = sets([10, 10, 10]))), '인클라인')).toBe('다음: 30kg 유지 (반복 상단 도달 · 계획 4세트 중 3세트)')
+    expect(line(one((e) => (e.sets = sets([10, 10, 10]))), '인클라인')).toBe('다음: 30kg 유지 (반복 상단 도달 · 계획 4세트 중 3세트 — 4세트로는 아직 시험 안 됨)') // KK4(PLAN-v1.13)
     expect(line(one((e) => (e.sets = sets([10, 8, 7, 7]))), '인클라인')).toBe('다음: 30kg 유지 (반복 상단(10회) 미달 — 4세트 중 1세트 도달)')
     expect(
       line(one((e) => { e.sets = sets([10, 10, 10, 10]); e.compensation = '허리 젖힘' }), '인클라인'),
@@ -586,9 +586,9 @@ describe('GG1 — 과거 판정 불변 (2026-08-26 픽스처)', () => {
     expect(now).toHaveLength(GG1_EXPORT_BEFORE.length)
     const changed = now.map((l, i) => [GG1_EXPORT_BEFORE[i], l]).filter(([b, a]) => b !== a)
     expect(changed).toEqual([
-      ['다음: 30kg 유지', '다음: 30kg 유지 (반복 상단 도달 · 계획 4세트 중 3세트 · 복귀 세션)'],
-      ['다음: 25kg 유지', '다음: 25kg 유지 (반복 상단 도달 · 계획 3세트 중 2세트 · 복귀 세션)'],
-      ['다음: 15kg 유지', '다음: 15kg 유지 (반복 상단 도달 · 계획 3세트 중 2세트 · 복귀 세션)'],
+      ['다음: 30kg 유지', '다음: 30kg 유지 (반복 상단 도달 · 계획 4세트 중 3세트 · 복귀 세션 — 4세트로는 아직 시험 안 됨)'], // KK4(PLAN-v1.13)
+      ['다음: 25kg 유지', '다음: 25kg 유지 (반복 상단 도달 · 계획 3세트 중 2세트 · 복귀 세션 — 3세트로는 아직 시험 안 됨)'],
+      ['다음: 15kg 유지', '다음: 15kg 유지 (반복 상단 도달 · 계획 3세트 중 2세트 · 복귀 세션 — 3세트로는 아직 시험 안 됨)'],
     ])
   })
 

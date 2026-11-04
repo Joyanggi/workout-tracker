@@ -73,15 +73,14 @@ export function majorMuscles(day: RoutineDay): Set<MuscleKey> {
   return out
 }
 
-/** gap(일)에 해당하는 복귀 프로토콜 단계. 가장 큰 gapWeeksMin이 우선 */
+/** gap(일)에 해당하는 복귀 프로토콜 단계. 가장 큰 단계가 우선. 경계는 `gapDaysMin`(없으면 gapWeeksMin × 7)의 `>=` 하나다 (KK1) */
 export function returnStepFor(
   routine: RoutineTemplate,
   gapDays: number,
 ): ReturnProtocolStep | undefined {
-  const weeks = gapDays / 7
   let match: ReturnProtocolStep | undefined
   for (const step of routine.rules.returnProtocol) {
-    if (weeks >= step.gapWeeksMin) match = step
+    if (gapDays >= (step.gapDaysMin ?? step.gapWeeksMin * 7)) match = step
   }
   return match
 }

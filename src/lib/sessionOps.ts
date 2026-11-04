@@ -177,6 +177,8 @@ export function applySubstitute(
     firstSetAt: undefined,
     sensoryScore: undefined,
     sensoryNote: undefined,
+    // 새 행의 무게는 앱의 복귀 무게가 아니다 (KK1)
+    returnWeight: undefined,
     compensation: NO_COMPENSATION,
     skipped: false,
   }))

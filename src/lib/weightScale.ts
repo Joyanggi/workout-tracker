@@ -117,6 +117,17 @@ export function stepDown(current: number, scale: WeightScale): number {
 }
 
 /**
+ * `current`보다 **작은** 기구 무게 중 가장 큰 것 (KK1 복귀 "한 단계 내림").
+ * 사다리면 `stepDown`과 같다(최하단이면 그대로). 균일 단위면 격자 위에서 한 칸 아래다 —
+ * 30 → 27.5, 31 → 30(단위 밖 값에서도 격자로), 2.5 → 0. `stepDown`은 스테퍼 동작이라 건드리지 않는다.
+ */
+export function stepBelow(current: number, scale: WeightScale): number {
+  if (scale.ladder?.length) return stepDown(current, scale)
+  if (scale.step <= 0) return round2(current)
+  return round2(Math.max(0, Math.ceil(current / scale.step - 1e-9) * scale.step - scale.step))
+}
+
+/**
  * 이 스택에서 실제로 걸 수 있는 무게로 내림 (CC13).
  *
  * **내림이다.** 추정 시작 무게는 "실제보다 가볍게"가 규칙이므로(남는 것이 부족한 것보다
