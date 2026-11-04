@@ -944,3 +944,122 @@ describe('KK4', () => {
     })
   })
 })
+
+// ─── KK5 ─────────────────────────────────────────────────
+
+describe('KK5', () => {
+  const all = buildFieldSessions()
+  const cardioOnly = () => all.find((s) => s.date === '2026-08-03')!
+  const md = (s: Session) => sessionToMarkdown(s, ROUTINE, catalog, PHASE, undefined, all)
+  const fieldMd = () => renderFieldExport()
+
+  describe('유산소만 한 세션', () => {
+    it('08-03 (D1, 유산소 마이마운틴 30, 체크 0) → 헤더 + 유산소 줄뿐', () => {
+      const out = md(cardioOnly())
+      expect(out).toMatch(
+        /^## 2026-08-03 \(월\) — 유산소만  \[\d\d:\d\d–\d\d:\d\d, 0분\]\n유산소: 유산소 마이마운틴 · 30분$/,
+      )
+      for (const w of ['미수행', 'Day 1', '수행 순서', '복귀']) expect(out).not.toContain(w)
+    })
+    it('내보내기 전문의 08-03 블록이 같은 모양이다', () => {
+      expect(fieldMd()).toContain(
+        '## 2026-08-03 (월) — 유산소만  [시각, 0분]\n유산소: 유산소 마이마운틴 · 30분\n',
+      )
+      expect(fieldMd()).not.toContain('미수행:')
+    })
+    it('워밍업만 체크 + 유산소 → 유산소만', () => {
+      const s = structuredClone(cardioOnly())
+      s.entries[0].sets = [{ weight: 20, reps: 10, done: true, warmup: true }]
+      expect(md(s)).toContain('— 유산소만  ')
+    })
+    it('체크 0 + 유산소 없음 + 메모 → 근력 기록 없음 + 메모 줄', () => {
+      const s = structuredClone(cardioOnly())
+      delete s.cardio
+      s.sessionNote = '컨디션 나쁨'
+      const out = md(s)
+      expect(out).toMatch(/^## 2026-08-03 \(월\) — 근력 기록 없음  \[/)
+      expect(out.split('\n').slice(1)).toEqual(['메모: 컨디션 나쁨'])
+    })
+    it('유산소만 + mode return → [복귀]·복귀 조정: 없음', () => {
+      const s = { ...structuredClone(cardioOnly()), mode: 'return' as SessionMode }
+      const out = md(s)
+      expect(out).not.toContain('[복귀]')
+      expect(out).not.toContain('복귀 조정:')
+      expect(out).toContain('— 유산소만')
+    })
+    it('유산소 + 메모 → 두 줄 모두', () => {
+      const s = structuredClone(cardioOnly())
+      s.sessionNote = '비 와서 실내'
+      expect(md(s).split('\n').slice(1)).toEqual(['유산소: 유산소 마이마운틴 · 30분', '메모: 비 와서 실내'])
+    })
+  })
+
+  describe('내용 없는 식단 날짜', () => {
+    it('슬롯 없는 식단 레코드만 있는 08-12 → 날짜 줄이 없다', () => {
+      expect(fieldMd()).not.toContain('## 2026-08-12')
+    })
+    it('슬롯 하나 기록한 날 → 운동 없음 블록이 남는다', () => {
+      const out = exportMarkdown({
+        sessions: [],
+        routine: ROUTINE,
+        catalog,
+        phase: PHASE,
+        range: { from: '2026-08-01', to: '2026-08-31' },
+        dietPlans: BUNDLED_DIET_PLANS,
+        dietDays: buildFieldDiet().filter((d) => d.date === '2026-08-04'),
+      })
+      expect(out).toContain('## 2026-08-04 (화) — 운동 없음')
+      expect(out).toContain('### 식단')
+    })
+    it('그 레코드 하나뿐인 기간 → (기간 내 기록 없음)', () => {
+      const out = exportMarkdown({
+        sessions: [],
+        routine: ROUTINE,
+        catalog,
+        phase: PHASE,
+        range: { from: '2026-08-01', to: '2026-08-31' },
+        dietPlans: BUNDLED_DIET_PLANS,
+        dietDays: buildFieldDiet().filter((d) => d.date === '2026-08-12'),
+      })
+      expect(out).toContain('(기간 내 기록 없음)')
+      expect(out).not.toContain('## 2026-08-12')
+    })
+  })
+
+  describe('근력 세션 불변', () => {
+    it('KK_EXPORT_BEFORE와 달라지는 줄은 08-03 블록 · 08-12 · 복귀 (당시 규칙) · 세트 사유 · Day 공백뿐', () => {
+      const before = KK_EXPORT_BEFORE.split('\n')
+      const after = fieldMd().split('\n')
+      const bset = new Set(before)
+      const added = after.filter((l) => !bset.has(l))
+      const allowed = (l: string) =>
+        l.startsWith('## 2026-08-03') ||
+        l.startsWith('유산소: 유산소 마이마운틴') ||
+        l.startsWith('Day 공백 ') ||
+        l.startsWith('복귀 조정:') ||
+        l.startsWith('다음: ') ||
+        /^세트: /.test(l) ||
+        /^### /.test(l) ||
+        /^\d+ \/ /.test(l) ||
+        /^간격:/.test(l)
+      expect(added.filter((l) => !allowed(l))).toEqual([])
+    })
+    it('근력 세션의 Day 헤더 블록은 그대로다 (08-05)', () => {
+      const pick = (t: string) => t.slice(t.indexOf('## 2026-08-05'), t.indexOf('## 2026-08-06'))
+      expect(pick(fieldMd())).toBe(pick(KK_EXPORT_BEFORE))
+    })
+  })
+
+  describe('소스 스캔', () => {
+    const raw = import.meta.glob('/src/lib/exportMarkdown.ts', {
+      query: '?raw',
+      import: 'default',
+      eager: true,
+    }) as Record<string, string>
+    it('exportMarkdown.ts가 hasStrengthWork를 import하고 쓴다', () => {
+      const src = stripComments(raw['/src/lib/exportMarkdown.ts'])
+      expect(src).toMatch(/import \{[^}]*\bhasStrengthWork\b[^}]*\} from '\.\/derive'/)
+      expect(src).toContain('!hasStrengthWork(session)')
+    })
+  })
+})
