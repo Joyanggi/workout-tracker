@@ -1,12 +1,22 @@
 import { describe, expect, it } from 'vitest'
 import { buildSession } from './sessionFactory'
-import { modeAdjustFor, returnStepText, returnWeightFor, returnWeightRuleOf } from './setPlan'
+import {
+  entryWeightLine,
+  modeAdjustFor,
+  resolveSessionAdjust,
+  returnStepText,
+  returnWeightFor,
+  returnWeightRuleOf,
+  sessionAdjustText,
+  sessionReturnRirText,
+  sessionSetPlan,
+} from './setPlan'
 import { returnStepFor } from './suggestNextDay'
 import { snapDownToScale, stepBelow, type WeightScale, type WeightScaleMap } from './weightScale'
 import { applySubstitute, applyAddExercise } from './sessionOps'
 import { applyDayChange } from './dayChange'
 import { stripComments } from './sourceScan'
-import { exportMarkdown } from './exportMarkdown'
+import { exportMarkdown, sessionToMarkdown } from './exportMarkdown'
 import { validateRoutine } from '../db/validateRoutine'
 import { ROUTINE, completedSession } from './testFixtures'
 import EXERCISES from '../data/exercises.json'
@@ -478,5 +488,186 @@ describe('KK 골든', () => {
     expect(sessions).toHaveLength(11)
     expect(buildFieldDiet()).toHaveLength(5)
     for (const s of sessions) expect(KK_EXPORT_BEFORE).toContain(`## ${s.date} `)
+  })
+})
+
+// ─── KK2 ─────────────────────────────────────────────────
+
+describe('KK2', () => {
+  const END = '2026-10-07T19:30:00.000Z'
+  /** 전 행 체크 + 수행한 것으로 (내보내기 본문은 performedOrder가 있는 종목만 쓴다) */
+  const done = (s: Session): Session => ({
+    ...s,
+    endedAt: END,
+    entries: s.entries.map((e) => ({
+      ...e,
+      performedOrder: e.plannedOrder,
+      firstSetAt: '2026-10-07T18:20:00.000Z',
+      sets: e.sets.map((x) => ({ ...x, done: true })),
+    })),
+  })
+  const stepRun = (i: number) => done(build('return', { step: STEPS[i] }))
+  const md = (s: Session, sessions?: Session[]) =>
+    sessionToMarkdown(s, ROUTINE, catalog, PHASE, undefined, sessions).split('\n')
+  const next = (lines: string[]) => lines[lines.findIndex((l) => l.startsWith('## 2026-10-07')) + 1]
+  /** JJ 이전 모양: 저장값(modeAdjust·plannedSets·returnWeight) 없음 */
+  const stripNew = (s: Session): Session => {
+    const { modeAdjust: _m, ...rest } = s
+    void _m
+    return {
+      ...rest,
+      entries: s.entries.map((e) => {
+        const { plannedSets: _p, returnWeight: _r, ...r } = e
+        void _p
+        void _r
+        return r
+      }),
+    }
+  }
+  const prior = (daysBefore: number): Session[] => {
+    const d = new Date(Date.UTC(2026, 9, 7) - daysBefore * 86400000).toISOString().slice(0, 10)
+    return [completedSession({ dayId: 'd1', date: d, weight: 40 })]
+  }
+  const TAIL = ' — 계획 22세트 → 15세트 생성 · 완료 15세트'
+
+  describe('헤더', () => {
+    it('KK 이후 복귀 1단계 → 세트 −30% · 무게 유지 · 반복 3회 남기기', () => {
+      expect(next(md(stepRun(0)))).toBe(`복귀 조정: 세트 −30% · 무게 유지 · 반복 3회 남기기${TAIL}`)
+    })
+    it('KK 이후 복귀 2단계 → 무게 한 단계 내림', () => {
+      expect(
+        next(md(stepRun(1))).startsWith('복귀 조정: 세트 −40% · 무게 한 단계 내림 · 반복 3회 남기기 — 계획 22세트'),
+      ).toBe(true)
+    })
+    it('KK 이후 복귀 3단계 → 무게 −20% (기구 무게로 내림) · 반복 4회', () => {
+      expect(
+        next(md(stepRun(2))).startsWith(
+          '복귀 조정: 세트 −50% · 무게 −20% (기구 무게로 내림) · 반복 4회 남기기 — 계획 22세트',
+        ),
+      ).toBe(true)
+    })
+    it('v1.12 모양(modeAdjust {-30,-5} + plannedSets) → 무게 −5% (당시 규칙)', () => {
+      const s = { ...stepRun(0), modeAdjust: { setPct: -30, weightPct: -5 } }
+      expect(next(md(s))).toBe(`복귀 조정: 세트 −30% · 무게 −5% (당시 규칙)${TAIL}`)
+    })
+    it('JJ 이전 모양(저장값 없음, 21일 전) → (당시 규칙) (공백 21일로 재계산)', () => {
+      expect(next(md(stripNew(stepRun(0)), prior(21)))).toBe(
+        '복귀 조정: 세트 −30% · 무게 −5% (당시 규칙) (공백 21일로 재계산) — 현재 루틴 계획 22세트 → 15세트 생성 · 완료 15세트',
+      )
+    })
+    it('JJ 이전 모양, 공백 28일 → 옛 경계로 세트 −40% · 무게 −10% (당시 규칙)', () => {
+      expect(
+        next(md(stripNew(stepRun(0)), prior(28))).startsWith(
+          '복귀 조정: 세트 −40% · 무게 −10% (당시 규칙) (공백 28일로 재계산)',
+        ),
+      ).toBe(true)
+    })
+    it('JJ 이전 모양 + 루틴 사본의 returnProtocol을 []로 → 결과가 같다 (되짚기가 현재 루틴을 읽지 않는다)', () => {
+      const empty = { ...ROUTINE, rules: { ...ROUTINE.rules, returnProtocol: [] } } as RoutineTemplate
+      const s = stripNew(stepRun(0))
+      const a = sessionToMarkdown(s, ROUTINE, catalog, PHASE, undefined, prior(21))
+      const b = sessionToMarkdown(s, empty, catalog, PHASE, undefined, prior(21))
+      expect(b).toBe(a)
+    })
+    it('디로드(저장·되짚기)·step 없는 복귀는 JJ 문자열 그대로', () => {
+      const dl = done(build('deload'))
+      expect(next(md(dl))).toMatch(/^디로드 조정: 세트 −50% — /)
+      expect(next(md(stripNew(dl), prior(21)))).toMatch(/^디로드 조정: 세트 −50% \(재계산\) — /)
+      expect(next(md(done(build('return'))))).toMatch(/^복귀 조정: 없음 — /)
+    })
+  })
+
+  describe('entryWeightLine', () => {
+    const incline = (step: number, w: number) => {
+      const s = build('return', { step: STEPS[step] })
+      const e = s.entries.find((x) => x.recordKey === K_INCLINE)!
+      return { ...e, sets: e.sets.map((x) => ({ ...x, weight: w, done: true })) }
+    }
+    it('2단계 인클라인 기준 40 → 복귀 37.5, 수행 40 / 37.5', () => {
+      expect(entryWeightLine(incline(1, 40), 'return')).toBe('무게: 기준 40 → 복귀 37.5 · 수행 40')
+      expect(entryWeightLine(incline(1, 37.5), 'return')).toBe('무게: 기준 40 → 복귀 37.5 · 수행 37.5')
+    })
+    it('사다리 최하단(given === base) → 내릴 무게 없음', () => {
+      const e = { ...incline(1, 15), returnWeight: { base: 15, given: 15 } }
+      expect(entryWeightLine(e, 'return')).toBe('무게: 기준 15 · 내릴 무게 없음 · 수행 15')
+    })
+    it('어시스티드(given > base)도 기준 → 복귀 모양', () => {
+      const e = { ...incline(1, 35), returnWeight: { base: 30, given: 35 } }
+      expect(entryWeightLine(e, 'return')).toBe('무게: 기준 30 → 복귀 35 · 수행 35')
+    })
+    it('1단계·v1.12 세션·대체·얹은 종목·normal은 undefined', () => {
+      expect(entryWeightLine(incline(0, 40), 'return')).toBeUndefined()
+      const { returnWeight: _r, ...v112 } = incline(1, 40)
+      void _r
+      expect(entryWeightLine(v112, 'return')).toBeUndefined()
+      expect(entryWeightLine({ ...incline(1, 40), substituteFor: K_INCLINE }, 'return')).toBeUndefined()
+      expect(entryWeightLine({ ...incline(1, 40), extra: true }, 'return')).toBeUndefined()
+      expect(entryWeightLine(incline(1, 40), 'normal')).toBeUndefined()
+    })
+    it('종목 블록 순서(2단계): 반복 줄 → 세트: → 무게: → 간격: → 보상작용:', () => {
+      const lines = md(stepRun(1))
+      const i = lines.findIndex((l) => l.startsWith('### 인클라인'))
+      const kinds = lines.slice(i + 2, i + 6).map((l) => l.split(':')[0])
+      expect(lines[i + 1]).toMatch(/^[\d / ]+$/)
+      expect(kinds).toEqual(['세트', '무게', '간격', '보상작용'])
+    })
+  })
+
+  describe('sessionReturnRirText', () => {
+    const run = (i: number) => build('return', { step: STEPS[i] })
+    it('KK 1단계 → 복귀 — 반복 3회 남기기 · 3단계 → 반복 4회', () => {
+      const s = run(0)
+      expect(sessionReturnRirText(s, s.entries[0])).toBe('복귀 — 반복 3회 남기기')
+      const s3 = run(2)
+      expect(sessionReturnRirText(s3, s3.entries[0])).toBe('복귀 — 반복 4회 남기기')
+    })
+    it('대체 entry는 붙고 얹은 종목(extra)은 undefined', () => {
+      const s = run(0)
+      expect(sessionReturnRirText(s, { ...s.entries[0], substituteFor: K_INCLINE })).toBe('복귀 — 반복 3회 남기기')
+      expect(sessionReturnRirText(s, { ...s.entries[0], extra: true })).toBeUndefined()
+    })
+    it('step 없음·v1.12 복귀·normal·deload → undefined', () => {
+      const none = build('return')
+      expect(sessionReturnRirText(none, none.entries[0])).toBeUndefined()
+      const old = { ...run(0), modeAdjust: { setPct: -30, weightPct: -5 } }
+      expect(sessionReturnRirText(old, old.entries[0])).toBeUndefined()
+      for (const m of ['normal', 'deload'] as const) {
+        const s = build(m)
+        expect(sessionReturnRirText(s, s.entries[0])).toBeUndefined()
+      }
+    })
+  })
+
+  describe('종료 시트 = 내보내기', () => {
+    it('sessionAdjustText 한 줄이 내보내기 헤더 다음 줄과 같다 (KK 1단계)', () => {
+      const s = stepRun(0)
+      const adjust = resolveSessionAdjust(s, ROUTINE, [s])
+      const plan = sessionSetPlan(s, ROUTINE, adjust)
+      expect(sessionAdjustText(s, plan, adjust)).toBe(next(md(s)))
+    })
+  })
+
+  describe('소스 스캔', () => {
+    const raw = import.meta.glob(
+      ['/src/lib/exportMarkdown.ts', '/src/components/ExerciseCard.tsx', '/src/screens/HomeScreen.tsx', '/src/lib/setPlan.ts'],
+      { query: '?raw', import: 'default', eager: true },
+    ) as Record<string, string>
+    const src = (name: string) => stripComments(raw[name])
+    it('exportMarkdown.ts·ExerciseCard.tsx·HomeScreen.tsx에 남기기·당시 규칙·한 단계·무게 유지 리터럴 없음', () => {
+      for (const f of ['/src/lib/exportMarkdown.ts', '/src/components/ExerciseCard.tsx', '/src/screens/HomeScreen.tsx']) {
+        // 디로드 배너의 `세트 50%, 무게 유지`(HomeScreen)는 복귀 문구가 아니라 제외한다
+        const text = src(f).replace('디로드 권장 — 세트 50%, 무게 유지', '')
+        for (const lit of ['남기기', '당시 규칙', '한 단계', '무게 유지']) expect(text, `${f} ${lit}`).not.toContain(lit)
+      }
+    })
+    it('ExerciseCard.tsx는 targetRIR을 읽지 않는다', () => {
+      expect(src('/src/components/ExerciseCard.tsx')).not.toContain('targetRIR')
+    })
+    it('setPlan.ts: LEGACY_RETURN_PROTOCOL 있음, resolveSessionAdjust 안에 returnStepFor( 없음', () => {
+      const s = src('/src/lib/setPlan.ts')
+      expect(s).toContain('LEGACY_RETURN_PROTOCOL')
+      const body = s.slice(s.indexOf('export function resolveSessionAdjust'), s.indexOf('export interface EntrySetPlan'))
+      expect(body).not.toContain('returnStepFor(')
+    })
   })
 })

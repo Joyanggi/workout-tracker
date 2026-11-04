@@ -9,7 +9,7 @@ import type {
 } from '../types'
 import { daysBetween } from './dates'
 import { doneSets, routineExerciseOfEntry, strengthSessions, workSetRows } from './derive'
-import { easierWeight, snapDownToScale, stepBelow, type WeightScale } from './weightScale'
+import { easierWeight, formatWeight, snapDownToScale, stepBelow, type WeightScale } from './weightScale'
 
 /**
  * 세트 계획 초크포인트 (JJ1).
@@ -242,7 +242,23 @@ export function sessionAdjustText(
     const parts =
       adjust.setPct === 0 && adjust.weightPct === 0
         ? '없음'
-        : [`세트 ${signedPct(adjust.setPct)}`, ...(adjust.weightPct !== 0 ? [`무게 ${signedPct(adjust.weightPct)}`] : [])].join(' · ')
+        : adjust.weightRule !== undefined
+          ? // KK 이후 저장값: 실제 적용분(규칙)과 여유 반복을 말한다
+            [
+              `세트 ${signedPct(adjust.setPct)}`,
+              returnWeightText(adjust.weightRule, adjust.weightPct),
+              ...(adjust.targetRIR !== undefined ? [returnRirText(adjust.targetRIR)] : []),
+            ].join(' · ')
+          : [
+              `세트 ${signedPct(adjust.setPct)}`,
+              ...(adjust.weightPct !== 0
+                ? [
+                    `무게 ${signedPct(adjust.weightPct)}` +
+                      // KK2: 규칙 이름이 없는 복귀는 KK 이전 곱셈 규칙이다 — 결과처럼 읽히지 않게 밝힌다
+                      (session.mode === 'return' ? ' (당시 규칙)' : ''),
+                  ]
+                : []),
+            ].join(' · ')
     const derived =
       adjust.source === 'derived'
         ? adjust.gapDays !== undefined
@@ -264,6 +280,26 @@ export function entrySetLine(plan: EntrySetPlan, mode: SessionMode): string | un
     return `세트: 계획 ${plan.planned} · 완료 ${plan.done}`
   }
   return `세트: 계획 ${plan.planned} → ${MODE_NAME[mode]} 조정 ${plan.given} · 완료 ${plan.done}`
+}
+
+/**
+ * 종목 줄 `무게:` (KK2) — 복귀 감량이 실제로 걸린 entry만. `기준`·`복귀`는 생성 때 저장한 `returnWeight`,
+ * `수행`은 그 종목 완료 세트의 최고 무게(헤더 무게와 같은 값). 대체·얹은 종목·KK 이전 세션은 `undefined`.
+ */
+export function entryWeightLine(entry: SessionEntry, mode: SessionMode): string | undefined {
+  const rw = entry.returnWeight
+  if (mode !== 'return' || !rw || entry.substituteFor || entry.extra) return undefined
+  const sets = doneSets(entry)
+  const done = sets.length > 0 ? ` · 수행 ${formatWeight(Math.max(...sets.map((s) => s.weight)))}` : ''
+  if (rw.given === rw.base) return `무게: 기준 ${formatWeight(rw.base)} · 내릴 무게 없음${done}`
+  return `무게: 기준 ${formatWeight(rw.base)} → 복귀 ${formatWeight(rw.given)}${done}`
+}
+
+/** 종목 카드 칩 (KK2) — KK 이후 복귀 세션의 계획 종목(대체 포함, 얹은 종목 제외) */
+export function sessionReturnRirText(session: Session, entry: SessionEntry): string | undefined {
+  const rir = session.modeAdjust?.targetRIR
+  if (session.mode !== 'return' || rir === undefined || entry.extra) return undefined
+  return `복귀 — ${returnRirText(rir)}`
 }
 
 export interface PartialEntry {

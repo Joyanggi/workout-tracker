@@ -98,6 +98,7 @@ export default function ExerciseCard({
    * 뜨면 화면이 서로 다른 말을 한다.
    */
   sessionMode = 'normal',
+  modeIntensity,
 }: {
   entry: SessionEntry
   routineExercise: RoutineExercise
@@ -137,6 +138,8 @@ export default function ExerciseCard({
   onSetChecked?: (routineExercise: RoutineExercise) => void
   showPrefillHints?: boolean
   sessionMode?: SessionMode
+  /** 복귀 세션 칩 (KK2) — 문구는 setPlan의 sessionReturnRirText */
+  modeIntensity?: string
 }) {
   const [editingCompensation, setEditingCompensation] = useState(false)
   // 종목별 고정 설정 — 세팅 메모(T4) + 무게 단위(T9).
@@ -366,6 +369,7 @@ export default function ExerciseCard({
           </button>
           </div>
           <div className="ex-chips">
+            {showPrefillHints && modeIntensity && <span className="chip">{modeIntensity}</span>}
             <span className="chip">{routineExercise.group}그룹</span>
             <span className="chip">휴식 {routineExercise.restSec}초</span>
             {routineExercise.optional && <span className="chip chip-warn">컨디션 좋을 때만</span>}

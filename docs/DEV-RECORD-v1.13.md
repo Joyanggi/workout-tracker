@@ -109,3 +109,69 @@ Test Files  54 passed (54)
 Tests  1201 passed (1201)
 npm run build: 성공 (tsc -b && vite build, precache 24 entries)
 ```
+
+---
+
+## KK2. 복귀 세션이 실제 적용분과 여유 반복을 말한다
+
+### 범위
+
+| 커밋 | 내용 | 바뀐 파일 |
+|---|---|---|
+| `5b187e1` (골든, KK2 앞) | `FIELD_1104`(보고서 0절 11세션·식단 5건)·`KK_EXPORT_BEFORE`(**v1.12 코드 `609072f`를 별도 worktree에 체크아웃해** `exportMarkdown`으로 뽑은 전문). 이후 고치지 않는다 | `v113.test.ts` |
+| KK2 (이 커밋) | `sessionAdjustText` KK 문구·`(당시 규칙)`, `entryWeightLine`, `sessionReturnRirText`, 내보내기 `무게:` 줄, 카드 `modeIntensity` 칩 | `setPlan.ts` · `exportMarkdown.ts` · `ExerciseCard.tsx` · `SessionScreen.tsx` · `v112.test.ts` · `v113.test.ts` · 이 문서 |
+
+- KK1이 이미 넣어 둔 것(`LEGACY_RETURN_PROTOCOL`, `resolveSessionAdjust` 되짚기, `returnWeightText`·`returnRirText`·`returnStepText`)은 재구현하지 않았다.
+- 골든은 KK1 커밋 뒤에 들어갔다(KK1 세션에 없었기 때문). 골든 값은 `609072f` 코드로 뽑았으므로 순서와 무관하다.
+- `FIELD_1104`의 08-03은 체크 0 + 유산소 30분, 복귀 3건은 저장값 없음(JJ 이전 모양), 08-12는 슬롯 없는 식단 레코드.
+
+### 기존 테스트 수정 (PLAN 수정표 ⑦⑧)
+
+| # | 자리 | 수정 |
+|---|---|---|
+| ⑦ | `v112.test.ts` JJ2 "08-26 재현"·"modeAdjust만 저장" | `무게 −5%` 뒤 ` (당시 규칙)` 삽입, 주석 `KK2(PLAN-v1.13)` |
+| ⑧ | `v112.test.ts` JJ2 "modeAdjust + 전 entry plannedSets"·JJ3 "08-26 픽스처" | `buildSession` 1단계 헤더 리터럴을 `세트 −30% · 무게 유지 · 반복 3회 남기기`로 |
+
+### 테스트 이름과 PLAN 검증 항목 (`v113.test.ts` describe `KK2`, 20건)
+
+| PLAN 검증 | 테스트 |
+|---|---|
+| 헤더 1·2·3단계 | `헤더` 3건 |
+| v1.12 모양 · JJ 이전 21일 · 28일 · 루틴 `[]` 불변 · 디로드/step 없음 | `헤더` 5건 |
+| `entryWeightLine` (2단계 40/37.5·사다리·어시스티드·undefined 계열) | `entryWeightLine` 4건 |
+| 종목 블록 순서 | `entryWeightLine` 1건 |
+| `sessionReturnRirText` | `sessionReturnRirText` 3건 |
+| 종료 시트 = 헤더 다음 줄 | `종료 시트 = 내보내기` |
+| 소스 스캔 3종 | `소스 스캔` 3건 |
+
+- 스캔 예외: `HomeScreen.tsx`의 디로드 배너 `디로드 권장 — 세트 50%, 무게 유지`는 복귀 문구가 아니라 스캔에서 그 문구만 제외했다(PLAN은 `무게 유지` 리터럴 없음으로 적었으나 기존 디로드 배너와 충돌 — 리뷰어 확인 요청).
+
+### 결함 복원
+
+| # | 되살린 결함 | 실패한 테스트 | 원상복구 |
+|---|---|---|---|
+| ⑤ | 되짚기 무게를 현재 루틴에서 읽게 | `JJ 이전 모양(21일)`·`공백 28일` | `cmp` 같음 |
+| ⑥ | `(당시 규칙)` 조건 삭제 | `v1.12 모양`·`JJ 이전 21일`·`28일` | `cmp` 같음 |
+| (추가) | 내보내기 `무게:` 줄 삽입 삭제 | `종목 블록 순서` | `cmp` 같음 |
+
+### 과거 판정 불변
+
+`KK_EXPORT_BEFORE`와 새 출력(`renderFieldExport()`)의 diff — 줄 3개뿐(08-26·09-21·10-06 헤더 다음 줄):
+
+```
+- 복귀 조정: 세트 −30% · 무게 −5% (공백 21일로 재계산) — …
++ 복귀 조정: 세트 −30% · 무게 −5% (당시 규칙) (공백 21일로 재계산) — …
+(24일·14일도 같은 모양)
+```
+
+### 실행 결과
+
+```
+Test Files  54 passed (54)
+Tests  1222 passed (1222)
+npm run build: 성공
+```
+
+### 하지 않은 것
+
+- 실기기에서 카드 칩 확인(RTL 없음 — 소스 스캔과 `sessionReturnRirText` 순수 함수로만 잠금).

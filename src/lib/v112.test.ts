@@ -565,7 +565,8 @@ describe('JJ2', () => {
   it('08-26 재현: 저장값 없음 + 21일 전 근력 세션 — 헤더 다음 줄·리어델트 블록 순서·인클라인 세트 줄', () => {
     const lines = out(noJJ())
     expect(headerNext(lines)).toBe(
-      '복귀 조정: 세트 −30% · 무게 −5% (공백 21일로 재계산) — 현재 루틴 계획 22세트 → 15세트 생성 · 완료 15세트',
+      // KK2(PLAN-v1.13): weightRule 없는 복귀(KK 이전 곱셈 규칙)는 `무게 −N%` 뒤에 `(당시 규칙)`
+      '복귀 조정: 세트 −30% · 무게 −5% (당시 규칙) (공백 21일로 재계산) — 현재 루틴 계획 22세트 → 15세트 생성 · 완료 15세트',
     )
     expect(block(lines, '리어델트')).toEqual([expect.stringMatching(/^\d+$/), '세트: 계획 2 → 복귀 조정 1 · 완료 1', expect.stringMatching(/^간격|^보상작용/)].slice(0, 3))
     expect(block(lines, '리어델트')[1]).toBe('세트: 계획 2 → 복귀 조정 1 · 완료 1')
@@ -581,12 +582,16 @@ describe('JJ2', () => {
   it('modeAdjust만 저장 → 공백 재계산 문구 없음, 현재 루틴 계획 그대로 (조정률·P 출처는 독립)', () => {
     const s = { ...noJJ(), modeAdjust: { setPct: -30, weightPct: -5 } }
     expect(headerNext(out(s))).toBe(
-      '복귀 조정: 세트 −30% · 무게 −5% — 현재 루틴 계획 22세트 → 15세트 생성 · 완료 15세트',
+      // KK2(PLAN-v1.13): v1.12 저장값 {−30,−5}(weightRule 없음) → `(당시 규칙)`
+      '복귀 조정: 세트 −30% · 무게 −5% (당시 규칙) — 현재 루틴 계획 22세트 → 15세트 생성 · 완료 15세트',
     )
   })
   it('modeAdjust + 전 entry plannedSets → 계획 22세트 (현재 루틴 없음)', () => {
     // KK1(PLAN-v1.13): FULL()은 buildSession 산출이라 1단계 무게 유지(weightPct 0). 문구 자체는 KK2에서 바뀐다
-    expect(headerNext(out(FULL()))).toBe('복귀 조정: 세트 −30% — 계획 22세트 → 15세트 생성 · 완료 15세트')
+    // KK2(PLAN-v1.13): buildSession 산출 1단계는 KK 문구로 말한다
+    expect(headerNext(out(FULL()))).toBe(
+      '복귀 조정: 세트 −30% · 무게 유지 · 반복 3회 남기기 — 계획 22세트 → 15세트 생성 · 완료 15세트',
+    )
   })
   it('sessions 없이(저장값 없음) → 기록 없음, 종목 줄은 세트: 계획 2 · 완료 1', () => {
     const lines = md(noJJ())
@@ -785,7 +790,10 @@ describe('JJ3', () => {
     }
     it('08-26 픽스처: 저장 조정률·전 entry plannedSets → 한 줄', () => {
       // KK1(PLAN-v1.13): base()는 buildSession 산출 — 1단계 무게 유지(weightPct 0)
-      expect(line(base())).toBe('복귀 조정: 세트 −30% — 계획 22세트 → 15세트 생성 · 완료 15세트')
+      // KK2(PLAN-v1.13): buildSession 산출 1단계는 KK 문구로 말한다
+      expect(line(base())).toBe(
+        '복귀 조정: 세트 −30% · 무게 유지 · 반복 3회 남기기 — 계획 22세트 → 15세트 생성 · 완료 15세트',
+      )
     })
     it('normal → undefined', () => {
       expect(line(allChecked(build('normal')))).toBeUndefined()

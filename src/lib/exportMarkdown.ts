@@ -7,6 +7,7 @@ import { completedSessions, doneSets, routineExerciseOfEntry, orderDeviations } 
 import { holdReasonText, progressionVerdicts, type ProgressionVerdict } from './progression'
 import {
   entrySetLine,
+  entryWeightLine,
   entrySetPlan,
   resolveSessionAdjust,
   sessionAdjustText,
@@ -159,6 +160,8 @@ function entryLine(
   const setPlan = session.mode !== 'normal' ? entrySetPlan(entry, routine, adjust) : undefined
   const setLine = setPlan ? entrySetLine(setPlan, session.mode) : undefined
   if (setLine) lines.push(setLine)
+  const weightLine = entryWeightLine(entry, session.mode)
+  if (weightLine) lines.push(weightLine)
 
   /*
    * 세트 간 간격 (Z3) — **파생값만 낸다. 입력 UI는 만들지 않는다.**
