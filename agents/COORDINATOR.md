@@ -30,7 +30,15 @@
 
 - 구현은 토큰을 가장 많이 쓰는 단계라 sonnet으로, 리뷰는 읽는 양이 적고 품질 관문이라 opus·high로 둔다.
 - 구현자와 리뷰어는 반드시 다른 모델이다. 같은 모델이 자기 결과를 리뷰하지 않게 하기 위해서다.
-- **일꾼은 동시에 하나만.** 다음 일꾼을 띄우기 전에 앞 일꾼을 release한다.
+- **일꾼은 동시에 하나만.** 다음 일꾼을 띄우기 전에 앞 일꾼을 release한다. (설계 작업의 검토자 둘은 예외다. `coordinator/DESIGN.md`)
+
+### 기다리는 법
+
+일꾼을 띄운 뒤 턴을 끝내지 않는다. 아래 명령을 Bash 타임아웃 600000으로 실행해 기다린다.
+```
+orca orchestration check --wait --types worker_done,escalation,question --timeout-ms 540000 --json 2>/dev/null
+```
+메시지 없이 시간이 끝나면 같은 명령을 다시 실행한다. 메시지를 받으면 처리한 뒤 `--ack`로 확인 처리한다.
 
 ### spec
 
