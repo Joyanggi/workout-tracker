@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { dietSectionMarkdown } from './exportMarkdown'
-import { SLOT_GRADE_HIGH, SLOT_GRADE_MID, SLOT_MARK, slotGrade, slotScore } from './diet'
+import {
+  SLOT_GRADE_HIGH,
+  SLOT_GRADE_MID,
+  SLOT_MARK,
+  dietDayStatusText,
+  slotGrade,
+  slotScore,
+  summarizeDietDay,
+  type DietDaySummary,
+} from './diet'
 import { stripComments } from './sourceScan'
 import { BUNDLED_DIET_PLANS } from '../db/seed'
 import type { DietDay, SlotRecord } from '../types'
@@ -123,5 +132,93 @@ describe('II1 — 소스 스캔', () => {
     const body = src.slice(start, src.indexOf('\n}\n', start))
     expect(body).not.toContain('0.8')
     expect(body).not.toContain('0.45')
+  })
+})
+
+/** II2 — 내보내기 하루 헤더를 화면과 같은 문구로 */
+describe('II2', () => {
+  const status = (slots: Record<string, SlotRecord>) => dietDayStatusText(summarizeDietDay(PLAN, day(slots)))
+  const header = (slots: Record<string, SlotRecord>, plan = PLAN, d = day(slots)) =>
+    dietSectionMarkdown(plan, d)[0]
+  const skipped = (ids: string[]) =>
+    Object.fromEntries(ids.map((id) => [id, { checkedItemIds: [], skipped: true }])) as Record<string, SlotRecord>
+
+  it('dietDayStatusText: 판정이 있으면 마크와 퍼센트', () => {
+    expect(status(allChecked())).toBe('준수 ● 100%')
+    // PLAN 문구의 "안 먹음 = 0.5"는 실제와 달라(가중 평균 60%, 전부 안 먹음 45% ○) 치팅 추가 상한 0.5로 ◐를 만든다
+    const capped = allChecked()
+    for (const sl of PLAN.slots) capped[sl.id] = { ...capped[sl.id], addition: { text: '야식', quality: 'cheat' } }
+    expect(status(capped)).toBe('준수 ◐ 50%')
+    expect(status(skipped(PLAN.slots.map((sl) => sl.id)))).toBe('준수 ○ 45%')
+  })
+
+  it('dietDayStatusText: 3슬롯 미만은 기록 n/m슬롯', () => {
+    expect(status({ breakfast: { checkedItemIds: ['boiled-eggs'] } })).toBe('기록 1/5슬롯')
+    expect(status({ breakfast: { checkedItemIds: ['boiled-eggs'] }, lunch: { checkedItemIds: [] } })).toBe('기록 2/5슬롯')
+  })
+
+  it('dietDayStatusText: 퍼센트 반올림', () => {
+    const slots = { ...allChecked(), breakfast: { checkedItemIds: ['boiled-eggs'] } }
+    expect(status(slots)).toBe('준수 ● 99%')
+  })
+
+  it('dietDayStatusText: 반올림 경계는 마크가 판정을 따른다', () => {
+    const s: DietDaySummary = {
+      score: 0.846, adherence: 'mid', loggedSlots: 5, totalSlots: 5,
+      proteinG: 0, targetProteinG: 0, kcal: 0, targetKcal: 0,
+    }
+    expect(dietDayStatusText(s)).toBe('준수 ◐ 85%')
+  })
+
+  it('내보내기 헤더: 보고서 사례(1슬롯)', () => {
+    const h = header({ breakfast: { checkedItemIds: ['boiled-eggs'] } })
+    expect(h).toContain('기록 1/5슬롯')
+    expect(h).not.toContain('준수 —')
+  })
+
+  it('내보내기 헤더: 판정 있음', () => {
+    expect(header(allChecked())).toContain('준수 ● 100% (단백질 추정 166g / 166g)')
+  })
+
+  it('내보내기 헤더: 치팅 추가 상한', () => {
+    const slots = allChecked()
+    for (const sl of PLAN.slots) slots[sl.id] = { ...slots[sl.id], addition: { text: '야식', quality: 'cheat' } }
+    expect(header(slots)).toContain('준수 ◐ 50%')
+  })
+
+  it('옛 플랜 헤더: 훈련일 표기와 함께', () => {
+    const old = BUNDLED_DIET_PLANS.find((p) => p.id === 'cut-1800')!
+    const slots = Object.fromEntries(
+      old.slots.map((sl) => [sl.id, { checkedItemIds: sl.items.map((i) => i.id) }]),
+    ) as Record<string, SlotRecord>
+    const d: DietDay = { date: '2026-08-24', planId: old.id, isTrainingDay: true, slots }
+    expect(header(slots, old, d).startsWith('### 식단 — 감량 1,800 (구) · 훈련일 · 준수 ● 100%')).toBe(true)
+  })
+
+  it('내보내기와 화면이 같은 문구를 쓴다', () => {
+    const cases: Record<string, SlotRecord>[] = [
+      { breakfast: { checkedItemIds: ['boiled-eggs'] } },
+      allChecked(),
+      skipped(PLAN.slots.map((sl) => sl.id)),
+      { ...allChecked(), ...skipped(['breakfast', 'lunch']) },
+    ]
+    for (const slots of cases) {
+      expect(header(slots)).toContain(dietDayStatusText(summarizeDietDay(PLAN, day(slots))))
+    }
+  })
+})
+
+describe('II2 — 소스 스캔', () => {
+  const raw = import.meta.glob(['/src/lib/exportMarkdown.ts', '/src/components/DietDayEditor.tsx'], {
+    query: '?raw', import: 'default', eager: true,
+  }) as Record<string, string>
+  it('화면과 내보내기가 하루 문구를 직접 만들지 않는다', () => {
+    for (const p of ['/src/lib/exportMarkdown.ts', '/src/components/DietDayEditor.tsx']) {
+      expect(raw[p], '파일을 찾지 못했다 — 검사가 헛돌고 있다').toBeDefined()
+      const src = stripComments(raw[p])
+      expect(src).not.toContain('ADHERENCE_MARK[')
+      expect(src).not.toContain('summary.score')
+      expect(src).toContain('dietDayStatusText(')
+    }
   })
 })

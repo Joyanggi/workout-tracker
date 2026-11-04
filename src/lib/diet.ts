@@ -497,6 +497,16 @@ export const ADHERENCE_MARK: Record<Adherence, string> = {
 }
 
 /**
+ * 하루 상태 문구 — 화면과 내보내기가 같은 글자를 쓴다 (II2).
+ * 퍼센트를 함께 낸다 (Z6) — 마크만으로는 0.86과 1.0이 같아 보인다.
+ * 마크는 반올림 전 점수로 정해지고 퍼센트만 반올림한다.
+ */
+export function dietDayStatusText(summary: DietDaySummary): string {
+  if (summary.adherence === 'unlogged') return `기록 ${summary.loggedSlots}/${summary.totalSlots}슬롯`
+  return `준수 ${ADHERENCE_MARK[summary.adherence]} ${Math.round((summary.score ?? 0) * 100)}%`
+}
+
+/**
  * 플랜 항목 합계 — kcalLabel을 손으로 적지 않고 여기서 만든다.
  *
  * **기본 변형 기준이다** (DD3.4). 변형은 그날의 선택이고 플랜의 목표량이 아니다 —

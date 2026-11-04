@@ -7,7 +7,7 @@ import { completedSessions, doneSets, routineExerciseOfEntry, orderDeviations } 
 import { holdReasonText, progressionVerdicts, type ProgressionVerdict } from './progression'
 import { buildScaleMap, formatWeight, type WeightScaleMap } from './weightScale'
 import {
-  ADHERENCE_MARK,
+  dietDayStatusText,
   hasVariants,
   itemVariant,
   QUALITY_LABEL,
@@ -64,8 +64,7 @@ export function dietSectionMarkdown(plan: DietPlan, day: DietDay): string[] {
    */
   const dayType = splitsByTrainingDay(plan) ? `${day.isTrainingDay ? '훈련일' : '휴식일'} · ` : ''
   out.push(
-    `### 식단 — ${plan.name} · ${dayType}준수 ` +
-      `${ADHERENCE_MARK[summary.adherence]} (단백질 추정 ${summary.proteinG}g / ${summary.targetProteinG}g)`,
+    `### 식단 — ${plan.name} · ${dayType}${dietDayStatusText(summary)} (단백질 추정 ${summary.proteinG}g / ${summary.targetProteinG}g)`,
   )
 
   out.push(`- 슬롯: ${logged.map((s) => `${s.name} ${SLOT_MARK[slotGrade(slotScore(s, day.slots[s.id]))]}`).join(' · ')}`)
