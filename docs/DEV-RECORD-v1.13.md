@@ -264,3 +264,64 @@ npm run build: 성공
 ### 하지 않은 것
 
 - 실기기에서 홈 카드 두 줄 확인(RTL 없음).
+
+---
+
+## KK5. 내보내기 잡음 — 유산소만 한 세션 · 내용 없는 식단 날짜
+
+### 범위
+
+| 커밋 | 내용 | 바뀐 파일 |
+|---|---|---|
+| `73c1bce` | `sessionToMarkdown`: `!hasStrengthWork(session)`이면 `— 유산소만`(유산소 없으면 `근력 기록 없음`) 헤더 + 유산소·메모 줄만. 유산소·메모 줄은 `cardioNoteLines`로 빼 두 경로가 공유. `exportMarkdown`: 식단 날짜는 `dietLines(d).length > 0`인 것만 날짜 목록에 넣음 | `src/lib/exportMarkdown.ts` · `src/lib/v113.test.ts` (2개) |
+| 기록·버전 (이 커밋) | 이 문서, `package.json` 1.13.0 | `docs/DEV-RECORD-v1.13.md` · `package.json` (2개) |
+
+- 기존 테스트 수정 없음. `hasDiet`는 그대로(결과 동일).
+
+### 테스트 이름과 PLAN 검증 항목 (describe `KK5`, 12건)
+
+| PLAN 항목 | 테스트 |
+|---|---|
+| 08-03 블록 정확히 · `미수행`·`Day 1`·`수행 순서` 없음 | `08-03 (D1, …) → 헤더 + 유산소 줄뿐` · `내보내기 전문의 08-03 블록이 같은 모양이다` |
+| 워밍업만 체크 + 유산소 → `유산소만` | `워밍업만 체크 + 유산소 → 유산소만` |
+| 체크 0 + 유산소 없음 + 메모 → `근력 기록 없음` + `메모:` | `체크 0 + 유산소 없음 + 메모 → …` (+ `유산소 + 메모 → 두 줄 모두`) |
+| 유산소만 + `return` → `[복귀]`·`복귀 조정:` 없음 | `유산소만 + mode return → …` |
+| 08-12 줄 없음 · 슬롯 기록한 날 그대로 · 그 레코드뿐인 기간 `(기간 내 기록 없음)` | `내용 없는 식단 날짜` 3건 |
+| 근력 세션 내보내기 불변 | `근력 세션 불변` 2건 (`KK_EXPORT_BEFORE` 대비 추가 줄 허용 목록 · 08-05 블록 동일) · 기존 `JJ_EXPORT_NORMAL_BEFORE` 통과 |
+| 소스 스캔 `hasStrengthWork` import | `exportMarkdown.ts가 hasStrengthWork를 import하고 쓴다` |
+
+### 결함 복원
+
+| # | 되살린 결함 | 실패한 테스트 | 원상복구 |
+|---|---|---|---|
+| ⑩ | `!hasStrengthWork(session)` 이른 반환 무력화 | KK5 7건 (08-03 블록·전문·워밍업만·근력 기록 없음·return·메모·소스 스캔) | `cmp` 같음 |
+| 추가 | 날짜 목록의 `dietLines(d).length > 0` 필터 삭제 | `08-12 → 날짜 줄이 없다` · `(기간 내 기록 없음)` | `cmp` 같음 |
+
+### 과거 판정 불변 (범위: 배포 `routine-v2.4.json`·Phase 1·테스트 픽스처 — v1.13 전체 마무리)
+
+- ① `GG1_GOLDEN`·`JJ_BUILD_GOLDEN`(normal·deload·returnNoStep 전 칸, return 칸은 행 수·반복)·`JJ_EXPORT_NORMAL_BEFORE` 일치 — v111·v112 테스트 통과 (골든 커밋 `21ba3d8`, 데이터 무변경).
+- ② 기존 테스트 수정 ①~⑩은 각 작업 절(KK1·KK2·KK4)에 기록.
+- ③ `KK_EXPORT_BEFORE`(골든 커밋 `5b187e1`)와 새 출력 `renderFieldExport()`의 diff는 PLAN이 예고한 줄뿐이다:
+  08-03 블록 교체(`Day 1 Push`·`수행 순서`·`미수행` 줄 → `— 유산소만`) · 08-12 `운동 없음` 줄 삭제 · 08-26·09-21·10-06 `무게 −5% (당시 규칙)` · 세트 사유 ` — N세트로는 아직 시험 안 됨`(08-26 3곳, 09-21 2곳, 10-06 3곳) · `Day 공백` 다섯 줄(08-28·09-22·10-07·10-29·11-04). 이 밖의 줄 변화 없음 (`diff before after` 전수 확인).
+- ④ 바뀌는 것: PLAN "과거 판정 불변" 표의 자리.
+
+### 배포 영향
+
+- `seedRevision` 3: 다음 실행 때 저장된 루틴이 배포 루틴으로 교체된다. 루틴 가져오기로 넣은 루틴도, Gist 백업에서 복원한 옛 루틴도(설정 `seededRoutineRevision`이 같이 복원되므로) 같은 경로로 교체된다.
+- KK5: 워밍업만 체크한 종목은 내보내기에 나오지 않는다(v1.12도 `doneSets`가 워밍업을 빼서 종목 줄이 없었다. 유산소만 세션의 이른 반환으로 바뀌는 것은 없다).
+
+### 실행 결과
+
+```
+Test Files  54 passed (54)
+Tests  1268 passed (1268)
+npm run build: 성공
+git rev-list --count main..HEAD: 7 (이 기록 커밋 포함)
+```
+
+KK 합계: KK1 38 + KK2 20 + KK3 14 + KK4 20 + KK5 12 건 (describe 중첩 포함, 골든 1건 별도).
+
+### 하지 않은 것
+
+- 기록 탭·요약 화면의 유산소만 세션 표시, 유산소 종류 상수 통합(PLAN 범위 제외).
+- 실기기 확인(RTL 없음): 홈 카드 두 줄(KK3·KK4), 복귀 배너 문구(KK1).
