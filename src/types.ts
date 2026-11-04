@@ -86,9 +86,20 @@ export interface RoutineExercise {
   weightHint?: string // "Day 1 무게의 60~70%"
 }
 
+/** 복귀 무게 규칙 (KK1). 'keep' 그대로 · 'oneStep' 종목 무게 단위로 한 칸 · 'pctSnapDown' weightPct만큼 줄인 값 이하의 기구 무게 */
+export type ReturnWeightRule = 'keep' | 'oneStep' | 'pctSnapDown'
+
 export interface ReturnProtocolStep {
+  /**
+   * 주 단위 표기. 옛 루틴(gapDaysMin 없음)은 이 값 × 7일부터 이 단계다.
+   * 배포 루틴 2단계는 gapDaysMin 29(= 28일 "초과")인데 gapWeeksMin은 4다 — 의도다 (KK1).
+   */
   gapWeeksMin: number
+  /** KK1. 있으면 단계 선택이 이 값(일, 이상)을 쓴다. 없으면 gapWeeksMin × 7 (옛 루틴) */
+  gapDaysMin?: number
   weightPct: number
+  /** KK1. 없으면 weightPct === 0 ? 'keep' : 'pctSnapDown' (옛 루틴) */
+  weightRule?: ReturnWeightRule
   setPct: number
   targetRIR: number
   rampWeeks: number
@@ -265,6 +276,14 @@ export interface SessionEntry {
    * 대체·Day 변경은 entry를 펼쳐 복사하므로 그대로 따라간다. 얹은 종목·normal 세션·JJ 이전 기록에는 없다.
    */
   plannedSets?: number
+  /**
+   * KK1. 복귀 감량이 실제로 걸린 루틴 종목 entry에만, 그리고 base > 0일 때만.
+   * base = 생성 때 세트별 프리필 기준 무게 중 최댓값(최고 무게 기준), given = returnWeightFor(base).
+   * 기준 무게는 이력·Phase·단위에 달려 나중에 되짚을 수 없어서 저장한다.
+   * given === base(사다리 최하단 등)도 남긴다 — "내릴 무게가 없었다"는 사실이다.
+   * Day 변경은 펼쳐 복사로 따라가고, 대체는 행을 새로 만들므로 지운다.
+   */
+  returnWeight?: { base: number; given: number }
 }
 
 export interface CardioRecord {
@@ -277,6 +296,10 @@ export interface CardioRecord {
 export interface SessionAdjust {
   setPct: number
   weightPct: number
+  /** KK1. 복귀 세션에만. **있으면 KK 이후 세션**이다 — 없는 복귀 세션의 weightPct는 당시 규칙(× 0.5kg 반올림)으로 적용됐다 */
+  weightRule?: ReturnWeightRule
+  /** KK1. 복귀 세션이고 단계가 있었을 때만. 종목 카드·내보내기가 "반복 N회 남기기"로 쓴다 */
+  targetRIR?: number
 }
 
 export interface Session {

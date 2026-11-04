@@ -156,7 +156,16 @@ export const JJ_EXPORT_NORMAL_BEFORE: Record<string, string> = {
 
 describe('JJ1 — 생성 불변 (골든)', () => {
   it('normal·deload·return(1·2·3단계)·return(step 없음)의 entries(행 수·무게·반복)가 JJ_BUILD_GOLDEN과 칸마다 같다', () => {
-    expect(goldenRows()).toEqual(JJ_BUILD_GOLDEN)
+    // KK1(PLAN-v1.13): return1~3 칸은 무게를 빼고(행 수·반복) 비교한다 — 복귀 무게 규칙이 바뀌었다. 그 칸의 무게는 v113 KK1이 고정한다. 골든 데이터는 그대로
+    const noWeight = (rows: string[]) => rows.map((r) => r.replace(/ [\d.]+x/g, ' x').replace(/: [\d.]+x/, ': x'))
+    const actual = goldenRows()
+    const expected: Record<string, string[]> = { ...JJ_BUILD_GOLDEN }
+    const got: Record<string, string[]> = { ...actual }
+    for (const k of ['return1', 'return2', 'return3']) {
+      expected[k] = noWeight(expected[k])
+      got[k] = noWeight(got[k])
+    }
+    expect(got).toEqual(expected)
   })
 })
 
@@ -241,13 +250,15 @@ describe('JJ1', () => {
   it('modeAdjustFor: normal은 없다 · deload {−50,0} · return step 없음 {0,0}', () => {
     expect(modeAdjustFor('normal')).toBeUndefined()
     expect(modeAdjustFor('deload')).toEqual({ setPct: DELOAD_SET_PCT, weightPct: 0 })
-    expect(modeAdjustFor('return')).toEqual({ setPct: 0, weightPct: 0 })
+    // KK1(PLAN-v1.13): 복귀 저장 모양에 weightRule이 더해졌다 (step 없음 = 유지)
+    expect(modeAdjustFor('return')).toEqual({ setPct: 0, weightPct: 0, weightRule: 'keep' })
   })
 
   describe('modeAdjust 저장', () => {
     it('return 1단계 {−30,−5} · 3단계 {−50,−20}', () => {
-      expect(build('return', 0).modeAdjust).toEqual({ setPct: -30, weightPct: -5 })
-      expect(build('return', 2).modeAdjust).toEqual({ setPct: -50, weightPct: -20 })
+      // KK1(PLAN-v1.13): 1단계는 무게 유지(weightPct 0), 3단계는 −20% 기구 무게. 저장 모양에 weightRule·targetRIR 추가
+      expect(build('return', 0).modeAdjust).toEqual({ setPct: -30, weightPct: 0, weightRule: 'keep', targetRIR: 3 })
+      expect(build('return', 2).modeAdjust).toEqual({ setPct: -50, weightPct: -20, weightRule: 'pctSnapDown', targetRIR: 4 })
     })
     it('deload {−50,0}', () => {
       expect(build('deload').modeAdjust).toEqual({ setPct: -50, weightPct: 0 })
@@ -257,7 +268,7 @@ describe('JJ1', () => {
     })
     it('return인데 step 없음 → {0,0}, 행 수 = P', () => {
       const s = build('return')
-      expect(s.modeAdjust).toEqual({ setPct: 0, weightPct: 0 })
+      expect(s.modeAdjust).toEqual({ setPct: 0, weightPct: 0, weightRule: 'keep' }) // KK1
       expect(s.entries.map((e) => e.sets.length)).toEqual(D1.exercises.map((e) => e.sets))
     })
   })
@@ -303,10 +314,13 @@ describe('JJ1', () => {
       expect(resolveSessionAdjust(s, ROUTINE)).toEqual({ kind: 'none' })
     })
     it('저장값 {−30,−5}는 이력상 공백 60일이어도 그대로 (stored) — 저장값이 되짚기보다 우선', () => {
+      // KK1(PLAN-v1.13): build('return', 0)의 저장값이 KK 모양이 됐다. 단언의 뜻(저장값 우선)은 그대로
       expect(resolveSessionAdjust(build('return', 0), ROUTINE, prevAt('2026-08-08'))).toEqual({
         kind: 'known',
         setPct: -30,
-        weightPct: -5,
+        weightPct: 0,
+        weightRule: 'keep',
+        targetRIR: 3,
         source: 'stored',
       })
     })
@@ -571,7 +585,8 @@ describe('JJ2', () => {
     )
   })
   it('modeAdjust + 전 entry plannedSets → 계획 22세트 (현재 루틴 없음)', () => {
-    expect(headerNext(out(FULL()))).toBe('복귀 조정: 세트 −30% · 무게 −5% — 계획 22세트 → 15세트 생성 · 완료 15세트')
+    // KK1(PLAN-v1.13): FULL()은 buildSession 산출이라 1단계 무게 유지(weightPct 0). 문구 자체는 KK2에서 바뀐다
+    expect(headerNext(out(FULL()))).toBe('복귀 조정: 세트 −30% — 계획 22세트 → 15세트 생성 · 완료 15세트')
   })
   it('sessions 없이(저장값 없음) → 기록 없음, 종목 줄은 세트: 계획 2 · 완료 1', () => {
     const lines = md(noJJ())
@@ -769,7 +784,8 @@ describe('JJ3', () => {
       return lines[lines.findIndex((l) => l.startsWith('## 2026-10-07')) + 1]
     }
     it('08-26 픽스처: 저장 조정률·전 entry plannedSets → 한 줄', () => {
-      expect(line(base())).toBe('복귀 조정: 세트 −30% · 무게 −5% — 계획 22세트 → 15세트 생성 · 완료 15세트')
+      // KK1(PLAN-v1.13): base()는 buildSession 산출 — 1단계 무게 유지(weightPct 0)
+      expect(line(base())).toBe('복귀 조정: 세트 −30% — 계획 22세트 → 15세트 생성 · 완료 15세트')
     })
     it('normal → undefined', () => {
       expect(line(allChecked(build('normal')))).toBeUndefined()

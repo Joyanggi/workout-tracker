@@ -105,7 +105,7 @@ interface RoutineRules {
   deloadEveryPerformedWeeks: number;  // 8
   deloadMinSessionsPerWeek: number;   // 3 (이 미만 주는 디로드 카운트 제외)
   lowerBodyMaxGapDays: number;        // 10 (§4 하체 최소 보장)
-  returnProtocol: { gapWeeksMin: number; weightPct: number; setPct: number; targetRIR: number; rampWeeks: number }[];
+  returnProtocol: { gapWeeksMin: number; gapDaysMin?: number; weightPct: number; weightRule?: "keep" | "oneStep" | "pctSnapDown"; setPct: number; targetRIR: number; rampWeeks: number }[];
   // v2.4: 무게는 소폭(−5~−20%), 세트·RIR 중심으로 조절. 시드 §8 참조
 }
 
@@ -412,9 +412,10 @@ Phase 0 진행: 최근 주부터 거슬러 "주 3회 이상" 연속 주 수. 주
   → 종목별 카드와 분석 탭에 추이 표시. 감량기에는 "볼륨 유지 = 성공" 프레이밍
 
 복귀 프로토콜 (무게보다 볼륨·RIR을 조절):
-  gap 2~4주  → 무게 −5%,  세트 −30%, RIR 3~4, 1주 램프
-  gap 4~8주  → 무게 −10%, 세트 −40%, RIR 3~4, 2주 램프
-  gap 8주+   → 무게 −20%, 세트 −50%, RIR 3~4, 3주 램프 + Phase 1 복귀 안내
+  gap 14~28일 → 무게 유지,           세트 −30%, RIR 3~4, 1주 램프
+  gap 29~55일 → 무게 한 단계(기구 단위) 내림, 세트 −40%, RIR 3~4, 2주 램프
+  gap 56일+   → 무게 −20% 이하의 기구 무게,  세트 −50%, RIR 3~4, 3주 램프 + Phase 1 복귀 안내
+  (KK1: 28일은 4주 이하. 기구에 없는 무게(28.5 등)는 만들지 않는다)
 ```
 
 ### 이 로직들의 운동학적 근거
@@ -560,9 +561,9 @@ Phase 0 진행: 최근 주부터 거슬러 "주 3회 이상" 연속 주 수. 주
     "deloadMinSessionsPerWeek": 3,
     "lowerBodyMaxGapDays": 10,            // §4 하체 최소 보장
     "returnProtocol": [
-      { "gapWeeksMin": 2, "weightPct": -5,  "setPct": -30, "targetRIR": 3, "rampWeeks": 1 },
-      { "gapWeeksMin": 4, "weightPct": -10, "setPct": -40, "targetRIR": 3, "rampWeeks": 2 },
-      { "gapWeeksMin": 8, "weightPct": -20, "setPct": -50, "targetRIR": 4, "rampWeeks": 3 }
+      { "gapWeeksMin": 2, "gapDaysMin": 14, "weightPct": 0,   "weightRule": "keep",        "setPct": -30, "targetRIR": 3, "rampWeeks": 1 },
+      { "gapWeeksMin": 4, "gapDaysMin": 29, "weightPct": 0,   "weightRule": "oneStep",     "setPct": -40, "targetRIR": 3, "rampWeeks": 2 },
+      { "gapWeeksMin": 8, "gapDaysMin": 56, "weightPct": -20, "weightRule": "pctSnapDown", "setPct": -50, "targetRIR": 4, "rampWeeks": 3 }
     ]
   }
 }

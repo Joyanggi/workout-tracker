@@ -15,6 +15,7 @@ import {
 } from '../lib/dashboard'
 import { todayLocal } from '../lib/dates'
 import { phaseReadiness } from '../lib/phaseReadiness'
+import { returnStepText } from '../lib/setPlan'
 import { backupReminder, isGistConfigured } from '../lib/gistSync'
 import { completedSessions, doneSetsAll, findDay } from '../lib/derive'
 import { ADHERENCE_MARK, nextUnloggedSlot, summarizeDietDay } from '../lib/diet'
@@ -256,8 +257,8 @@ export default function HomeScreen({
     return: (
       <div className="banner banner-info" style={{ alignItems: 'flex-start' }} key="return">
         <span>
-          {suggestion.gapDays}일 공백 — 무게 {suggestion.returnStep?.weightPct}%, 세트{' '}
-          {suggestion.returnStep?.setPct}%, RIR {suggestion.returnStep?.targetRIR}로 복귀할까요?
+          {suggestion.gapDays}일 공백 —{' '}
+          {suggestion.returnStep ? `${returnStepText(suggestion.returnStep)}로` : '조정 없이'} 복귀할까요?
           <br />
           <small>복귀 조정은 이번 세션에만 적용</small>
         </span>
