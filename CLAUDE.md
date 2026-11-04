@@ -36,6 +36,7 @@
   그래서 `main`에는 PR로만 반영하고, 머지는 사람이 한다. 에이전트는 `main`에 직접 push하거나 로컬에서 머지하지 않고, PR도 머지하지 않는다.
 - 새 작업을 시작하기 전에 `main`에서 `git pull`을 먼저 한다. 작업은 그렇게 최신으로 맞춘 `main`에서 시작한 별도 브랜치에서 한다.
   구현은 `feature/<PLAN 버전>-<작업 ID>`, 설계는 `plan-<PLAN 버전>`. Orca가 붙이는 `Joyanggi/` 접두사는 그대로 둔다.
+- `main` 작업 트리에서 브랜치를 만들어 PR을 올렸으면, 끝날 때 `git checkout main`으로 돌려놓는다.
 - `package.json` 버전은 PLAN이 정한 시점에만 올린다.
 
 ## 문서
