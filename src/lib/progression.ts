@@ -120,7 +120,7 @@ export function holdReasonText(reason: HoldReason): string {
     case 'reps':
       return `반복 상단(${reason.repMax}회) 미달 — ${reason.total}세트 중 ${reason.reached}세트 도달`
     case 'sets':
-      return `반복 상단 도달 · 계획 ${reason.planned}세트 중 ${reason.done}세트${MODE_SUFFIX[reason.mode]}`
+      return `반복 상단 도달 · 계획 ${reason.planned}세트 중 ${reason.done}세트${MODE_SUFFIX[reason.mode]} — ${reason.planned}세트로는 아직 시험 안 됨`
   }
 }
 

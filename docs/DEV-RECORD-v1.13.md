@@ -219,3 +219,48 @@ npm run build: 성공
 ### 하지 않은 것
 
 - 실기기에서 카드 줄·시트 문구 확인(RTL 없음).
+
+---
+
+## KK4. 정상 세션이 그 Day 자체의 긴 공백을 말한다 · 세트 부족 보류 사유
+
+### 범위
+
+| 커밋 | 내용 | 바뀐 파일 |
+|---|---|---|
+| KK4 (이 커밋) | `dayGapNotice`·`sessionDayGapLine`(`dayGap.ts`), 홈 카드 `today-sub`(KK3 줄보다 위), `sessionToMarkdown` 헤더 다음 줄, `holdReasonText` `sets` 분기 끝에 ` — N세트로는 아직 시험 안 됨` | `src/lib/dayGap.ts` · `src/lib/exportMarkdown.ts` · `src/lib/progression.ts` · `src/screens/HomeScreen.tsx` · `src/lib/v113.test.ts` · `src/lib/v111.test.ts` · `src/lib/v1111.test.ts` · 이 문서 (8개) |
+
+- 기존 테스트 수정은 PLAN ⑨뿐: `v111.test.ts` 6곳(408·412·417·558·589-591줄), `v1111.test.ts:103`. 모두 주석 `KK4(PLAN-v1.13)`.
+- `v111.test.ts` 510·659·664줄(칩·`modeSetNotice`)과 `v112.test.ts` 638-639줄(`toContain`)은 문구가 바뀌지 않아 손대지 않았다.
+- 홈 카드: 추가 줄 순서는 `dayGapNotice` → `staleDaysLine`. 복귀 제안 여부는 `Boolean(suggestion.returnStep)`.
+
+### 테스트 이름과 PLAN 검증 항목 (describe `KK4`, 20건)
+
+| PLAN 항목 | 테스트 |
+|---|---|
+| `dayGapNotice` 10-29 · 08-28 · 09-21 · own 13 · 기록 없음 · fallback-push · 13/14일 | `dayGapNotice` 7건 (`returnSuggested true면 …` 포함) |
+| `sessionDayGapLine` 5개 날짜 · 없음 목록 · `sessions` 없음/디로드 · 복귀를 끈 정상 세션 · 줄 위치 | `sessionDayGapLine` 8건 (내보내기 전문 Day 공백 5줄 포함) |
+| `holdReasonText` 복귀·정상·디로드 / reps·compensation·phase0 | `holdReasonText 세트 부족` 2건 |
+| 소스 스캔 | `소스 스캔` 3건 |
+| `GG1_GOLDEN` · `JJ_EXPORT_NORMAL_BEFORE` | 기존 `v111`·`v112` 테스트가 그대로 통과 (수정 없음) |
+
+### 결함 복원
+
+| # | 되살린 결함 | 실패한 테스트 | 원상복구 |
+|---|---|---|---|
+| ⑨ | `dayGapNotice`의 `returnSuggested` 가드 삭제 | `returnSuggested true면 …` | `cmp` 같음 |
+| ⑬ | `sessionDayGapLine`의 `last >= 14` 가드 삭제 | `복귀를 끈 정상 세션 …` | `cmp` 같음 |
+
+⑨는 PLAN이 말한 "09-21 실패"가 아니었다. 09-21은 `last >= 14` 가드가 같은 결과를 내서 가드를 지워도 통과한다. 테스트의 구멍이라 `returnSuggested: true`를 직접 넘기는 단언을 보강했다.
+
+### 실행 결과
+
+```
+Test Files  54 passed (54)
+Tests  1256 passed (1256)
+npm run build: 성공
+```
+
+### 하지 않은 것
+
+- 실기기에서 홈 카드 두 줄 확인(RTL 없음).

@@ -11,12 +11,13 @@ import {
   sessionReturnRirText,
   sessionSetPlan,
 } from './setPlan'
-import { returnStepFor } from './suggestNextDay'
+import { returnStepFor, suggestNextDay } from './suggestNextDay'
+import { holdReasonText } from './progression'
 import { snapDownToScale, stepBelow, type WeightScale, type WeightScaleMap } from './weightScale'
 import { applySubstitute, applyAddExercise } from './sessionOps'
 import { applyDayChange } from './dayChange'
 import { stripComments } from './sourceScan'
-import { dayLastDone, lastDoneText, staleDaysLine } from './dayGap'
+import { dayGapNotice, dayLastDone, lastDoneText, sessionDayGapLine, staleDaysLine } from './dayGap'
 import { exportMarkdown, sessionToMarkdown } from './exportMarkdown'
 import { validateRoutine } from '../db/validateRoutine'
 import { ROUTINE, completedSession } from './testFixtures'
@@ -784,6 +785,162 @@ describe('KK3', () => {
     })
     it('exportMarkdown.ts에 function dayLabel 없음', () => {
       expect(src('/src/lib/exportMarkdown.ts')).not.toContain('function dayLabel')
+    })
+  })
+})
+
+// ─── KK4 ─────────────────────────────────────────────────
+
+describe('KK4', () => {
+  const day = (id: string) => ROUTINE.days.find((d) => d.id === id)!
+  const FALLBACK_PUSH = ROUTINE.fallbackDays.find((d) => d.id === 'fallback-push')!
+  const before = (today: string) => buildFieldSessions().filter((s) => s.date < today)
+  const notice = (today: string, displayed: RoutineDay, sessions = before(today)) =>
+    dayGapNotice({
+      sessions,
+      routine: ROUTINE,
+      day: displayed,
+      today,
+      returnSuggested: Boolean(suggestNextDay({ sessions, routine: ROUTINE, today }).returnStep),
+    })
+  const ago = (today: string, n: number) => {
+    const d = new Date(`${today}T00:00:00Z`)
+    d.setUTCDate(d.getUTCDate() - n)
+    return d.toISOString().slice(0, 10)
+  }
+  const strength = (dayId: string, date: string, mode: SessionMode = 'normal') =>
+    completedSession({ dayId, date, mode })
+  const all = buildFieldSessions()
+  const gapOf = (date: string) => {
+    const s = all.find((x) => x.date === date)!
+    return sessionDayGapLine(s, ROUTINE, all)
+  }
+
+  describe('dayGapNotice', () => {
+    it('@ 10-29 D3 → 22일 만 · 마지막 운동 13일 전', () => {
+      expect(notice('2026-10-29', day('d3'))).toBe(
+        '이 Day는 22일 만이에요 — 복귀 조정은 마지막 운동(13일 전) 기준이라 적용되지 않습니다',
+      )
+    })
+    it('@ 08-28 D3 → 23일 만 · 마지막 운동 2일 전', () => {
+      expect(notice('2026-08-28', day('d3'))).toBe(
+        '이 Day는 23일 만이에요 — 복귀 조정은 마지막 운동(2일 전) 기준이라 적용되지 않습니다',
+      )
+    })
+    it('@ 09-21 (복귀 제안) D3를 골라도 undefined', () => {
+      expect(notice('2026-09-21', day('d3'))).toBeUndefined()
+    })
+    it('returnSuggested true면 마지막 운동이 14일 미만이어도 undefined (복귀 배너가 말한다)', () => {
+      const sessions = before('2026-10-29')
+      const call = (returnSuggested: boolean) =>
+        dayGapNotice({ sessions, routine: ROUTINE, day: day('d3'), today: '2026-10-29', returnSuggested })
+      expect(call(true)).toBeUndefined()
+      expect(call(false)).toContain('22일 만이에요')
+    })
+    it('own 13일 → undefined · 기록 없는 Day → undefined', () => {
+      const today = '2026-11-04'
+      const s = [strength('d3', ago(today, 13)), strength('d1', ago(today, 2))]
+      expect(notice(today, day('d3'), s)).toBeUndefined()
+      expect(notice(today, day('d4'), s)).toBeUndefined()
+    })
+    it('fallback-push는 d1의 공백을 쓴다', () => {
+      expect(notice('2026-11-04', FALLBACK_PUSH)).toBe(
+        '이 Day는 29일 만이에요 — 복귀 조정은 마지막 운동(6일 전) 기준이라 적용되지 않습니다',
+      )
+    })
+    it('returnSuggested false인데 마지막 근력 세션 14일 전 → undefined · 13일 전 → 문구', () => {
+      const today = '2026-11-04'
+      const mk = (n: number) => [strength('d3', ago(today, 40)), strength('d1', ago(today, n))]
+      const call = (n: number) =>
+        dayGapNotice({ sessions: mk(n), routine: ROUTINE, day: day('d3'), today, returnSuggested: false })
+      expect(call(14)).toBeUndefined()
+      expect(call(13)).toBe(
+        '이 Day는 40일 만이에요 — 복귀 조정은 마지막 운동(13일 전) 기준이라 적용되지 않습니다',
+      )
+    })
+  })
+
+  describe('sessionDayGapLine', () => {
+    it('08-28 D3 → 23일 · 직전 2일 전', () => {
+      expect(gapOf('2026-08-28')).toBe('Day 공백 23일 — 복귀 조정 없음 (직전 근력 세션 2일 전 기준)')
+    })
+    it('09-22 → 25일 · 1일 전 / 10-07 → 15일 · 1일 전', () => {
+      expect(gapOf('2026-09-22')).toBe('Day 공백 25일 — 복귀 조정 없음 (직전 근력 세션 1일 전 기준)')
+      expect(gapOf('2026-10-07')).toBe('Day 공백 15일 — 복귀 조정 없음 (직전 근력 세션 1일 전 기준)')
+    })
+    it('10-29 → 22일 · 13일 전 / 11-04 D1 → 29일 · 6일 전', () => {
+      expect(gapOf('2026-10-29')).toBe('Day 공백 22일 — 복귀 조정 없음 (직전 근력 세션 13일 전 기준)')
+      expect(gapOf('2026-11-04')).toBe('Day 공백 29일 — 복귀 조정 없음 (직전 근력 세션 6일 전 기준)')
+    })
+    it('복귀 세션 · 이전 같은 Day 없음 · 유산소만 → 없음', () => {
+      for (const d of ['2026-08-26', '2026-09-21', '2026-10-06']) expect(gapOf(d), d).toBeUndefined()
+      expect(gapOf('2026-10-16')).toBeUndefined()
+      expect(gapOf('2026-08-03')).toBeUndefined()
+      expect(gapOf('2026-08-05')).toBeUndefined()
+    })
+    it('sessions 없이 → 없음 · 디로드 → 없음', () => {
+      const s = all.find((x) => x.date === '2026-10-29')!
+      expect(sessionDayGapLine(s, ROUTINE)).toBeUndefined()
+      expect(sessionDayGapLine({ ...s, mode: 'deload' }, ROUTINE, all)).toBeUndefined()
+    })
+    it('복귀를 끈 정상 세션: 직전 20일 전 → 없음 · 13일 전 → 13일 전 기준', () => {
+      const today = '2026-11-04'
+      const run = (lastAgo: number) => {
+        const cur = strength('d3', today)
+        const sessions = [strength('d3', ago(today, 30)), strength('d1', ago(today, lastAgo)), cur]
+        return sessionDayGapLine(cur, ROUTINE, sessions)
+      }
+      expect(run(20)).toBeUndefined()
+      expect(run(13)).toBe('Day 공백 30일 — 복귀 조정 없음 (직전 근력 세션 13일 전 기준)')
+    })
+    it('줄 위치: 헤더 바로 다음, 수행 순서: 앞', () => {
+      const s = all.find((x) => x.date === '2026-10-29')!
+      const lines = sessionToMarkdown(s, ROUTINE, catalog, PHASE, undefined, all).split('\n')
+      expect(lines[0]).toContain('2026-10-29')
+      expect(lines[1]).toMatch(/^Day 공백 22일/)
+      expect(lines[2]).toMatch(/^수행 순서:/)
+    })
+    it('내보내기 전문에 Day 공백 줄은 정확히 다섯 줄 (골든에는 없다)', () => {
+      const gapLines = renderFieldExport().split('\n').filter((l) => l.startsWith('Day 공백 '))
+      expect(gapLines).toHaveLength(5)
+      expect(KK_EXPORT_BEFORE).not.toContain('Day 공백')
+    })
+  })
+
+  describe('holdReasonText 세트 부족', () => {
+    it('복귀 · 정상 · 디로드는 끝에 다음 시험을 말한다', () => {
+      const r = (planned: number, done: number, mode: SessionMode) =>
+        holdReasonText({ kind: 'sets', planned, done, mode })
+      expect(r(3, 2, 'return')).toBe('반복 상단 도달 · 계획 3세트 중 2세트 · 복귀 세션 — 3세트로는 아직 시험 안 됨')
+      expect(r(4, 3, 'normal')).toBe('반복 상단 도달 · 계획 4세트 중 3세트 — 4세트로는 아직 시험 안 됨')
+      expect(r(4, 3, 'deload')).toBe('반복 상단 도달 · 계획 4세트 중 3세트 · 디로드 세션 — 4세트로는 아직 시험 안 됨')
+    })
+    it('reps · compensation · phase0는 이전 문구 그대로', () => {
+      expect(holdReasonText({ kind: 'reps', repMax: 12, total: 3, reached: 1 })).toBe('반복 상단(12회) 미달 — 3세트 중 1세트 도달')
+      expect(holdReasonText({ kind: 'compensation' })).toBe('보상작용 있음')
+      expect(holdReasonText({ kind: 'phase0' })).toBe('Phase 0 — 증량 판정 꺼짐')
+    })
+  })
+
+  describe('소스 스캔', () => {
+    const raw = import.meta.glob(
+      ['/src/screens/HomeScreen.tsx', '/src/lib/exportMarkdown.ts', '/src/lib/progression.ts'],
+      { query: '?raw', import: 'default', eager: true },
+    ) as Record<string, string>
+    const src = (name: string) => stripComments(raw[name])
+    const count = (text: string, needle: string) => text.split(needle).length - 1
+    it('HomeScreen·exportMarkdown에 문구 리터럴 없음', () => {
+      for (const f of ['/src/screens/HomeScreen.tsx', '/src/lib/exportMarkdown.ts']) {
+        expect(src(f)).not.toContain('일 만이에요')
+        expect(src(f)).not.toContain('Day 공백')
+      }
+    })
+    it('dayGapNotice( · sessionDayGapLine( 각 한 번', () => {
+      expect(count(src('/src/screens/HomeScreen.tsx'), 'dayGapNotice(')).toBe(1)
+      expect(count(src('/src/lib/exportMarkdown.ts'), 'sessionDayGapLine(')).toBe(1)
+    })
+    it('progression.ts에 아직 시험 안 됨 한 번', () => {
+      expect(count(src('/src/lib/progression.ts'), '아직 시험 안 됨')).toBe(1)
     })
   })
 })

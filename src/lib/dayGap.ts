@@ -1,7 +1,7 @@
 import type { RoutineDay, RoutineTemplate, Session } from '../types'
 import { recordDayIdOf } from '../types'
 import { daysBetween } from './dates'
-import { daysSinceDay, strengthSessions } from './derive'
+import { daysSinceDay, findDay, hasStrengthWork, strengthSessions } from './derive'
 import { RETURN_GAP_DAYS } from './suggestNextDay'
 
 /**
@@ -68,4 +68,47 @@ export function staleDaysLine(
   return `오래 안 한 Day — ${sorted
     .map(({ day, days }) => `${dayLabel(day.name)} ${days === null ? '기록 없음' : `${days}일`}`)
     .join(' · ')}`
+}
+
+/** 마지막 근력 세션과 `today` 사이 일수. 근력 세션이 없으면 null */
+function daysSinceLastStrength(sessions: Session[], today: string): number | null {
+  const last = strengthSessions(sessions)[0]
+  return last ? daysBetween(last.date, today) : null
+}
+
+/**
+ * 홈 카드의 "이 Day 자체의 긴 공백" 한 줄 (KK4).
+ * 그 Day 공백 14일 이상 그리고 마지막 근력 세션과 14일 미만일 때만 말한다 —
+ * 마지막 근력 세션과 14일 이상이면 복귀 판정의 몫이다 (`sessionDayGapLine`과 같은 규칙).
+ */
+export function dayGapNotice(o: {
+  sessions: Session[]
+  routine: RoutineTemplate
+  day: RoutineDay
+  today: string
+  returnSuggested: boolean
+}): string | undefined {
+  if (o.returnSuggested) return undefined
+  const own = daysSinceDay(o.sessions, recordDayIdOf(o.day), o.today)
+  if (own === null || own < RETURN_GAP_DAYS) return undefined
+  const last = daysSinceLastStrength(o.sessions, o.today)
+  if (last === null || last >= RETURN_GAP_DAYS) return undefined
+  return `이 Day는 ${own}일 만이에요 — 복귀 조정은 마지막 운동(${last}일 전) 기준이라 적용되지 않습니다`
+}
+
+/** 정상 세션 내보내기의 "Day 공백" 줄 (KK4). `sessions`가 없으면 말하지 않는다 */
+export function sessionDayGapLine(
+  session: Session,
+  routine: RoutineTemplate,
+  sessions?: Session[],
+): string | undefined {
+  if (!sessions || session.mode !== 'normal' || !hasStrengthWork(session)) return undefined
+  const before = sessions.filter((s) => s.date < session.date)
+  const found = findDay(routine, session.dayId)
+  const recordDay = found ? recordDayIdOf(found) : session.dayId
+  const own = daysSinceDay(before, recordDay, session.date)
+  if (own === null || own < RETURN_GAP_DAYS) return undefined
+  const last = daysSinceLastStrength(before, session.date)
+  if (last === null || last >= RETURN_GAP_DAYS) return undefined
+  return `Day 공백 ${own}일 — 복귀 조정 없음 (직전 근력 세션 ${last}일 전 기준)`
 }

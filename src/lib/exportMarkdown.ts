@@ -2,7 +2,7 @@ import type { Exercise, Phase, RoutineTemplate, Session, SessionEntry } from '..
 import { parseRecordKey } from '../types'
 import { hasCompensation } from './compensation'
 import { formatClock, weekdayKo } from './dates'
-import { dayLabel } from './dayGap'
+import { dayLabel, sessionDayGapLine } from './dayGap'
 import { withObjectParticle } from './korean'
 import { completedSessions, doneSets, routineExerciseOfEntry, orderDeviations } from './derive'
 import { holdReasonText, progressionVerdicts, type ProgressionVerdict } from './progression'
@@ -241,6 +241,8 @@ export function sessionToMarkdown(
   const adjust = resolveSessionAdjust(session, routine, sessions)
   const adjustLine = sessionAdjustText(session, sessionSetPlan(session, routine, adjust), adjust)
   if (adjustLine) out.push(adjustLine)
+  const gapLine = sessionDayGapLine(session, routine, sessions)
+  if (gapLine) out.push(gapLine)
 
   const timeline = orderDeviations(session)
   if (timeline.length > 0) {

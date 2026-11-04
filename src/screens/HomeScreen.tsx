@@ -28,7 +28,7 @@ import { useExerciseSettings } from '../lib/useExerciseSettings'
 import { buildSession, withJustFinished } from '../lib/sessionFactory'
 import { bannerQueue, type BannerId } from '../lib/bannerQueue'
 import { homeCardState, pickedIdFor, returnChoiceReason } from '../lib/dayChoice'
-import { dayLastDone, staleDaysLine } from '../lib/dayGap'
+import { dayGapNotice, dayLastDone, staleDaysLine } from '../lib/dayGap'
 import { suggestNextDay } from '../lib/suggestNextDay'
 import { exerciseLabel, useRoutine } from '../lib/useRoutine'
 import { useSessionStore } from '../store/session'
@@ -215,6 +215,15 @@ export default function HomeScreen({
   })
   const displayed = card.day
   // KK3 — 카드의 추가 줄은 최대 두 줄 (KK4 dayGapNotice가 먼저, 이 줄이 다음)
+  const gapNotice = card.resuming
+    ? undefined
+    : dayGapNotice({
+        sessions,
+        routine,
+        day: displayed,
+        today,
+        returnSuggested: Boolean(suggestion.returnStep),
+      })
   const staleLine = card.resuming
     ? undefined
     : staleDaysLine(dash.lastDone, sessions, today, displayed)
@@ -485,6 +494,7 @@ export default function HomeScreen({
           {card.resuming ? sessionProgress : displayed.subtitle}
         </div>
         <div className="today-reason">{card.reason}</div>
+        {gapNotice && <div className="today-sub">{gapNotice}</div>}
         {staleLine && <div className="today-sub">{staleLine}</div>}
         <div className="today-sub" style={{ marginTop: 8 }}>
           {displayed.exercises
