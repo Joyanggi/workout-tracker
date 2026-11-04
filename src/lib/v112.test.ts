@@ -538,6 +538,13 @@ describe('JJ2', () => {
     const i = lines.findIndex((l) => l.startsWith(`### ${name}`))
     return lines.slice(i + 1, i + 4)
   }
+  /** `### <머리>`로 시작하는 블록: 머리 줄 ~ 다음 빈 줄 앞. 블록이 없으면 빈 배열 */
+  const section = (lines: string[], head: string) => {
+    const i = lines.findIndex((l) => l.startsWith(head))
+    if (i < 0) return []
+    const end = lines.findIndex((l, j) => j > i && l === '')
+    return lines.slice(i, end < 0 ? undefined : end)
+  }
   const md = (s: Session) => sessionToMarkdown(s, ROUTINE, catalog, PHASE).split('\n')
 
   it('08-26 재현: 저장값 없음 + 21일 전 근력 세션 — 헤더 다음 줄·리어델트 블록 순서·인클라인 세트 줄', () => {
@@ -595,6 +602,24 @@ describe('JJ2', () => {
     expect(b).toContain('세트: 계획 4 → 복귀 조정 3 · 완료 3')
     expect(a.filter((l) => l.startsWith('세트:'))).toEqual(b.filter((l) => l.startsWith('세트:')))
   })
+  it('루틴 변경 (회귀): 인클라인이 반복 상단에 도달한 픽스처 — `다음:` 사유는 현재 루틴 sets를 따르고 `세트:` 줄은 저장 P를 따른다', () => {
+    // 인클라인 전 행을 반복 상단(10회)으로 — 반복 상단 도달 사유가 나온다
+    const s = FULL()
+    const top = {
+      ...s,
+      entries: s.entries.map((e) =>
+        e.recordKey === K_INCLINE ? { ...e, sets: e.sets.map((x) => ({ ...x, reps: 10 })) } : e,
+      ),
+    }
+    const nextLine = (lines: string[]) => section(lines, '### 인클라인 프레스').find((l) => l.startsWith('다음:'))
+    const copy = out(top, undefined, withRoutineSets({ 'incline-chest-press': 5 }))
+    const orig = out(top)
+    expect(nextLine(copy)).toContain('계획 5세트 중 3세트')
+    expect(nextLine(orig)).toContain('계획 4세트 중 3세트')
+    // 같은 세션인데도 세트: 줄은 두 루틴에서 같다 (저장 P=4)
+    expect(section(copy, '### 인클라인 프레스')).toContain('세트: 계획 4 → 복귀 조정 3 · 완료 3')
+    expect(section(orig, '### 인클라인 프레스')).toContain('세트: 계획 4 → 복귀 조정 3 · 완료 3')
+  })
   it('계획 1세트 종목 → 세트: 계획 1 · 완료 1', () => {
     const s = FULL()
     const k = K_REAR
@@ -621,32 +646,48 @@ describe('JJ2', () => {
     const s = FULL()
     const withExtra = {
       ...s,
-      entries: [...s.entries, { ...s.entries[0], recordKey: makeRecordKey('cable-curl', 'd1'), extra: true as const, plannedSets: undefined }],
+      entries: [...s.entries, { ...s.entries[0], recordKey: makeRecordKey('lat-pulldown', 'd2'), extra: true as const, plannedSets: undefined }],
     }
     const lines = out(withExtra)
     expect(headerNext(lines)).toContain('계획 22세트')
     expect(headerNext(lines)).toContain('완료 15세트')
+    const extraBlock = section(lines, `### ${catalog.get('lat-pulldown')!.shortName}`)
+    expect(extraBlock.length).toBeGreaterThan(1)
+    expect(extraBlock.some((l) => l.startsWith('세트:'))).toBe(false)
+
+    // 대체 종목: 원 종목(인클라인) P 기준 — 저장값 있음·없음 모두
+    for (const variant of [(x: Session) => x, stripJJ]) {
+      const sub = variant(done(applySubstitute(build('return', 0), K_INCLINE, { recordKey: K_FLAT_SUB, setCount: 3, weight: 30, reps: 10 })))
+      const subBlock = section(out(sub), `### ${catalog.get('flat-chest-press')!.shortName} (D2`)
+      expect(subBlock.length).toBeGreaterThan(1)
+      expect(subBlock).toContain('세트: 계획 4 → 복귀 조정 3 · 완료 3')
+    }
   })
   it('skipped 종목 → 본문에 없음 · 세션 줄 완료만 줄어든다', () => {
     const s = FULL()
     const sk = { ...s, entries: s.entries.map((e, i) => (i === 0 ? { ...e, skipped: true, performedOrder: null, sets: e.sets.map((x) => ({ ...x, done: false })) } : e)) }
-    const h = headerNext(out(sk))
+    const lines = out(sk)
+    const h = headerNext(lines)
     expect(h).toContain('계획 22세트 → 15세트 생성')
     expect(h).toMatch(/완료 1[0-4]세트$/)
+    expect(section(lines, '### 인클라인 프레스')).toEqual([])
   })
   it('워밍업만 체크한 종목 → 본문에 없음 · 세션 줄 합엔 P·G로 들어가고 D 0', () => {
     const s = FULL()
     const w = { ...s, entries: s.entries.map((e, i) => (i === 0 ? { ...e, sets: e.sets.map((x, j) => ({ ...x, warmup: j === 0, done: j === 0 })) } : e)) }
-    const h = headerNext(out(w))
+    const lines = out(w)
+    const h = headerNext(lines)
+    const gIncline = adjustedSetCount(4, -30) // 3 — 워밍업 1행만 체크, 나머지 행은 미체크
     expect(h).toContain('계획 22세트 → 15세트 생성')
-    expect(h).toMatch(/완료 1[0-4]세트$/)
+    expect(h.endsWith(`완료 ${15 - gIncline}세트`)).toBe(true)
+    expect(section(lines, '### 인클라인 프레스')).toEqual([])
   })
 
   describe('소스 스캔', () => {
     const raw = import.meta.glob('/src/lib/exportMarkdown.ts', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
     const e = stripComments(Object.values(raw)[0])
     it('exportMarkdown.ts: 문구 리터럴·Math.round( 없음, 초크포인트 import', () => {
-      expect(e).not.toContain('복귀 조정')
+      expect(e).not.toContain('조정')
       expect(e).not.toContain('생성')
       expect(e).not.toContain('setPct') // 세트 수 계산은 setPlan.ts에만
       for (const n of ['sessionAdjustText', 'entrySetLine', 'resolveSessionAdjust']) expect(e).toContain(n)
