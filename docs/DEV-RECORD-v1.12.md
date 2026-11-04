@@ -145,3 +145,48 @@
 
 - 스캔 대상이 `Math.round(`가 아니라 `setPct`인 이유: `exportMarkdown.ts`에 소요시간 계산용 `Math.round`가 있어 `Math.round(` 금지는 오탐이다. 세트 수 식은 `setPct` 부재로 막는다.
 - 세트: 줄 단언은 반드시 인클라인 블록 안에서 한다 — 전체 줄 `toContain`은 같은 P·G인 레터럴 레이즈 줄에 우연히 걸린다.
+
+
+---
+
+
+## JJ3. 종료 시트 — 미완료 판정은 행 기준, 조정 한 줄
+
+### 범위
+
+| 커밋 | 내용 | 바뀐 파일 |
+|---|---|---|
+| JJ3 (이 커밋) | `partialEntries`(`setPlan.ts`, 작업 행 기준·워밍업 제외), `FinishSheet`가 이를 쓰고 맨 위에 내보내기 헤더와 같은 `sessionAdjustText` 한 줄(`row-sub`) | `src/lib/setPlan.ts` · `src/components/FinishSheet.tsx` · `src/lib/v112.test.ts` · 이 문서 |
+
+- 기존 테스트 수정 없음. `incomplete`(손대지 않은 종목)·경고 문구 무변경.
+
+### PLAN 검증 항목 ↔ 테스트 (`describe JJ3`)
+
+| PLAN 검증 | 테스트 |
+|---|---|
+| 워밍업 체크 + 작업 3 전부 → 빈 목록 (v1.11.2 식 3/4 병기) | `partialEntries › 워밍업 1(체크)…` |
+| 워밍업 미체크 + 작업 3 전부 | `partialEntries › 워밍업 1(미체크)…` |
+| 3 중 2 체크 | `partialEntries › 작업 3 중 2 체크…` |
+| 08-26 리어델트 | `partialEntries › 08-26 리어델트…` |
+| 복귀 인클라인 3행 중 2 | `partialEntries › 복귀 인클라인…` |
+| 얹은 4행 중 3 · skipped · 완료 0 | `partialEntries › 얹은 종목…` |
+| 조정 한 줄 (22→15·15) / normal / 헤더와 동일 / 루틴 사본 | `조정 한 줄` 4건 |
+| 소스 스캔 | `JJ3 › 소스 스캔` (+ 한 줄을 실제로 그리는 JSX 단언) |
+
+### 결함 복원 (⑤ + 보강)
+
+| # | 되살린 결함 | 실패한 테스트 | 원상복구 |
+|---|---|---|---|
+| ⑤ | `FinishSheet`의 `partial`을 `doneSets < e.sets.length`로 복원 | `JJ3 › 소스 스캔` | `cmp` 같음 |
+| 추가 | `partialEntries`의 분모를 `e.sets.length`로 | 워밍업 2건 | `cmp` 같음 |
+| 추가 | `{adjustLine && …}` 렌더 줄 삭제 | `JJ3 › 소스 스캔` (최초엔 통과 → JSX 단언 보강 뒤 실패 확인) | `cmp` 같음 |
+
+### 실행 결과
+
+- `npm test`: Test Files 53 passed (53), Tests 1164 passed (1164)
+- `npm run build`: 성공
+- 과거 판정 불변: 골든 전 칸 일치, `doneSets` 무변경
+
+### 하지 않은 것
+
+- `package.json` 버전·최종 기록 커밋(PLAN상 별도). 손대지 않은 종목 문구, 종목별 계획 나열(PLAN 범위 제외).

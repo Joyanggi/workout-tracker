@@ -193,3 +193,20 @@ export function entrySetLine(plan: EntrySetPlan, mode: SessionMode): string | un
   }
   return `세트: 계획 ${plan.planned} → ${MODE_NAME[mode]} 조정 ${plan.given} · 완료 ${plan.done}`
 }
+
+export interface PartialEntry {
+  recordKey: string
+  done: number
+  rows: number
+}
+
+/**
+ * 종료 시트 "세트가 남은 종목" (JJ3). 기준은 작업 **행**이다 — 체크를 빠뜨린 행을 찾는 경고이고,
+ * 계획(P)이나 생성(G)과 비교하면 복귀·디로드 세션이 늘 경고를 받는다. 워밍업 행은 분자·분모 모두 뺀다.
+ */
+export function partialEntries(session: Session): PartialEntry[] {
+  return session.entries
+    .filter((e) => !e.skipped)
+    .map((e) => ({ recordKey: e.recordKey, done: doneSets(e).length, rows: workSetRows(e) }))
+    .filter((p) => p.done > 0 && p.done < p.rows)
+}

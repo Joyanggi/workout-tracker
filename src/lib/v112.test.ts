@@ -8,6 +8,7 @@ import {
   sessionAdjustText,
   resolveSessionAdjust,
   sessionSetPlan,
+  partialEntries,
   DELOAD_SET_PCT,
 } from './setPlan'
 import { applyAddExercise, applySubstitute } from './sessionOps'
@@ -695,6 +696,99 @@ describe('JJ2', () => {
     it('resolveSessionAdjust( 호출은 한 번, exportMarkdown이 sessions를 넘긴다', () => {
       expect(e.split('resolveSessionAdjust(').length - 1).toBe(1)
       expect(e).toContain('sessionToMarkdown(s, routine, catalog, phase, scales, sessions)')
+    })
+  })
+})
+
+describe('JJ3', () => {
+  const rawFs = import.meta.glob('/src/components/FinishSheet.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
+  const fs = stripComments(Object.values(rawFs)[0])
+  const base = (): Session => allChecked(build('return', 0))
+  /** v1.11.2 식 — 결함을 같은 테스트에서 보여 고정한다 */
+  const oldPartial = (s: Session) => s.entries.filter((e) => !e.skipped && doneSets(e).length > 0 && doneSets(e).length < e.sets.length)
+  const withEntry = (s: Session, key: string, f: (e: Session['entries'][number]) => Session['entries'][number]): Session => ({
+    ...s,
+    entries: s.entries.map((e) => (e.recordKey === key ? f(e) : e)),
+  })
+  const warm = (e: Session['entries'][number], checked: boolean) => ({
+    ...e,
+    sets: [{ ...e.sets[0], warmup: true, done: checked }, ...e.sets],
+  })
+
+  describe('partialEntries', () => {
+    it('워밍업 1(체크) + 작업 3(전부 체크) → 빈 목록 (v1.11.2 식은 3/4로 뜬다)', () => {
+      const s = withEntry(base(), K_INCLINE, (e) => warm(e, true))
+      expect(partialEntries(s)).toEqual([])
+      expect(oldPartial(s).map((e) => e.recordKey)).toContain(K_INCLINE)
+    })
+    it('워밍업 1(미체크) + 작업 3(전부 체크) → 빈 목록 (v1.11.2 식은 3/4)', () => {
+      const s = withEntry(base(), K_INCLINE, (e) => warm(e, false))
+      expect(partialEntries(s)).toEqual([])
+      expect(oldPartial(s).map((e) => e.recordKey)).toContain(K_INCLINE)
+    })
+    it('작업 3 중 2 체크 → {done:2, rows:3}', () => {
+      const s = withEntry(base(), K_INCLINE, (e) => ({ ...e, sets: e.sets.map((x, i) => ({ ...x, done: i < 2 })) }))
+      expect(partialEntries(s)).toEqual([{ recordKey: K_INCLINE, done: 2, rows: 3 }])
+    })
+    it('08-26 리어델트(복귀, 1행 1체크) → 빈 목록 (계획 2는 판정에 쓰지 않는다)', () => {
+      const s = base()
+      expect(s.entries.find((e) => e.recordKey === K_REAR)!.sets).toHaveLength(1)
+      expect(partialEntries(s)).toEqual([])
+    })
+    it('복귀 인클라인 3행 중 2 체크 → {done:2, rows:3} (계획 4가 아니다)', () => {
+      const s = withEntry(base(), K_INCLINE, (e) => ({ ...e, sets: e.sets.map((x, i) => ({ ...x, done: i !== 0 })) }))
+      expect(partialEntries(s).find((p) => p.recordKey === K_INCLINE)).toEqual({ recordKey: K_INCLINE, done: 2, rows: 3 })
+    })
+    it('얹은 종목 4행 중 3 체크 → 포함 · skipped → 제외 · 완료 0 → 제외', () => {
+      const s = base()
+      const extraKey = makeRecordKey('lat-pulldown', 'd2')
+      const extra = {
+        ...s.entries[0],
+        recordKey: extraKey,
+        extra: true as const,
+        plannedSets: undefined,
+        sets: [0, 1, 2, 3].map((i) => ({ ...s.entries[0].sets[0], warmup: false, done: i < 3 })),
+      }
+      const withExtra = { ...s, entries: [...s.entries, extra] }
+      expect(partialEntries(withExtra)).toEqual([{ recordKey: extraKey, done: 3, rows: 4 }])
+      const skipped = { ...withExtra, entries: withExtra.entries.map((e) => (e.recordKey === extraKey ? { ...e, skipped: true } : e)) }
+      expect(partialEntries(skipped)).toEqual([])
+      const none = { ...withExtra, entries: withExtra.entries.map((e) => (e.recordKey === extraKey ? { ...e, sets: e.sets.map((x) => ({ ...x, done: false })) } : e)) }
+      expect(partialEntries(none)).toEqual([])
+    })
+  })
+
+  describe('조정 한 줄', () => {
+    const line = (s: Session, routine: RoutineTemplate = ROUTINE) => {
+      const adj = resolveSessionAdjust(s, routine)
+      return sessionAdjustText(s, sessionSetPlan(s, routine, adj), adj)
+    }
+    const header = (s: Session) => {
+      const d = { ...s, entries: s.entries.map((e) => ({ ...e, performedOrder: e.plannedOrder, firstSetAt: '2026-10-07T18:20:00.000Z' })) }
+      const lines = sessionToMarkdown(d, ROUTINE, catalog, PHASE).split('\n')
+      return lines[lines.findIndex((l) => l.startsWith('## 2026-10-07')) + 1]
+    }
+    it('08-26 픽스처: 저장 조정률·전 entry plannedSets → 한 줄', () => {
+      expect(line(base())).toBe('복귀 조정: 세트 −30% · 무게 −5% — 계획 22세트 → 15세트 생성 · 완료 15세트')
+    })
+    it('normal → undefined', () => {
+      expect(line(allChecked(build('normal')))).toBeUndefined()
+    })
+    it('같은 세션의 내보내기 헤더 다음 줄과 문자열이 같다', () => {
+      expect(line(base())).toBe(header(base()))
+    })
+    it('루틴 사본의 sets를 바꿔도 같다 (JJ2 "루틴 변경"과 같은 픽스처)', () => {
+      expect(line(base(), withRoutineSets({ 'incline-chest-press': 5 }))).toBe(line(base()))
+    })
+  })
+
+  describe('소스 스캔', () => {
+    it('FinishSheet.tsx: 행 수 직접 세기 없음, 초크포인트 사용, 문구 리터럴 없음', () => {
+      expect(fs).not.toContain('e.sets.length')
+      expect(fs).not.toContain('.sets.length')
+      for (const n of ['partialEntries(', 'sessionAdjustText(', 'resolveSessionAdjust(']) expect(fs).toContain(n)
+      expect(fs).not.toContain('조정')
+      expect(fs).toContain('{adjustLine && <p className="row-sub">{adjustLine}</p>}') // 한 줄을 실제로 그린다
     })
   })
 })
