@@ -5,7 +5,7 @@ import { formatClock, weekdayKo } from './dates'
 import { withObjectParticle } from './korean'
 import { completedSessions, doneSets, routineExerciseOfEntry, orderDeviations } from './derive'
 import { holdReasonText, progressionVerdicts, type ProgressionVerdict } from './progression'
-import { buildScaleMap, type WeightScaleMap } from './weightScale'
+import { buildScaleMap, formatWeight, type WeightScaleMap } from './weightScale'
 import {
   ADHERENCE_MARK,
   hasVariants,
@@ -111,10 +111,6 @@ export function dietSectionMarkdown(plan: DietPlan, day: DietDay): string[] {
   return out
 }
 
-function fmtWeight(n: number): string {
-  return Number.isInteger(n) ? String(n) : n.toFixed(1)
-}
-
 /** "Day 1 — Push" → "Day 1 Push" (§6 예시 표기) */
 function dayLabel(name: string): string {
   return name.replace(' — ', ' ')
@@ -147,7 +143,7 @@ function entryLine(
     읽는다. 대체와 같은 이유이고, 둘은 의미가 반대라 문구를 구분한다.
   */
   lines.push(
-    `### ${name} (${dayId.toUpperCase()}/${group}) ${fmtWeight(weight)}kg` +
+    `### ${name} (${dayId.toUpperCase()}/${group}) ${formatWeight(weight)}kg` +
       (origin ? ` (대체: ${origin} — 자리 없음)` : '') +
       (entry.extra ? ' (추가 — 계획 외)' : ''),
   )
@@ -187,14 +183,14 @@ function entryLine(
       // 유지는 사유를 같은 줄 괄호로 적는다 (GG1) — 판정 대상 밖이면 사유 없이 현행 그대로
       lines.push(
         verdict
-          ? `다음: ${fmtWeight(weight)}kg 유지 (${holdReasonText(verdict.reason)})`
-          : `다음: ${fmtWeight(weight)}kg 유지`,
+          ? `다음: ${formatWeight(weight)}kg 유지 (${holdReasonText(verdict.reason)})`
+          : `다음: ${formatWeight(weight)}kg 유지`,
       )
     } else {
       lines.push(
         verdict.to === null
-          ? `다음: ${fmtWeight(weight)}kg 유지 (증량 조건 충족 — 스택 최대)`
-          : `다음: ${fmtWeight(verdict.to)}kg로 증량`,
+          ? `다음: ${formatWeight(weight)}kg 유지 (증량 조건 충족 — 스택 최대)`
+          : `다음: ${formatWeight(verdict.to)}kg로 증량`,
       )
     }
   }

@@ -39,6 +39,11 @@ export function round2(n: number): number {
   return Math.round(n * 100) / 100
 }
 
+/** 내보내기·문장용 무게 표기 — 저장값(0.01 단위) 그대로. 뒤 0을 채우지 않고 부동소수 잡음을 감춘다 */
+export function formatWeight(n: number): string {
+  return String(round2(n))
+}
+
 export function buildScaleMap(
   rows: ExerciseSetting[] | undefined,
   defaultStep: number,
