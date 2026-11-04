@@ -39,6 +39,13 @@ export function doneSets(entry: SessionEntry) {
 }
 
 /**
+ * 작업 세트 **행** 수 (워밍업 제외, 체크 여부 무관). 행 수 세기의 유일한 자리 (JJ1) — `doneSets` 옆.
+ */
+export function workSetRows(entry: SessionEntry): number {
+  return entry.sets.filter((s) => !s.warmup).length
+}
+
+/**
  * **근력 수행이 있었는가** (X3 chokepoint).
  *
  * 유산소만 기록한 세션(세트를 하나도 체크하지 않은 세션)은 "완료 세션"이지만

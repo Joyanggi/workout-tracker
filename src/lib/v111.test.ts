@@ -575,8 +575,11 @@ describe('GG1 — 내보내기', () => {
 })
 
 describe('GG1 — 과거 판정 불변 (2026-08-26 픽스처)', () => {
+  // JJ2(PLAN-v1.12)가 더한 줄 — GG1의 diff 범위 확인은 그 줄을 뺀 나머지로 한다
   const after = () =>
-    sessionToMarkdown(fieldSession(), ROUTINE, catalog, PHASE).split('\n').filter((l) => !l.startsWith('## '))
+    sessionToMarkdown(fieldSession(), ROUTINE, catalog, PHASE)
+      .split('\n')
+      .filter((l) => !l.startsWith('## ') && !l.startsWith('복귀 조정:') && !l.startsWith('세트:'))
 
   it('② 새 내보내기와 GG1_EXPORT_BEFORE의 diff는 A그룹 "다음: … 유지" 세 줄뿐이고 괄호 사유만 늘었다', () => {
     const now = after()

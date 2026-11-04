@@ -5,6 +5,14 @@ import { formatClock, weekdayKo } from './dates'
 import { withObjectParticle } from './korean'
 import { completedSessions, doneSets, routineExerciseOfEntry, orderDeviations } from './derive'
 import { holdReasonText, progressionVerdicts, type ProgressionVerdict } from './progression'
+import {
+  entrySetLine,
+  entrySetPlan,
+  resolveSessionAdjust,
+  sessionAdjustText,
+  sessionSetPlan,
+  type ResolvedAdjust,
+} from './setPlan'
 import { buildScaleMap, formatWeight, type WeightScaleMap } from './weightScale'
 import {
   dietDayStatusText,
@@ -120,6 +128,7 @@ function entryLine(
   routine: RoutineTemplate,
   catalog: Map<string, Exercise>,
   verdicts: Map<string, ProgressionVerdict>,
+  adjust: ResolvedAdjust,
 ): string[] {
   const { exerciseId, dayId } = parseRecordKey(entry.recordKey)
   const routineExercise = routineExerciseOfEntry(routine, entry)
@@ -146,6 +155,10 @@ function entryLine(
       (entry.extra ? ' (추가 — 계획 외)' : ''),
   )
   lines.push(sets.map((s) => s.reps).join(' / '))
+  // 복귀·디로드 세션만 — 앱이 줄였는지 사용자가 줄였는지 구분한다 (JJ2)
+  const setPlan = session.mode !== 'normal' ? entrySetPlan(entry, routine, adjust) : undefined
+  const setLine = setPlan ? entrySetLine(setPlan, session.mode) : undefined
+  if (setLine) lines.push(setLine)
 
   /*
    * 세트 간 간격 (Z3) — **파생값만 낸다. 입력 UI는 만들지 않는다.**
@@ -203,6 +216,7 @@ export function sessionToMarkdown(
   catalog: Map<string, Exercise>,
   phase: Phase,
   scales?: WeightScaleMap,
+  sessions?: Session[],
 ): string {
   const day = [...routine.days, ...routine.fallbackDays].find((d) => d.id === session.dayId)
   const nameOf = (recordKey: string) =>
@@ -224,6 +238,10 @@ export function sessionToMarkdown(
   out.push(
     `## ${session.date} (${weekdayKo(session.date)}) — ${dayLabel(day?.name ?? session.dayId)}${modeTag}  ${time}`,
   )
+
+  const adjust = resolveSessionAdjust(session, routine, sessions)
+  const adjustLine = sessionAdjustText(session, sessionSetPlan(session, routine, adjust), adjust)
+  if (adjustLine) out.push(adjustLine)
 
   const timeline = orderDeviations(session)
   if (timeline.length > 0) {
@@ -257,7 +275,7 @@ export function sessionToMarkdown(
   // 워밍업만 체크한 종목은 작업 세트가 없어 반복수 줄이 비어버린다 — 본문에서 제외한다
   const performed = timeline.map((t) => t.entry).filter((e) => doneSets(e).length > 0)
   for (const entry of performed) {
-    out.push(...entryLine(entry, session, routine, catalog, verdicts))
+    out.push(...entryLine(entry, session, routine, catalog, verdicts, adjust))
     out.push('')
   }
 
@@ -356,7 +374,7 @@ export function exportMarkdown(args: {
       return [`## ${date} (${weekdayKo(date)}) — 운동 없음`, '', ...diet, '']
     }
     return daySessions.flatMap((s, i) => [
-      sessionToMarkdown(s, routine, catalog, phase, scales),
+      sessionToMarkdown(s, routine, catalog, phase, scales, sessions),
       '',
       // 같은 날 세션이 여럿이면 식단은 마지막 세션 아래 한 번만 붙인다
       ...(i === daySessions.length - 1 ? [...diet, ''] : []),
