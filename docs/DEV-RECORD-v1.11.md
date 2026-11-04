@@ -1,6 +1,6 @@
 # 개발·테스트 내역 (검토용) — v1.11 (GG1 · GG2) · 2026-11-04
 
-> PLAN-v1.11의 작업별 구현 기록. 지금은 GG1만 있다.
+> PLAN-v1.11의 작업별 구현 기록. GG1 · GG2.
 
 ## 이 환경에서 확인된 제약 (누적 — 매 라운드 맨 위에 둔다)
 
@@ -99,7 +99,58 @@
 
 ### 하지 않은 것 · 열린 것
 
-- GG2 (복귀·디로드 판정 표시) — `showProgression` prop은 그대로 두고 칩이 그것에 기대 있다. GG2에서 정리한다.
+- GG2 (복귀·디로드 판정 표시) — 아래 GG2 절.
 - 실기기 확인: 요약 화면 "다음 세션 무게 (A그룹)" 카드와, 복귀 세션 뒤 다음 세션 카드 칩(`지난번 상단 도달 · 계획 4세트 중 3세트 완료 · 복귀 세션 — …`)은 화면에서 직접 보지 않았다(RTL 없음 → 순수 함수 + 소스 스캔).
 - 요약 카드 행 순서는 `performedOrder`(없으면 뒤) 기준이다. 현행은 entry 순서였으므로 같은 날 수행 순서가 계획 순서와 다르면 순서가 달라질 수 있다 — 리뷰어 확인 요청.
 - 새로 확인된 제약: 이 환경 Bash 도구는 긴 heredoc(작은따옴표·백틱 섞임)을 파싱하다 깨진다(제약 11과 같은 현상) → 파일로 쓰고 실행했다.
+
+---
+
+## GG2. 복귀·디로드 세션이 증량 판정에서 빠진다는 사실을 그 자리에서 말한다
+
+GG1이 `main`에 들어간 뒤 `git merge main`으로 받아 시작했다.
+
+### 범위
+
+| 커밋 | 내용 | 바뀐 파일 |
+|---|---|---|
+| `35a7390` | `modeSetNotice` · `ExerciseCard` `showProgression`→`sessionMode` · `SessionScreen` 배선 · 배너 문구 · 테스트 · 경미 정리 3건 | `progression.ts` `ExerciseCard.tsx` `SessionScreen.tsx` `HomeScreen.tsx` `exportMarkdown.ts` `SummaryScreen.tsx` `v111.test.ts` `DEV-RECORD-v1.11.md` |
+| (다음 커밋) | 이 기록 + `package.json` 1.11.0 | `DEV-RECORD-v1.11.md` `package.json` |
+
+테스트: `v111.test.ts` 40개(GG1 26 + GG2 14, 1파일). 전체 50파일 / 1052개.
+
+경미 정리 3건(리뷰어가 GG1에서 남긴 점): ① `fmtWeight`를 export해 요약 유지 행(`{fmtWeight(verdict.from)}kg 유지`)이 내보내기와 같은 무게 표기를 쓴다 ② `ExerciseCard`의 `lastHoldChipText` 두 번 호출을 `holdChip` 한 번으로 ③ 이 문서 제약 목록 뒤 `---` 중복 제거.
+기존 GG1 스캔 하나(`ExerciseCard의 hold 칩이 lastHoldChipText를 거친다`)는 import에 `modeSetNotice`가 같이 들어와 단일 이름 매칭을 풀었다.
+
+### PLAN 검증 항목 ↔ 테스트 (describe `GG2`)
+
+| PLAN 검증 | 테스트 이름 |
+|---|---|
+| `modeSetNotice` 복귀/디로드/normal/B/계획=완료/워밍업 | `modeSetNotice: …` 6개 |
+| 완료 vs 행 (0·3·3행+추가·4/4) | `완료 vs 행: 칩 표시 여부와 judgeProgression hold sets 여부가 같은 수를 본다` |
+| 대체 종목 (`routineExerciseOfEntry`) | 소스 스캔 `SessionScreen이 … routineExerciseOfEntry 결과를 넘긴다` |
+| 복귀는 세션 하나 | `복귀는 세션 하나: … suggestNextDay → returnStep 없음` (깨지면 배너 문구 재검토 주석) |
+| 계획 1세트 경계 → up | `경계: 계획 1세트 복귀 세션에서 전 세트 상단이면 up` |
+| 디로드 다음 정상 세션 칩 | `디로드 다음 정상 세션: … · 디로드 세션` |
+| 소스 스캔 | `ExerciseCard에 showProgression 없음…` · `SessionScreen이 sessionMode=…` · `modeSetNotice 본문이 doneSets( …` · `HomeScreen: 주간 램프업·다음 세션부터 없음…` |
+
+뒤집힌 기존 테스트: 없음 (위 스캔 정규식 하나만 완화).
+
+### 결함 복원 (3건, 모두 `cp` 백업 → 복원 → `cmp` 같음)
+
+| 되살린 결함 | 실패한 테스트 |
+|---|---|
+| `modeSetNotice`를 행 수 세기(`entry.sets.filter(!warmup).length`)로 | `완료 vs 행…` · `modeSetNotice 본문이 doneSets( …` |
+| `주간 램프업` 문구 복원 | `HomeScreen: 주간 램프업·다음 세션부터 없음…` |
+| `ExerciseCard`에 `showProgression` 복원 | `ExerciseCard에 showProgression 없음…` |
+
+### 실행 결과
+
+- `npm test`: `Test Files  50 passed (50)` · `Tests  1052 passed (1052)`
+- `npm run build`: 성공
+- `git rev-list --count main..HEAD`: 2 (구현 + 기록·버전, GG1은 main에 있음)
+
+### 하지 않은 것 · 열린 것
+
+- 실기기 확인: 복귀·디로드 세션 카드의 `복귀 세션 · 계획 4세트 중 N세트 완료 …` 칩이 체크할 때마다 바뀌는지, 복귀 배너의 `복귀 조정은 이번 세션에만 적용` 문구는 화면에서 직접 보지 않았다(RTL 없음).
+- 램프업 구현은 PLAN 범위 제외.
