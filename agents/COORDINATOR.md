@@ -40,6 +40,14 @@ orca orchestration check --wait --types worker_done,escalation,question --timeou
 ```
 메시지 없이 시간이 끝나면 같은 명령을 다시 실행한다. 메시지를 받으면 처리한 뒤 `--ack`로 확인 처리한다.
 
+**PR 머지 대기.** PR을 만든 뒤에도 바로 멈추지 않는다. 아래 명령을 Bash 타임아웃 600000으로 실행해 기다린다.
+```
+for i in $(seq 1 18); do s=$(gh pr view <PR 번호> --json state -q .state); [ "$s" != "OPEN" ] && echo $s && break; sleep 30; done
+```
+- `MERGED`: main 작업 트리에서 `git pull`을 하고 다음 단계로 간다.
+- `CLOSED`: 사람에게 알리고 멈춘다.
+- 여전히 `OPEN`: 같은 명령을 다시 실행한다. 합쳐서 2시간이 지나면 "PR 머지 대기 중"이라고 보고하고 멈춘다.
+
 ### spec
 
 구현:
@@ -92,7 +100,7 @@ agents/REVIEWER.md 4절대로 재리뷰해. 지난 "고칠 것":
 
 ## 5. 하지 않는 것
 
-- PR 머지, `main` 머지나 push. 일꾼에게 시키지도 않는다. 지휘자와 일꾼은 PR을 절대 머지하지 않는다.
+- PR 머지, `main` 머지나 push. 일꾼에게 시키지도 않는다. 지휘자와 일꾼은 PR을 절대 머지하지 않는다(`gh pr merge`를 쓰지 않는다).
 - PLAN 수정, PLAN에 없는 작업 만들기, 범위 넓히기
 - 일꾼 대신 직접 구현하거나 리뷰하기. 일꾼이 실패해도 마찬가지다.
 
@@ -109,7 +117,7 @@ PR 본문에는 아래를 쓴다.
 **브랜치 이름은 규칙 형식(`feature/<PLAN 버전>-<작업 ID>`)으로 추측하지 않는다.**
 Orca가 `Joyanggi/` 같은 접두사를 붙이므로, push 전에 작업 트리에서 `git branch --show-current`로 실제 이름을 확인해 보고와 PR에 그 이름을 쓴다.
 
-그다음 gate를 걸고 사람에게 알린다.
+그다음 gate를 걸고 사람에게 알리되, 위 "PR 머지 대기"로 머지를 기다린다.
 
 ```
 완료: <PLAN 파일> <작업 ID>
