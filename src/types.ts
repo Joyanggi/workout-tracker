@@ -259,12 +259,24 @@ export interface SessionEntry {
    * 읽혀 정확하다.
    */
   extra?: true
+  /**
+   * 세션 생성 때의 계획 세트 수 P = 그때의 `routineExercise.sets` (JJ1). 복귀·디로드 세션의 루틴 종목 entry에만 있다.
+   * 루틴의 `sets`는 시드 리비전·루틴 가져오기로 바뀌므로, 그날 앱이 몇 세트를 계획·생성했는지는 이 값이 말한다.
+   * 대체·Day 변경은 entry를 펼쳐 복사하므로 그대로 따라간다. 얹은 종목·normal 세션·JJ 이전 기록에는 없다.
+   */
+  plannedSets?: number
 }
 
 export interface CardioRecord {
   type: string
   minutes: number
   note?: string // "마이마운틴 25/3.8"
+}
+
+/** 세션 생성 때 앱이 적용한 조정 (JJ1). 단위 %, 음수가 감량 */
+export interface SessionAdjust {
+  setPct: number
+  weightPct: number
 }
 
 export interface Session {
@@ -278,6 +290,12 @@ export interface Session {
   entries: SessionEntry[]
   cardio?: CardioRecord
   sessionNote?: string
+  /**
+   * 복귀·디로드 세션에만 있다. normal이면 없다.
+   * 없는 복귀·디로드 세션은 JJ 이전 기록이다 → `resolveSessionAdjust`가 되짚는다.
+   * 복귀 조정률은 공백 주수에 따라 달라지고 나중에 공백을 다시 계산하면 값이 바뀔 수 있어서 저장한다.
+   */
+  modeAdjust?: SessionAdjust
 }
 
 // ─── 설정 ────────────────────────────────────────────────
