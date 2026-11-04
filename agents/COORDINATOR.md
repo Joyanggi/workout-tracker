@@ -46,7 +46,10 @@ orca orchestration check --wait --types worker_done,escalation,question --timeou
 ```
 for i in $(seq 1 18); do s=$(gh pr view <PR 번호> --json state -q .state); [ "$s" != "OPEN" ] && echo $s && break; sleep 30; done
 ```
-- `MERGED`: main 작업 트리에서 `git pull`을 하고 다음 단계로 간다.
+- `MERGED`: main 작업 트리에서 `git pull`을 한 뒤, **이번 Run이 만든 작업 트리를 지우고 그 로컬 브랜치를 삭제한다.**
+  작업 트리 삭제 명령은 `orca skills get orchestration --full`이나 `orca-cli` 스킬에서 찾아 쓰고, 없으면 `git worktree remove <경로>`를 쓴다.
+  브랜치는 `git branch -d <브랜치>`로 지운다(머지 확인이 끝났으니 `-D`는 쓰지 않는다). 이번 Run이 만들지 않은 작업 트리와 main 작업 트리는 건드리지 않는다.
+  지운 작업 트리·브랜치 목록을 최종 보고에 적고, 지우지 못한 것은 이유와 함께 적는다. 그다음 다음 단계로 간다.
 - `CLOSED`: 사람에게 알리고 멈춘다.
 - 여전히 `OPEN`: 같은 명령을 다시 실행한다. 합쳐서 2시간이 지나면 "PR 머지 대기 중"이라고 보고하고 멈춘다.
 
@@ -131,7 +134,11 @@ Orca가 `Joyanggi/` 같은 접두사를 붙이므로, push 전에 작업 트리�
 PR: <gh pr create가 돌려준 URL>
 경과: 구현 <n>회, 리뷰 <n>회 (반려 <n>회)
 리뷰어의 경미한 점: <없으면 "없음">
+정리: <지운 작업 트리·브랜치 목록. 못 지운 것은 이유와 함께>
+규칙 메모: <이번 실행에서 규칙과 실제가 어긋난 점(명령 실패, 이름 불일치, 규칙끼리 충돌, 사람이 끼어든 이유)을 한 줄씩. 없으면 "없음">
 사람이 할 일: 화면·실기기 확인 → PR 머지
 ```
+
+규칙 메모는 기록만 한다. 규칙 파일은 직접 고치지 않는다.
 
 한 세션에는 Run 하나만 맡는다. 다음 일은 새 세션에서 시작한다. 예외: 설계 Run이 PLAN 머지(또는 자동 승인) 뒤 같은 PLAN의 구현으로 이어지는 것은 같은 세션에서 한다(`coordinator/DESIGN.md`). 그 밖의 새 일은 새 세션에서 시작한다. 대화가 길어질수록 매번 다시 읽는 양이 늘기 때문이다.
