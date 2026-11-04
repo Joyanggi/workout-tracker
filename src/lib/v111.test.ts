@@ -4,6 +4,7 @@ import {
   holdReasonText,
   judgeProgression,
   lastHoldChipText,
+  modeSetNotice,
   progressionSuggestions,
   progressionVerdicts,
   type HoldReason,
@@ -12,6 +13,8 @@ import { formatProgression, scaleFor } from './weightScale'
 import { stripComments } from './sourceScan'
 import { ROUTINE } from './testFixtures'
 import { sessionToMarkdown } from './exportMarkdown'
+import { suggestNextDay } from './suggestNextDay'
+import { doneSets } from './derive'
 import EXERCISES from '../data/exercises.json'
 import { isInverseKey } from './weightScale'
 import { NO_COMPENSATION, makeRecordKey } from '../types'
@@ -625,8 +628,118 @@ describe('GG1 — 소스 스캔 (초크포인트)', () => {
 
   it('ExerciseCard의 hold 칩이 lastHoldChipText를 거친다', () => {
     const s = src('/src/components/ExerciseCard.tsx')
-    expect(s).toMatch(/import\s*\{\s*lastHoldChipText\s*\}\s*from\s*'[^']*progression'/)
+    // GG2: modeSetNotice가 같은 import에 들어와 단일 이름 매칭을 풀었다
+    expect(s).toMatch(/import\s*\{[^}]*lastHoldChipText[^}]*\}\s*from\s*'[^']*progression'/)
     expect(s).toMatch(/lastHoldChipText\(prefill\?\.lastVerdict\)/)
     expect(s).not.toMatch(/지난번 상단/)
+  })
+})
+
+// ─── GG2 — 복귀·디로드 세션이 증량 판정에서 빠진다는 사실을 그 자리에서 말한다 ──
+
+describe('GG2', () => {
+  const entryOf = (checks: boolean[], warmupChecked = false, key = NORMAL_KEY): SessionEntry => ({
+    recordKey: key, plannedOrder: 1, performedOrder: 1, compensation: NO_COMPENSATION, skipped: false,
+    sets: [
+      ...(warmupChecked ? [{ weight: 10, reps: 10, done: true, warmup: true }] : []),
+      ...checks.map((done) => ({ weight: 30, reps: 10, done })),
+    ],
+  })
+  const verdictOf = (entry: SessionEntry, mode: SessionMode, re = NORMAL_RE) =>
+    judgeProgression({
+      routine: ROUTINE, routineExercise: re, phase: PHASE,
+      sets: doneSets(entry).map((s) => ({ weight: s.weight, reps: s.reps })), mode,
+    })
+
+  it('modeSetNotice: 복귀 3행 전부 완료/계획 4 → 문구', () => {
+    expect(modeSetNotice('return', NORMAL_RE, entryOf([true, true, true]))).toBe(
+      '복귀 세션 · 계획 4세트 중 3세트 완료 — 증량 판정은 계획 세트를 모두 완료한 세션에서',
+    )
+  })
+  it('modeSetNotice: 디로드 2행 완료/계획 4 → 디로드 문구', () => {
+    expect(modeSetNotice('deload', NORMAL_RE, entryOf([true, true]))).toBe(
+      '디로드 세션 · 계획 4세트 중 2세트 완료 — 증량 판정은 계획 세트를 모두 완료한 세션에서',
+    )
+  })
+  it('modeSetNotice: normal → undefined', () => {
+    expect(modeSetNotice('normal', NORMAL_RE, entryOf([true]))).toBeUndefined()
+  })
+  it('modeSetNotice: B그룹 → undefined', () => {
+    expect(modeSetNotice('return', { ...NORMAL_RE, group: 'B' }, entryOf([true]))).toBeUndefined()
+  })
+  it('modeSetNotice: 완료 수 = 계획(계획 1세트, 1행 완료) → undefined', () => {
+    expect(modeSetNotice('return', { ...NORMAL_RE, sets: 1 }, entryOf([true]))).toBeUndefined()
+  })
+  it('modeSetNotice: 워밍업 행은 체크돼도 세지 않는다', () => {
+    expect(modeSetNotice('return', NORMAL_RE, entryOf([true, true], true))).toContain('2세트 완료')
+  })
+
+  it('완료 vs 행: 칩 표시 여부와 judgeProgression hold sets 여부가 같은 수를 본다', () => {
+    const e0 = entryOf([false, false, false])
+    expect(modeSetNotice('return', NORMAL_RE, e0)).toContain('0세트 완료')
+    expect(verdictOf(e0, 'return')).toBeUndefined()
+
+    const e3 = entryOf([true, true, true])
+    expect(modeSetNotice('return', NORMAL_RE, e3)).toContain('3세트 완료')
+    expect(verdictOf(e3, 'return')).toMatchObject({ kind: 'hold', reason: { kind: 'sets', done: 3 } })
+
+    const e43 = entryOf([true, true, true, false])
+    expect(modeSetNotice('return', NORMAL_RE, e43)).toContain('3세트 완료')
+    expect(verdictOf(e43, 'return')).toMatchObject({ kind: 'hold', reason: { kind: 'sets', done: 3 } })
+
+    const e44 = entryOf([true, true, true, true])
+    expect(modeSetNotice('return', NORMAL_RE, e44)).toBeUndefined()
+    expect(verdictOf(e44, 'return')?.kind).toBe('up')
+  })
+
+  it('경계: 계획 1세트 복귀 세션에서 전 세트 상단이면 up (판정에 mode가 끼지 않는다)', () => {
+    expect(verdictOf(entryOf([true]), 'return', { ...NORMAL_RE, sets: 1 })?.kind).toBe('up')
+  })
+
+  it('복귀는 세션 하나: 복귀 세션 다음 날 suggestNextDay → returnStep 없음 (배너 문구 "이번 세션에만 적용"이 이 사실 위에 선다 — 깨지면 문구도 다시 볼 것)', () => {
+    const ret: Session = { ...fieldSession(), id: 'r', date: '2026-08-26', mode: 'return' }
+    const s = suggestNextDay({ sessions: [ret], routine: ROUTINE, today: '2026-08-27', now: new Date('2026-08-27T09:00:00') })
+    expect(s.returnStep).toBeUndefined()
+  })
+
+  it('디로드 다음 정상 세션: 디로드 2/4 완료·전부 상단 → lastHoldChipText에 · 디로드 세션', () => {
+    const s: Session = {
+      ...fieldSession(), id: 'dl', date: '2026-08-26', mode: 'deload',
+      entries: [{ ...fieldSession().entries[0], recordKey: NORMAL_KEY, sets: [10, 10].map((r) => ({ weight: 30, reps: r, done: true })) }],
+    }
+    const p = buildPrefill({ sessions: [s], routine: ROUTINE, recordKey: NORMAL_KEY, routineExercise: NORMAL_RE, phase: PHASE })
+    expect(lastHoldChipText(p.lastVerdict)).toContain('· 디로드 세션')
+  })
+
+  describe('소스 스캔', () => {
+    const raw = import.meta.glob(['/src/lib/*.ts', '/src/screens/*.tsx', '/src/components/*.tsx'], {
+      query: '?raw', import: 'default', eager: true,
+    }) as Record<string, string>
+    const src = (p: string) => {
+      expect(raw[p], `${p}를 찾지 못했다 — 이 검사가 헛돌고 있다`).toBeDefined()
+      return stripComments(raw[p])
+    }
+    it('ExerciseCard에 showProgression 없음 · modeSetNotice를 거침', () => {
+      const s = src('/src/components/ExerciseCard.tsx')
+      expect(s).not.toMatch(/showProgression/)
+      expect(s).toMatch(/modeSetNotice\(sessionMode,\s*routineExercise,\s*entry\)/)
+    })
+    it('SessionScreen이 sessionMode={session.mode}를 넘기고, 카드에는 routineExerciseOfEntry 결과를 넘긴다', () => {
+      const s = src('/src/screens/SessionScreen.tsx')
+      expect(s).toMatch(/sessionMode=\{session\.mode\}/)
+      expect(s).toMatch(/routineExerciseOfEntry\(bundle\.routine,\s*entry\)/)
+    })
+    it('modeSetNotice 본문이 doneSets( 를 쓰고 행 수 세기가 없다', () => {
+      const s = src('/src/lib/progression.ts')
+      const body = s.slice(s.indexOf('export function modeSetNotice'), s.indexOf('export function progressionVerdicts'))
+      expect(body).toMatch(/doneSets\(/)
+      expect(body).not.toMatch(/!s\.warmup\)\.length|entry\.sets\.length/)
+    })
+    it('HomeScreen: 주간 램프업·다음 세션부터 없음, 이번 세션에만 적용 있음', () => {
+      const s = src('/src/screens/HomeScreen.tsx')
+      expect(s).not.toMatch(/주간 램프업/)
+      expect(s).not.toMatch(/다음 세션부터/)
+      expect(s).toMatch(/이번 세션에만 적용/)
+    })
   })
 })

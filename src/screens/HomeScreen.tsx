@@ -259,7 +259,7 @@ export default function HomeScreen({
           {suggestion.gapDays}일 공백 — 무게 {suggestion.returnStep?.weightPct}%, 세트{' '}
           {suggestion.returnStep?.setPct}%, RIR {suggestion.returnStep?.targetRIR}로 복귀할까요?
           <br />
-          <small>{suggestion.returnStep?.rampWeeks}주간 램프업</small>
+          <small>복귀 조정은 이번 세션에만 적용</small>
         </span>
         {/*
           **한 칸짜리 토글을 쓰지 않는다** (EE3).

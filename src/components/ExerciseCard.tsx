@@ -15,9 +15,9 @@ import { doneSetsAll } from '../lib/derive'
 import { noteLineText, type NoteEntry } from '../lib/noteHistory'
 import { setRowClass, zeroWeightHint } from '../lib/setRowState'
 import { DEFAULT_COUNT_IN_SEC, tempoPhasesFor, type TempoPhase } from '../lib/tempo'
-import { lastHoldChipText } from '../lib/progression'
+import { lastHoldChipText, modeSetNotice } from '../lib/progression'
 import type { RecordPrefill } from '../lib/prefill'
-import type { RecordKey, RoutineExercise, SessionEntry, SetRecord } from '../types'
+import type { RecordKey, RoutineExercise, SessionEntry, SessionMode, SetRecord } from '../types'
 import { NO_AUTOFILL } from '../lib/inputProps'
 
 /** 감각 점수 라벨 (루틴 문서: 목표 부위에 자극이 왔는지) */
@@ -92,11 +92,12 @@ export default function ExerciseCard({
   /** 편집 모드에서는 "지난 기록" 고스트와 증량 칩을 숨긴다 (과거 세션 기준이 아니라 혼란만 준다) */
   showPrefillHints = true,
   /**
-   * 디로드·복귀 세션에서는 증량 칩을 숨긴다.
+   * 세션 모드 (GG2). 정상 세션에서만 증량 칩을 보이고, 디로드·복귀 세션에서는
+   * 증량 칩 대신 `modeSetNotice`("계획 N세트 중 M세트 완료")를 보인다.
    * 프리필 무게가 이미 증량을 무시하는데(defaultSetFor) 칩만 "+2.5kg 제안"이라고
    * 뜨면 화면이 서로 다른 말을 한다.
    */
-  showProgression = true,
+  sessionMode = 'normal',
 }: {
   entry: SessionEntry
   routineExercise: RoutineExercise
@@ -135,7 +136,7 @@ export default function ExerciseCard({
   onToggleOpen: () => void
   onSetChecked?: (routineExercise: RoutineExercise) => void
   showPrefillHints?: boolean
-  showProgression?: boolean
+  sessionMode?: SessionMode
 }) {
   const [editingCompensation, setEditingCompensation] = useState(false)
   // 종목별 고정 설정 — 세팅 메모(T4) + 무게 단위(T9).
@@ -172,6 +173,8 @@ export default function ExerciseCard({
   const done = doneSetsAll(entry)
   const complete = done.length >= entry.sets.length
   const isB = routineExercise.group === 'B'
+  const holdChip = lastHoldChipText(prefill?.lastVerdict)
+  const modeNotice = modeSetNotice(sessionMode, routineExercise, entry)
 
   /*
     대체운동 캘리브레이션 (T8).
@@ -388,10 +391,13 @@ export default function ExerciseCard({
             {firstExposure && !firstWork?.done && (
               <span className="chip chip-warn">첫 세트는 {CALIBRATION_RIR}로</span>
             )}
-            {showPrefillHints && showProgression && lastHoldChipText(prefill?.lastVerdict) && (
-              <span className="chip">{lastHoldChipText(prefill?.lastVerdict)}</span>
+            {showPrefillHints && sessionMode === 'normal' && holdChip && (
+              <span className="chip">{holdChip}</span>
             )}
-            {showPrefillHints && showProgression && prefill?.progression && (
+            {showPrefillHints && sessionMode !== 'normal' && modeNotice && (
+              <span className="chip">{modeNotice}</span>
+            )}
+            {showPrefillHints && sessionMode === 'normal' && prefill?.progression && (
               <span className="chip chip-accent">
                 증량 제안 {prefill.progression.from} → {prefill.progression.to}kg
               </span>

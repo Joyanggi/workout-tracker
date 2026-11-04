@@ -259,7 +259,7 @@ export default function SessionScreen({
               tempoPhases={tempoPhasesFor(exercise?.tempo, routineExercise.group, aEccentricSec)}
               tempoCountInSec={tempoCountInSec}
               prefill={prefills.get(entry.recordKey)}
-              showProgression={session.mode === 'normal'}
+              sessionMode={session.mode}
               actions={actions}
               open={openKey === entry.recordKey}
               onToggleOpen={() => setOpenKey(openKey === entry.recordKey ? null : entry.recordKey)}

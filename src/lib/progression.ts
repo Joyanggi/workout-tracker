@@ -5,6 +5,7 @@ import type {
   RoutineExercise,
   RoutineTemplate,
   Session,
+  SessionEntry,
   SessionMode,
 } from '../types'
 import { doneSets, routineExerciseOfEntry } from './derive'
@@ -128,6 +129,22 @@ export function lastHoldChipText(verdict: ProgressionVerdict | undefined): strin
   if (verdict?.kind !== 'hold' || verdict.reason.kind !== 'sets') return undefined
   const { done, planned, mode } = verdict.reason
   return `지난번 상단 도달 · 계획 ${planned}세트 중 ${done}세트 완료${MODE_SUFFIX[mode]} — 오늘 ${planned}세트 모두 완료하면 증량 판정`
+}
+
+/**
+ * 복귀·디로드 세션 카드 칩 (GG2). 완료 작업 세트(`doneSets`)가 계획보다 적을 때만 말한다.
+ * 세는 기준이 `judgeProgression`의 `sets`와 같다 — 행 수를 세지 않는다.
+ * 대체 종목은 호출부가 `routineExerciseOfEntry` 결과(원 종목)를 넘긴다.
+ */
+export function modeSetNotice(
+  mode: SessionMode,
+  routineExercise: RoutineExercise,
+  entry: SessionEntry,
+): string | undefined {
+  if (mode === 'normal' || routineExercise.group !== 'A') return undefined
+  const done = doneSets(entry).length
+  if (done >= routineExercise.sets) return undefined
+  return `${MODE_SUFFIX[mode].slice(3)} · 계획 ${routineExercise.sets}세트 중 ${done}세트 완료 — 증량 판정은 계획 세트를 모두 완료한 세션에서`
 }
 
 /** 세션의 A그룹 entry별 판정 (up/hold). 내보내기·요약이 쓴다. 판정 대상 아닌 entry는 없다. */
