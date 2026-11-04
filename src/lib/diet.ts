@@ -351,11 +351,15 @@ export const SLOT_MARK: Record<SlotGrade, string> = {
   zero: '✗',
 }
 
+/** `slotGrade`의 임계값 — 범례 등 다른 표시도 이 이름으로 같은 값을 말한다 */
+export const SLOT_GRADE_HIGH = 0.8
+export const SLOT_GRADE_MID = 0.45
+
 export function slotGrade(score: number | null): SlotGrade {
   if (score === null) return 'none'
   if (score >= 1) return 'full'
-  if (score >= 0.8) return 'high'
-  if (score >= 0.45) return 'mid'
+  if (score >= SLOT_GRADE_HIGH) return 'high'
+  if (score >= SLOT_GRADE_MID) return 'mid'
   if (score > 0) return 'low'
   return 'zero'
 }

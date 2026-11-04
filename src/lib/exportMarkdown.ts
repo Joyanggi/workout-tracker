@@ -11,6 +11,8 @@ import {
   hasVariants,
   itemVariant,
   QUALITY_LABEL,
+  SLOT_MARK,
+  slotGrade,
   slotScore,
   slotsFor,
   splitsByTrainingDay,
@@ -66,11 +68,7 @@ export function dietSectionMarkdown(plan: DietPlan, day: DietDay): string[] {
       `${ADHERENCE_MARK[summary.adherence]} (단백질 추정 ${summary.proteinG}g / ${summary.targetProteinG}g)`,
   )
 
-  const markOf = (slotId: string, slot: (typeof slots)[number]) => {
-    const score = slotScore(slot, day.slots[slotId])
-    return score === null ? '—' : score >= 1 ? '●' : score > 0 ? '◐' : '✗'
-  }
-  out.push(`- 슬롯: ${logged.map((s) => `${s.name} ${markOf(s.id, s)}`).join(' · ')}`)
+  out.push(`- 슬롯: ${logged.map((s) => `${s.name} ${SLOT_MARK[slotGrade(slotScore(s, day.slots[s.id]))]}`).join(' · ')}`)
 
   for (const slot of logged) {
     const record = day.slots[slot.id]
