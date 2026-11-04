@@ -13,3 +13,4 @@ DEVLOG.md
 
 # 에이전트 보고 파일 (검토 결과 등 — 커밋하지 않음)
 .reports/
+debug.log
