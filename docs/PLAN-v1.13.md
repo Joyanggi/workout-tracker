@@ -3,6 +3,7 @@
 > 작성: Opus 5.5 (설계자), 2026-11-04. 대상 코드: v1.12.0 (`main` `25ee510`).
 > 근거: `docs/FIELD-REPORT-2026-11-04.md` 4·5·6절, 9-1·9-2절, **12절 사용자 답과 "Q2 설계 쟁점에 대한 답"**.
 > 12절은 브랜치 `Joyanggi/field-report-2026-11`(`8dcd506`)에 있고, 이 PLAN을 쓴 시점에는 `main`에 머지되지 않았다.
+> 검토 반영: 2026-11-04, `.reports/v1.13-codex.md`·`.reports/v1.13-claude.md` (끝 "검토 반영 기록"). "사람이 정할 것" 5건은 추천안으로 확정해 본문에 넣었다.
 >
 > **성격**: 규칙이 바뀌는 곳은 **복귀 무게 하나**다(Q2 답). 나머지 넷은 규칙을 두고 표시만 더한다(Q8 답 "곧 주 3~4회로 돌아간다").
 > Day 제안(`suggestNextDay`의 Day 선택)·증량 판정(`judgeProgression`)·세트 수(`adjustedSetCount`)·PR·볼륨·빈도 경고는 바뀌지 않는다.
@@ -39,6 +40,8 @@
 | 홈 복귀 배너가 `무게 {weightPct}%`를 그대로 찍는다 → 새 규칙에서는 `무게 0%`가 된다 | `HomeScreen.tsx:259-260` |
 | 세션은 `modeAdjust {setPct, weightPct}`만 저장한다 (JJ1). 어떤 무게 규칙으로 만들었는지는 없다 | `types.ts:277-298` · `setPlan.ts:34-41` |
 | 루틴은 시드·루틴 가져오기·Gist 복원으로 들어온다. 복원·가져오기된 옛 형식 루틴에 새 필드가 없을 수 있다 | `seed.ts:60-99` · `RoutineIoPanel.tsx:58-68` · `backup.ts:242-283` |
+| 맨몸·0kg 종목(크런치·데드버그, `allowZeroWeight`)이 D3에 있다 → 프리필 무게 0 | `exercises.json:246,255` · `routine-v2.4.json:292,304` |
+| 기록 없는 종목의 기준 무게는 **추정 시작 무게**다(이미 `snapDownToScale`로 가벼운 쪽). 복귀 공백이면 어느 Day를 골라도 복귀 세션이라 한 번도 안 한 Day(D2·D4)의 종목에 복귀 감량이 한 번 더 걸린다 | `prefill.ts:252` · `prefill.ts:66` `startEstimate`(기록이 하나라도 있으면 `undefined`) · `HomeScreen.tsx:151-154` |
 
 ### 설계
 
@@ -108,8 +111,9 @@ export interface SessionAdjust {
 export interface SessionEntry {
   // …
   /**
-   * KK1. 복귀 세션이고 무게 규칙이 keep이 아닐 때, 루틴 종목 entry에만.
-   * base = 생성 때 세트별 프리필 기준 무게 중 최댓값, given = returnWeightFor(base). 기준 무게는 이력·Phase·단위에 달려 나중에 되짚을 수 없어서 저장한다.
+   * KK1. 복귀 감량이 실제로 걸린 루틴 종목 entry에만 (6번 `applies` 참). 그리고 base > 0.
+   * base = 생성 때 세트별 프리필 기준 무게 중 최댓값(최고 무게 기준), given = returnWeightFor(base). 기준 무게는 이력·Phase·단위에 달려 나중에 되짚을 수 없어서 저장한다.
+   * given === base(사다리 최하단 등)도 남긴다 — "내릴 무게가 없었다"는 사실이다.
    * Day 변경은 펼쳐 복사로 따라가고, 대체는 행을 새로 만들므로 지운다.
    */
   returnWeight?: { base: number; given: number }
@@ -117,8 +121,11 @@ export interface SessionEntry {
 ```
 
 **6. `buildSession`** — `sessionFactory.ts`
-- 세트 무게: `weight = returnWeightFor(base.weight, modeAdjust, scale)`, `scale = { ...scaleFor(args.scales, recordKey, routine.rules.weightIncrementKg), inverse: args.isInverse?.(recordKey) ?? false }`. normal·deload는 지금처럼 `base` 그대로.
-- `mode === 'return'`이고 `weightRule !== 'keep'`이면 entry에 `returnWeight` (위 정의). 그 외에는 키를 만들지 않는다.
+- entry마다 한 번: `applies = mode === 'return' && modeAdjust.weightRule !== 'keep' && prefill.startEstimate === undefined`.
+  **기록 없는 종목(추정 시작 무게)에는 복귀 감량을 걸지 않는다** — 추정이 이미 가벼운 쪽 규칙이고(CC13), "기준"이라 부를 직전 수행이 없다.
+- 세트 무게: `applies`면 `weight = returnWeightFor(base.weight, modeAdjust, scale)`, 아니면 `base` 그대로(normal·deload·추정 포함).
+  `scale = { ...scaleFor(args.scales, recordKey, routine.rules.weightIncrementKg), inverse: args.isInverse?.(recordKey) ?? false }`.
+- `applies`이고 base(세트별 기준 최댓값) `> 0`이면 entry에 `returnWeight` (위 정의). 그 외에는 키를 만들지 않는다 → 0kg 종목(크런치)·추정 종목·1단계는 키 없음.
 - `roundToHalf`를 **이 파일에서 지운다**(호출처가 복귀 무게 하나뿐이다). `substitute.ts`의 같은 이름 함수는 대체 무게용이라 그대로.
 - 행 수·반복·`plannedSets`는 그대로.
 
@@ -133,13 +140,16 @@ export interface SessionEntry {
 | 2 | `세트 −40% · 무게 한 단계 내림 · 반복 3회 남기기` |
 | 3 | `세트 −50% · 무게 −20% (기구 무게로 내림) · 반복 4회 남기기` |
 
-**9. 검증용 루틴 검사** — `validateRoutine.ts`에 7번: ① `gapDaysMin`은 모든 단계에 있거나 모두 없다, 있으면 오름차순 ② `weightRule`이 `keep`·`oneStep`이면 `weightPct === 0`, `pctSnapDown`이면 `weightPct < 0`.
+**9. 검증용 루틴 검사** — `validateRoutine.ts`에 7번: ① `gapDaysMin`은 모든 단계에 있거나 모두 없다, 있으면 엄격한 오름차순(6번과 같은 `<=` 검사) ② `weightRule`이 `keep`·`oneStep`이면 `weightPct === 0`, `pctSnapDown`이면 `weightPct < 0`.
+`validateRoutine`은 **형식과 서로 모순되는 조합만** 막는다. 14/29/56 같은 값은 사용자 답이 정한 데이터라 검사기에 박지 않는다(가져온 루틴이 값을 바꿀 수 있어야 한다).
+배포 값은 KK1 검증의 "배포 `returnProtocol` 고정" 단언과 경계 단언이 지킨다.
 
 **10. 문서** — 같은 커밋에서 `README.md` "복귀 시 무게보다 세트·RIR을 깎는다"의 마지막 문장과 `docs/DESIGN.md` §7 복귀 표(414-417줄)·§8 시드 예시(563-565줄)를 새 값으로 고친다.
 결정의 방향(무게보다 세트·RIR)은 그대로이고 무게 폭만 사용자 답(Q2)으로 바뀐다. DESIGN 머리의 "앱 시드와 루틴 문서가 1:1"을 지키기 위해서다.
 
 ### 검증 (`src/lib/v113.test.ts`, describe `KK1`)
 
+- 배포 `returnProtocol` 고정: 세 단계의 `gapDaysMin`·`weightPct`·`weightRule`이 설계 2번 표와 같다(`toEqual`).
 - `returnStepFor` (배포 루틴): 13 → 없음 · 14 → 1단계 · **28 → 1단계** · **29 → 2단계** · 55 → 2단계 · **56 → 3단계** · 60 → 3단계.
 - `returnStepFor` (옛 루틴 — 사본에서 `gapDaysMin`·`weightRule`을 지우고 weightPct −5/−10/−20으로 되돌림): 28 → 2단계(옛 의미 유지).
 - `returnWeightRuleOf`: 배포 1·2·3단계 → keep·oneStep·pctSnapDown · 옛 루틴 1단계(−5, 필드 없음) → pctSnapDown · `undefined` → keep.
@@ -154,10 +164,13 @@ export interface SessionEntry {
   - return 1단계: 모든 세트 40 (v1.12는 38) · 2단계: 37.5 (v1.12는 36) · 3단계: 30 (v1.12는 32) · step 없음: 40 · 행 수·반복은 `JJ_BUILD_GOLDEN`과 같다
   - 인클라인 단위 5(`scales`) · 2단계 → 인클라인만 35, 나머지 37.5
   - normal·deload: `JJ_BUILD_GOLDEN` 전 칸 그대로
+  - **0kg 종목**: D3 크런치(프리필 0) · 2단계·3단계 → 세트 무게 0, `returnWeight` 키 없음, 내보내기에 `무게:` 줄 없음
+  - **기록 없는 종목**: 이력 없는 Day(D2) + 체중·`startWeightPctBW` 있음 · 2단계·3단계 → 세트 무게 = `startEstimate` 그대로, `returnWeight` 키 없음 · 같은 종목에 기록 하나 추가 → 감량이 걸린다
+  - 사다리 최하단 15 · 2단계 → 세트 15, `returnWeight {15, 15}` (base > 0이라 남긴다)
 - `modeAdjust` 저장: 1단계 `{-30, 0, 'keep', 3}` · 2단계 `{-40, 0, 'oneStep', 3}` · 3단계 `{-50, -20, 'pctSnapDown', 4}` · step 없음 `{0, 0, 'keep'}`(`targetRIR` 키 없음) · deload `{-50, 0}`(`'weightRule' in` false).
 - `returnWeight` 저장: 1단계·normal·deload → 키 없음 · 2단계 → 모든 루틴 종목 entry `{base: 40, given: 37.5}` · 3단계 → `{40, 30}` · `applyDayChange` 뒤 같은 값 · `applySubstitute` 뒤 `undefined` · `applyAddExercise` entry에 없음.
 - 홈 배너 문구: `returnStepText` 세 단계가 위 표와 같다.
-- `validateRoutine`: 배포 루틴 문제 0건 · `gapDaysMin` 29 ↔ 14 뒤바꿈 → 문제 · 한 단계에서만 `gapDaysMin` 삭제 → 문제 · `oneStep` + weightPct −10 → 문제 · `pctSnapDown` + weightPct 0 → 문제.
+- `validateRoutine`: 배포 루틴 문제 0건 · `gapDaysMin` 29 ↔ 14 뒤바꿈 → 문제 · 한 단계에서만 `gapDaysMin` 삭제 → 문제 · `oneStep` + weightPct −10 → 문제 · `pctSnapDown` + weightPct 0 → 문제 · `keep` + weightPct −5 → 문제 · `gapDaysMin` 같은 값 두 개(29, 29) → 문제 · 2단계 `gapDaysMin` 28(오름차순은 지킴) → 문제 0건(값은 검사 범위 밖 — 위 9번).
 - **소스 스캔**: `sessionFactory.ts`에 `roundToHalf`·`weightPct / 100` 없음, `returnWeightFor(` 있음 · `setPlan.ts`·`weightScale.ts` 밖(테스트 제외)에 `snapDownToScale(` 호출이 `prefill.ts`(CC13)와 `setPlan.ts`뿐 · `HomeScreen.tsx`에 `returnStep?.weightPct`·`returnStep?.setPct` 없음, `returnStepText(` 있음.
 
 ### 범위 제외
@@ -208,7 +221,7 @@ export const LEGACY_RETURN_PROTOCOL = [
 | `returnWeightText(rule, weightPct)` | `keep` → `무게 유지` · `oneStep` → `무게 한 단계 내림` · `pctSnapDown` → `무게 −20% (기구 무게로 내림)` |
 | `returnRirText(rir)` | `반복 3회 남기기` |
 | `returnStepText(step)` | KK1 표 (배너) |
-| `sessionReturnRirText(session)` | `mode === 'return'`이고 `modeAdjust?.targetRIR !== undefined`면 `복귀 — 반복 3회 남기기`, 아니면 `undefined` (종목 카드) |
+| `sessionReturnRirText(session, entry)` | `mode === 'return'`이고 `modeAdjust?.targetRIR !== undefined`이고 `!entry.extra`면 `복귀 — 반복 3회 남기기`, 아니면 `undefined` (종목 카드). 얹은 종목은 복귀 계획(세트 조정) 밖이라 빼고, 대체 종목은 원 종목 자리라 붙인다 |
 | `entryWeightLine(entry, mode)` | 아래 표. `mode !== 'return'`·`returnWeight` 없음·`substituteFor` 있음·`extra` → `undefined` |
 
 `sessionAdjustText`의 조정 부분(`head`)을 이렇게 바꾼다. 나머지(`— 계획 … 생성 · 완료 …`, `재계산`, `현재 루틴 계획`)는 JJ 규칙 그대로.
@@ -226,14 +239,14 @@ export const LEGACY_RETURN_PROTOCOL = [
 - 판정: `weightRule`이 있으면 KK 문구, 없으면 JJ 문구에 `(당시 규칙)`을 `무게 −N%` 바로 뒤에 붙인다(`mode === 'return' && weightPct !== 0`일 때만).
 - `반복 N회 남기기`는 `targetRIR`이 있을 때만. KK 이전 세션에는 붙이지 않는다(그때 세션 화면은 이 값을 말하지 않았다).
 
-`entryWeightLine` — 종목 줄, `세트:` 줄 바로 다음 (`간격:`보다 앞). `수행` = 그 종목 완료 세트의 최고 무게(헤더 무게와 같은 값).
+`entryWeightLine` — 종목 줄, `세트:` 줄 바로 다음 (`간격:`보다 앞). `기준`·`복귀` = `returnWeight`의 `base`·`given`(세트별 프리필 중 **최고 무게 기준**). `수행` = 그 종목 완료 세트의 최고 무게(헤더 무게와 같은 값).
 
 | 경우 | 문구 |
 |---|---|
 | `given < base` (일반) / `given > base` (어시스티드) | `무게: 기준 40 → 복귀 37.5 · 수행 40` |
-| `given === base` (사다리 최하단·0kg) | `무게: 기준 15 · 내릴 무게 없음 · 수행 15` |
+| `given === base` (사다리 최하단 등, base > 0) | `무게: 기준 15 · 내릴 무게 없음 · 수행 15` |
 
-1단계(keep)는 `returnWeight`가 없어 종목 줄이 없다 — 헤더 `무게 유지`가 말한다.
+1단계(keep)·0kg 종목·기록 없는 종목은 `returnWeight`가 없어 종목 줄이 없다(KK1 6번) — 1단계는 헤더 `무게 유지`가 말한다.
 
 **3. 표시 위치**
 
@@ -242,7 +255,7 @@ export const LEGACY_RETURN_PROTOCOL = [
 | `exportMarkdown.ts` `entryLine` | `setLine` 다음에 `entryWeightLine` |
 | 내보내기 헤더 다음 줄·종료 시트 한 줄 | `sessionAdjustText` 변경이 그대로 반영된다(호출부 수정 없음) |
 | `ExerciseCard.tsx` | 새 prop `modeIntensity?: string`. `showPrefillHints && modeIntensity`면 칩 줄 맨 앞에 `<span className="chip">`. A·B·코어 모두 |
-| `SessionScreen.tsx` | `modeIntensity={sessionReturnRirText(session)}` |
+| `SessionScreen.tsx` | `modeIntensity={sessionReturnRirText(session, entry)}` |
 
 ### 검증 (`v113.test.ts`, describe `KK2`)
 
@@ -254,7 +267,7 @@ export const LEGACY_RETURN_PROTOCOL = [
 - 디로드(저장·되짚기) · step 없는 복귀 → JJ 문자열 그대로.
 - `entryWeightLine`: 2단계 인클라인 40 → 37.5, 수행 40 → `무게: 기준 40 → 복귀 37.5 · 수행 40` · 수행 37.5 → `· 수행 37.5` · 사다리 최하단 → `무게: 기준 15 · 내릴 무게 없음 · 수행 15` · 1단계 → `undefined` · v1.12 세션 → `undefined` · 대체 entry → `undefined` · 얹은 종목 → `undefined` · normal → `undefined`.
 - 종목 블록 순서 (2단계): 반복 줄 → `세트:` → `무게:` → `간격:` → `보상작용:`.
-- `sessionReturnRirText`: KK 1단계 → `복귀 — 반복 3회 남기기` · 3단계 → `반복 4회` · step 없음 → `undefined` · v1.12 복귀 → `undefined` · normal·deload → `undefined`.
+- `sessionReturnRirText`: KK 1단계 → `복귀 — 반복 3회 남기기` · 3단계 → `반복 4회` · 같은 세션의 대체 entry → 붙음 · 얹은 종목(`extra`) → `undefined` · step 없음 → `undefined` · v1.12 복귀 → `undefined` · normal·deload → `undefined`.
 - 종료 시트 한 줄 = 내보내기 헤더 다음 줄 (KK 1단계 세션, JJ3 테스트와 같은 방식).
 - **소스 스캔**: `exportMarkdown.ts`·`ExerciseCard.tsx`·`HomeScreen.tsx`에 `남기기`·`당시 규칙`·`한 단계`·`무게 유지` 리터럴 없음 · `ExerciseCard.tsx`가 `targetRIR`을 읽지 않는다 · `setPlan.ts`에 `LEGACY_RETURN_PROTOCOL` 있고 `resolveSessionAdjust` 안에 `returnStepFor(` 없음.
 
@@ -287,7 +300,7 @@ export const LEGACY_RETURN_PROTOCOL = [
 | `dayLabel(name)` | `string` | `exportMarkdown.ts`에서 **옮긴다**(값 그대로). 내보내기는 import |
 | `dayLastDone(sessions, routine, today)` | `{ day: RoutineDay; days: number \| null }[]` | `routine.days`(정규 Day만) 순서. `days = daysSinceDay(sessions, day.id, today)` |
 | `lastDoneText(days)` | `string` | `null` → `기록 없음` · 0 → `오늘` · 그 외 `마지막 N일 전` |
-| `staleDaysLine(sessions, routine, today, displayedDay)` | `string \| undefined` | 아래 |
+| `staleDaysLine(lastDone, sessions, today, displayedDay)` | `string \| undefined` | 아래. `lastDone`은 `dayLastDone`의 결과를 받는다(다시 계산하지 않는다). `sessions`는 1·2번의 첫 근력 세션 확인에만 |
 
 `staleDaysLine`:
 1. 근력 세션이 없으면 `undefined`.
@@ -300,7 +313,7 @@ export const LEGACY_RETURN_PROTOCOL = [
 | 위치 | 변경 |
 |---|---|
 | `HomeScreen.tsx` `dash` memo | `lastDone: dayLastDone(sessions, routine, today)` (한 번) |
-| 홈 카드 (`today-reason` 다음) | `!card.resuming`이면 `staleDaysLine(sessions, routine, today, displayed)`을 `<div className="today-sub">`로. 경고 색 없음 |
+| 홈 카드 (`today-reason` 다음) | `!card.resuming`이면 `staleDaysLine(dash.lastDone, sessions, today, displayed)`을 `<div className="today-sub">`로. 경고 색 없음. 카드의 추가 줄은 최대 두 줄 — KK4 `dayGapNotice`가 먼저, 이 줄이 다음 |
 | `DayPickerSheet.tsx` | 새 prop `lastDone?: Map<string, number \| null>`. 정규 Day 행의 `row-sub`를 `{subtitle} · {lastDoneText(days)}`로. 하한 모드 행은 그대로(기록 라인을 정규 Day와 공유한다) |
 
 빈도 경고(`judgeable`)·부위 막대·제안 점수는 건드리지 않는다.
@@ -308,6 +321,7 @@ export const LEGACY_RETURN_PROTOCOL = [
 ### 검증 (`v113.test.ts`, describe `KK3`) — 픽스처 `FIELD_1104` (아래 "구현 순서" 첫 커밋)
 
 - `dayLastDone` @ 11-04(그날 세션 전): D1 29 · D2 19 · D3 6 · D4 `null`.
+- 아래 `staleDaysLine` 단언은 `staleDaysLine(dayLastDone(sessions, routine, today), sessions, today, day)`로 부른다.
 - `staleDaysLine` @ 11-04, 표시 D1 → `오래 안 한 Day — Day 4 피지크 보완 기록 없음 · Day 2 Pull 19일`.
 - @ 10-29, 표시 D3 → `오래 안 한 Day — Day 4 피지크 보완 기록 없음 · Day 1 Push 23일` (D2는 13일이라 빠진다).
 - @ 10-16, 표시 D1 → `… Day 2 Pull 기록 없음 · Day 4 피지크 보완 기록 없음` (둘 다 기록 없음, `routine.days` 순서) · 표시를 D2로 바꾸면 D2가 빠진다.
@@ -317,7 +331,7 @@ export const LEGACY_RETURN_PROTOCOL = [
 - 주 4회 픽스처(D1 월 · D2 화 · D4 목 · D3 토, 3주) → 어느 날이든 `undefined`.
 - 세션 없음 · 유산소만 세션뿐 → `undefined` (근력 기준).
 - `lastDoneText`: `null` → `기록 없음` · 0 → `오늘` · 19 → `마지막 19일 전`.
-- **소스 스캔**: `DayPickerSheet.tsx`·`HomeScreen.tsx`에 `daysSinceDay(` 없음 · `HomeScreen.tsx`에 `dayLastDone(` 한 번 · `exportMarkdown.ts`에 `function dayLabel` 없음 · `dashboard.ts`의 `judgeable` 줄 무변경(`git diff`로 DEV-RECORD에 확인).
+- **소스 스캔**: `DayPickerSheet.tsx`·`HomeScreen.tsx`에 `daysSinceDay(` 없음 · `HomeScreen.tsx`에 `dayLastDone(` 한 번 · `dayGap.ts`의 `staleDaysLine` 본문에 `dayLastDone(` 없음 · `exportMarkdown.ts`에 `function dayLabel` 없음 · `dashboard.ts`의 `judgeable` 줄 무변경(`git diff`로 DEV-RECORD에 확인).
 
 ### 범위 제외
 
@@ -344,8 +358,8 @@ export const LEGACY_RETURN_PROTOCOL = [
 
 | 함수 | 반환 | 규칙 |
 |---|---|---|
-| `dayGapNotice({ sessions, routine, day, today, returnSuggested })` | `string \| undefined` | `returnSuggested`면 `undefined`(복귀 배너·EE3 문구가 말한다). `own = daysSinceDay(sessions, recordDayIdOf(day), today)`. `own === null` 또는 `own < 14` → `undefined`. 아니면 `last` = 마지막 근력 세션과의 일수 → `이 Day는 ${own}일 만이에요 — 복귀 조정은 마지막 운동(${last}일 전) 기준이라 적용되지 않습니다` |
-| `sessionDayGapLine(session, routine, sessions?)` | `string \| undefined` | `sessions` 없음 · `mode !== 'normal'` · `!hasStrengthWork(session)` → `undefined`. `before = sessions.filter((s) => s.date < session.date)`, 기록 Day = `recordDayIdOf(findDay(routine, session.dayId))` (없으면 `session.dayId`). `own = daysSinceDay(before, 기록 Day, session.date)`, `last` = `strengthSessions(before)[0]`과의 일수. `own === null` 또는 `own < 14` → `undefined`. 아니면 `Day 공백 ${own}일 — 복귀 조정 없음 (직전 근력 세션 ${last}일 전 기준)` |
+| `dayGapNotice({ sessions, routine, day, today, returnSuggested })` | `string \| undefined` | `returnSuggested`면 `undefined`(복귀 배너·EE3 문구가 말한다). `own = daysSinceDay(sessions, recordDayIdOf(day), today)`. `own === null` 또는 `own < 14` → `undefined`. `last` = 마지막 근력 세션과의 일수, `last >= 14` → `undefined`. 아니면 `이 Day는 ${own}일 만이에요 — 복귀 조정은 마지막 운동(${last}일 전) 기준이라 적용되지 않습니다` |
+| `sessionDayGapLine(session, routine, sessions?)` | `string \| undefined` | `sessions` 없음 · `mode !== 'normal'` · `!hasStrengthWork(session)` → `undefined`. `before = sessions.filter((s) => s.date < session.date)`, 기록 Day = `recordDayIdOf(findDay(routine, session.dayId))` (없으면 `session.dayId`). `own = daysSinceDay(before, 기록 Day, session.date)`, `last` = `strengthSessions(before)[0]`과의 일수. `own === null` 또는 `own < 14` → `undefined`. **`last >= 14` → `undefined`**(복귀가 가능했는데 사용자가 끈 세션 — "직전 기준이라 적용되지 않았다"가 사실이 아니다). 아니면 `Day 공백 ${own}일 — 복귀 조정 없음 (직전 근력 세션 ${last}일 전 기준)` |
 
 | 위치 | 변경 |
 |---|---|
@@ -353,6 +367,7 @@ export const LEGACY_RETURN_PROTOCOL = [
 | `sessionToMarkdown` | 헤더 다음, `sessionAdjustText` 자리(정상 세션에는 그 줄이 없다)에 `sessionDayGapLine`. `수행 순서:`보다 앞 |
 
 - 직접 고른 Day에도 나온다(`displayed`). 복귀 공백이면 어느 Day를 골라도 복귀 세션이 되므로(`HomeScreen.tsx:151-154`) 그때는 나오지 않는다.
+- 두 함수는 같은 규칙이다: **그 Day 공백 14일 이상 그리고 마지막 근력 세션과 14일 미만일 때만** 말한다. 마지막 근력 세션과 14일 이상이면 복귀 판정의 몫이다(복귀 배너·`applyReturn` 토글, 내보내기는 모드 태그). 기준 14는 `RETURN_GAP_DAYS`.
 - 내보내기 줄은 `sessions`를 받을 때만 나온다 → 세션 하나만 넣는 `JJ_EXPORT_NORMAL_BEFORE` 픽스처는 그대로다.
 
 **2. 세트 부족 보류 사유** — `progression.ts` `holdReasonText`의 `sets` 분기만:
@@ -365,11 +380,12 @@ export const LEGACY_RETURN_PROTOCOL = [
 
 ### 검증 (`v113.test.ts`, describe `KK4`)
 
-- `dayGapNotice` (`FIELD_1104`): @ 10-29 D3 → `이 Day는 22일 만이에요 — 복귀 조정은 마지막 운동(13일 전) 기준이라 적용되지 않습니다` · @ 08-28 D3 → `23일 만 … 마지막 운동(2일 전)` · @ 09-21 (복귀 제안) D3를 골라도 → `undefined` · own 13 → `undefined` · 기록 없는 Day → `undefined` · `fallback-push` → d1의 공백.
+- `dayGapNotice` (`FIELD_1104`): @ 10-29 D3 → `이 Day는 22일 만이에요 — 복귀 조정은 마지막 운동(13일 전) 기준이라 적용되지 않습니다` · @ 08-28 D3 → `23일 만 … 마지막 운동(2일 전)` · @ 09-21 (복귀 제안) D3를 골라도 → `undefined` · own 13 → `undefined` · 기록 없는 Day → `undefined` · `fallback-push` → d1의 공백 · `returnSuggested: false`인데 마지막 근력 세션 14일 전 → `undefined` · 13일 전 → 문구.
 - `sessionDayGapLine` (`FIELD_1104` 전체를 넘긴 내보내기):
   - 08-28 D3 → `Day 공백 23일 — 복귀 조정 없음 (직전 근력 세션 2일 전 기준)` · 09-22 → `25일 … 1일 전` · 10-07 → `15일 … 1일 전` · 10-29 → `22일 … 13일 전` · 11-04 D1 → `29일 … 6일 전`
   - 08-26·09-21·10-06(복귀) → 없음 · 10-16 D2(이전 D2 없음) → 없음 · 08-03(유산소만) → 없음 · 08-05 D3(이전 D3 없음) → 없음
   - 같은 세션을 `sessions` 없이 → 없음 · 디로드 → 없음
+  - **복귀를 끈 정상 세션**: 직전 근력 세션 20일 전 + 그 Day 30일 전 + `mode: 'normal'` → 없음 · 직전 13일 전 → `Day 공백 30일 … 13일 전 기준`
   - 줄 위치: 헤더 바로 다음, `수행 순서:` 앞
 - `holdReasonText`: 복귀 `{sets, done:2, planned:3}` → `반복 상단 도달 · 계획 3세트 중 2세트 · 복귀 세션 — 3세트로는 아직 시험 안 됨` · normal 3/4 → `반복 상단 도달 · 계획 4세트 중 3세트 — 4세트로는 아직 시험 안 됨` · 디로드 · `reps`·`compensation`·`phase0` → 이전 문구 그대로.
 - `GG1_GOLDEN` 전 칸 통과(판정 불변) · `JJ_EXPORT_NORMAL_BEFORE` 문자 단위 통과.
@@ -432,7 +448,7 @@ export const LEGACY_RETURN_PROTOCOL = [
 
 | 자리 | 전 | 후 | 작업 |
 |---|---|---|---|
-| 새 복귀 세션의 무게 | `roundToHalf(base × 0.95/0.9/0.8)` | 유지 / 한 칸 / −20% 이하 기구 무게 | KK1 |
+| 새 복귀 세션의 무게 | `roundToHalf(base × 0.95/0.9/0.8)` | 유지 / 한 칸 / −20% 이하 기구 무게. 기록 없는 종목은 추정 시작 무게 그대로(감량 없음) | KK1 |
 | 공백 정확히 28일의 복귀 단계 | 2단계 (세트 −40%) | 1단계 (세트 −30%) | KK1 |
 | 새 복귀 세션 저장값 | `modeAdjust {setPct, weightPct}` | + `weightRule`·`targetRIR`, entry `returnWeight` | KK1 |
 | 홈 복귀 배너 | `무게 −5%, 세트 −30%, RIR 3로 복귀할까요?` | `세트 −30% · 무게 유지 · 반복 3회 남기기로 복귀할까요?` | KK1 |
@@ -441,8 +457,8 @@ export const LEGACY_RETURN_PROTOCOL = [
 | JJ 이전 복귀 세션 되짚기 | 현재 루틴 단계 | 당시 규칙 표 (값은 지금까지와 같다) | KK2 |
 | 복귀 세션 종목 카드 | — | `복귀 — 반복 N회 남기기` 칩 (KK 이후 세션만) | KK2 |
 | 홈 카드 · Day 선택 시트 | — | `오래 안 한 Day — …` · `마지막 N일 전` | KK3 |
-| 홈 카드 (정상 Day, 자기 공백 14일+) | — | `이 Day는 N일 만이에요 — …` | KK4 |
-| 정상 세션 내보내기 (자기 공백 14일+, `sessions` 있음) | — | 헤더 다음 `Day 공백 N일 — …` | KK4 |
+| 홈 카드 (정상 Day, 자기 공백 14일+, 마지막 근력 세션 14일 미만) | — | `이 Day는 N일 만이에요 — …` | KK4 |
+| 정상 세션 내보내기 (자기 공백 14일+, 직전 근력 세션 14일 미만, `sessions` 있음) | — | 헤더 다음 `Day 공백 N일 — …` | KK4 |
 | 세트 부족 보류 사유 (내보내기·요약 화면, 과거 세션 포함) | `… 계획 3세트 중 2세트 · 복귀 세션` | 뒤에 ` — 3세트로는 아직 시험 안 됨` | KK4 |
 | 유산소만 한 세션 내보내기 | Day 헤더 + `미수행:` | `— 유산소만` + 유산소·메모 | KK5 |
 | 슬롯 없는 식단 레코드만 있는 날 | 빈 날짜 줄 | 없음 | KK5 |
@@ -476,7 +492,7 @@ export const LEGACY_RETURN_PROTOCOL = [
   | ⑥ | `v112.test.ts` `JJ_BUILD_GOLDEN` 비교 | `return1`~`return3` 칸은 무게를 빼고(행 수·반복) 비교. **골든 데이터는 고치지 않는다.** 그 칸의 무게는 `v113` KK1이 고정 | KK1 |
   | ⑦ | `v112.test.ts` JJ2·JJ3 기대 문자열 중 `weightRule` 없는 복귀 세션의 `무게 −N%` | 바로 뒤에 ` (당시 규칙)` 삽입. 그 밖의 글자는 그대로 | KK2 |
   | ⑧ | `v112.test.ts`에서 `buildSession`으로 만든 복귀 세션의 헤더 리터럴 | KK2 표의 문구로 | KK2 |
-  | ⑨ | `v111.test.ts` 408·412·417·558·589-591줄, `v1111.test.ts:103` | `sets` 사유 기대 문자열 끝에 ` — N세트로는 아직 시험 안 됨` | KK4 |
+  | ⑨ | `v111.test.ts` 408·412·417·558·589-591줄, `v1111.test.ts:103` (줄 번호는 참고 — `계획 .세트 중`으로 grep해 다시 맞춘다) | `sets` 사유 기대 문자열 끝에 ` — N세트로는 아직 시험 안 됨` | KK4 |
   | ⑩ | `seedRevision.test.ts` | 그 파일 주석의 절차대로 리비전 3·해시 갱신 | KK1 시드 변경 |
 
 - **새 스캔 결함 복원 확인:** `cp` 백업 뒤 결함을 되살려 실패를 보고 되돌린다(`cmp`로 같음 확인). 최소:
@@ -490,24 +506,62 @@ export const LEGACY_RETURN_PROTOCOL = [
   ⑧ `staleDaysLine`에서 첫 세션 14일 조건 삭제 → KK3 `첫 근력 세션 10일 전 → 빠짐` 실패
   ⑨ `dayGapNotice`의 `returnSuggested` 가드 삭제 → KK4 09-21 실패
   ⑩ `exportMarkdown.ts`의 `hasStrengthWork` 이른 반환 삭제 → KK5 08-03 실패
+  ⑪ `buildSession`의 `returnWeight` 조건에서 `base > 0` 삭제 → KK1 크런치 `returnWeight` 키 없음 실패
+  ⑫ `applies`에서 `prefill.startEstimate === undefined` 삭제 → KK1 기록 없는 종목 실패
+  ⑬ `sessionDayGapLine`의 `last >= 14` 가드 삭제 → KK4 복귀를 끈 정상 세션 실패
 - **과거 판정 불변 확인 절** (DEV-RECORD). 범위는 테스트 안에 고정한 루틴(배포 `routine-v2.4.json`)·Phase·픽스처로 한정한다고 첫 줄에 적는다:
   ① `GG1_GOLDEN`·`JJ_BUILD_GOLDEN`(normal·deload·returnNoStep 전 칸, return 칸은 행 수·반복)·`JJ_EXPORT_NORMAL_BEFORE` 일치 (골든 커밋 해시)
   ② 기존 테스트 수정 ①~⑩의 diff를 붙인다
   ③ `KK_EXPORT_BEFORE`와 새 출력의 diff가 "과거 판정 불변" 마지막 문단의 줄뿐이다 (diff 전문을 붙인다)
   ④ 바뀌는 것: "과거 판정 불변" 표의 자리
-- 완료 후 `docs/DEV-RECORD-v1.13.md` (맨 위 "이 환경에서 확인된 제약"은 v1.12 목록을 이어받는다)
+- 완료 후 `docs/DEV-RECORD-v1.13.md` (맨 위 "이 환경에서 확인된 제약"은 v1.12 목록을 이어받는다). 아래 두 줄을 "배포 영향" 절로 남기고, PR 본문 맨 위에도 같은 두 줄을 넣는다:
+  - `seedRevision` 3: 다음 실행 때 저장된 루틴이 배포 루틴으로 교체된다. 루틴 가져오기로 넣은 루틴도, Gist 백업에서 복원한 옛 루틴도(설정 `seededRoutineRevision`이 같이 복원되므로) 같은 경로로 교체된다.
+  - KK5: 워밍업만 체크한 종목은 내보내기에 나오지 않는다(v1.12도 `doneSets`가 워밍업을 빼서 종목 줄이 없었다. 유산소만 세션의 이른 반환으로 바뀌는 것은 없다).
 - `package.json` **1.13.0**은 기록 커밋에서 올린다
 
 리뷰 단위: 작업별 — KK1이 루틴 형식·세션 저장 형태를 바꾸고, KK2~KK4가 홈·세션·Day 선택·내보내기 여러 화면에 걸친다.
 
 ---
 
-## 사람이 정할 것
+## 검토 반영 기록 (2026-11-04)
 
-| # | 항목 | 선택지 | 설계자 추천 |
-|---|---|---|---|
-| 1 | 복귀 표시 문구 (KK1 배너 · KK2 헤더·종목 줄·카드 칩) | A: 본문 표 그대로 — `세트 −30% · 무게 유지 · 반복 3회 남기기` / `무게: 기준 40 → 복귀 37.5 · 수행 40` / `복귀 — 반복 3회 남기기` · B: RIR을 숫자로 — `RIR 3` | **A.** 답의 예시(`반복 3회 남기기`)를 따랐고, RIR은 앱의 다른 곳에서 설명 없이 쓰이지 않는다(대체 캘리브레이션 칩만 `RIR 3~4로`) |
-| 2 | 홈 카드 "오래 안 한 Day" (KK3) | A: 14일 이상 Day를 카드에 한 줄 + 시트에 전 Day · B: 시트에만 · C: 카드에 가장 오래된 Day 하나만 | **A.** 사용자가 시트를 열지 않으면 결손을 볼 곳이 없다(보고서 4절의 문제 그대로). 주 3~4회로 돌아가면 14일 Day가 없어 줄이 저절로 사라진다 |
-| 3 | 정상 Day 공백 문구 (KK4) | A: `이 Day는 22일 만이에요 — 복귀 조정은 마지막 운동(13일 전) 기준이라 적용되지 않습니다` · B: 보고서 원안 `Day 3는 25일 만이에요 — 복귀 조정은 적용되지 않습니다` | **A.** 왜 적용되지 않는지를 같이 말한다. "이 Day는"으로 Day 이름 뒤 조사 문제를 피한다 |
-| 4 | 세트 부족 보류 사유 (KK4) — **과거 세션 내보내기 문구도 바뀐다** | A: 뒤에 ` — N세트로는 아직 시험 안 됨` (모든 모드) · B: 복귀·디로드 세션에만 · C: 보고서 원안 `(2세트 상단 도달 · 계획 3세트는 아직 시험 안 됨 · 복귀 세션)`로 교체 | **A.** 앞부분을 그대로 두어 기존 단언·분석 프롬프트가 산다. 정상 세션에서 세트를 지운 경우도 같은 사실이라 규칙을 하나로 둔다 |
-| 5 | 유산소만 한 세션 헤더 (KK5) | A: `— 유산소만` (Day 이름 없음) · B: `— 유산소만 (Day 1 Push 화면에서 기록)` | **A.** 어느 Day 화면에서 눌렀는지는 분석에 쓸 데가 없고, Day 이름이 보이면 "Push를 했다"로 읽힐 여지가 남는다 |
+검토: Codex `.reports/v1.13-codex.md`("그대로 진행 가능") · Claude `.reports/v1.13-claude.md`("수정 필요"). 둘 다 커밋 `13ac37d` 기준. 지적마다 코드를 직접 확인했다.
+
+### 반영
+
+| 지적 | 확인한 코드 | 반영 |
+|---|---|---|
+| Claude 고칠 것 1 — 0kg 종목이 2·3단계 내보내기에 `기준 0 · 내릴 무게 없음` 잡음 | `exercises.json:246,255` `allowZeroWeight` · `routine-v2.4.json:292,304` D3 크런치·데드버그 | `returnWeight`는 `base > 0`일 때만(KK1 5·6번). `given === base`(사다리 최하단)는 base > 0이면 남긴다 — 사실이다. 검증·결함 복원 ⑪ |
+| Claude 고칠 것 2 — 기록 없는 종목의 추정 무게를 "기준"으로 말하고 한 번 더 깎는다 | `prefill.ts:252` `base = ref?.weight ?? startEstimate` · `:66` 기록이 있으면 `startEstimate` 없음 · `HomeScreen.tsx:151-154` 어느 Day든 복귀 | 추천 (a): `prefill.startEstimate !== undefined`면 복귀 감량도 `returnWeight`도 없다(KK1 6번 `applies`). 검증·결함 복원 ⑫·"과거 판정 불변" 표 |
+| Claude 고칠 것 3 — 복귀를 끈 정상 세션에 `복귀 조정 없음 (직전 … 기준)`이 사실과 다르게 나온다 | `HomeScreen.tsx:153` `&& applyReturn` → `mode: 'normal'`, `last >= 14` 가능 | `sessionDayGapLine`·`dayGapNotice` 모두 `last >= 14` → `undefined`. 두 함수 규칙을 한 문장으로 적었다(KK4 1번). 검증·결함 복원 ⑬·"과거 판정 불변" 표 조건. `FIELD_1104`의 `Day 공백` 다섯 줄은 모두 `last` 13일 이하라 diff 예상은 그대로 |
+| Codex 2 — `validateRoutine`은 오름차순만 보고 14/29/56 값을 지키지 않는다 | `validateRoutine.ts:93-96` (엄격 `<=` 검사) | 검사 범위를 "형식·모순 조합"으로 명시(KK1 9번). 값은 루틴 데이터의 몫이라 검사기에 넣지 않고, 배포 값은 새 단언 "배포 `returnProtocol` 고정"이 지킨다. `keep`+−5·같은 값 두 개·값 28(범위 밖이라 0건) 사례 추가 |
+| Codex 5 · Claude 경미 7 — `seedRevision` 3이 가져온 루틴·Gist 복원 루틴까지 덮어쓴다는 영향이 눈에 띄어야 한다 | `seed.ts:60,93` · `backup.ts` settings 복원 | DEV-RECORD "배포 영향" 절 + PR 본문 맨 위 한 줄(구현 순서 관례) |
+| Claude 경미 1 — `기준`은 세트별 프리필 최댓값 | `prefill.ts` `bestBySet` | KK1 5번 주석·KK2 `entryWeightLine` 설명에 "최고 무게 기준" |
+| Claude 경미 3 — 워밍업만 체크한 종목이 내보내기에서 빠지는 것을 기록 | `derive.ts:37-38` `doneSets`가 워밍업 제외 · `exportMarkdown.ts:276` | DEV-RECORD "배포 영향" 둘째 줄 (동작 변경 없음) |
+| Claude 경미 4 — 얹은 종목에도 복귀 RIR 칩이 붙는다 | `sessionOps.ts` `applyAddExercise`는 `setCount`를 그대로 받고 `extra: true` — 복귀 세트 조정 밖 | `sessionReturnRirText(session, entry)`가 `entry.extra`면 `undefined`. 대체 entry는 붙인다 |
+| Claude 경미 6 — `staleDaysLine`이 `dayLastDone`을 다시 계산 | — | `staleDaysLine(lastDone, sessions, today, displayedDay)`로 결과를 받는다. 소스 스캔 추가 |
+| Claude "사람이 정할 것" 2 의견 — 카드 줄 수·순서 | — | 홈 카드 추가 줄 최대 두 줄, `dayGapNotice` 먼저(KK3 표시 위치) |
+| Claude "사람이 정할 것" 4 의견 — 수정표 ⑨ 줄 번호 | — | "줄 번호는 참고, grep으로 다시 맞춘다" |
+
+### 기각
+
+| 지적 | 이유 |
+|---|---|
+| Claude 경미 2 — 헤더 `무게 −20%`는 실제 적용률이 아니다(30 → 22.5는 −25%) | 검토자도 허용 범위라고 봤다. `(기구 무게로 내림)`이 내림을 말하고, 종목 줄 `기준 → 복귀`가 실제 값을 말한다. 실제율을 헤더에 쓰면 종목마다 달라 한 줄로 못 쓴다 |
+| Claude 경미 5 — 하체 가드로 제안된 Day에서 `dayGapNotice`가 근거 줄과 같은 숫자를 반복 | 근거 줄(`하체를 N일 안 했어요`)은 부위 기준, 공지는 그 Day 기준이라 숫자가 늘 같지는 않고, 공지의 뒷부분(복귀 조정이 왜 없는지)은 근거 줄에 없는 사실이다. 억제 조건을 더하면 판정이 한 곳 더 생긴다 |
+| Codex 경미 1 — 골든이 `modeAdjust` 없는 모양과 `weightRule` 없는 모양을 각각 포함하는지 확인 | 이미 있다: KK2 검증의 "v1.12 모양(`{-30,-5}`)"·"JJ 이전 모양(저장값 없음)" 단언, `FIELD_1104`의 복귀 세션은 JJ 이전 모양. 변경 없음 |
+| Codex 경미 2 — KK5 날짜 필터가 `hasDiet`와 같은 정의 | 동의 의견. 변경 없음 |
+
+두 검토자가 다르게 본 지점: 결론("그대로 진행 가능" vs "수정 필요")만 다르고, 같은 지점을 반대로 본 곳은 없다. Codex가 짚지 않은 고칠 것 1~3은 모두 코드로 확인돼 반영했다.
+
+### "사람이 정할 것" — 다섯 건 모두 추천안 A로 확정
+
+Claude는 다섯 건 모두 A에 동의했고(조건 없음, 2·4번의 덧붙임은 위 "반영"에 넣었다), Codex는 의견 없음(반대 없음)이다.
+
+| # | 항목 | 확정 (화면·내보내기 문구 원문) |
+|---|---|---|
+| 1 | 복귀 표시 문구 | 배너 `{N}일 공백 — 세트 −30% · 무게 유지 · 반복 3회 남기기로 복귀할까요?` (2단계 `세트 −40% · 무게 한 단계 내림 · 반복 3회 남기기`, 3단계 `세트 −50% · 무게 −20% (기구 무게로 내림) · 반복 4회 남기기`) · 헤더 `복귀 조정: 세트 −30% · 무게 유지 · 반복 3회 남기기` · 옛 세션 `무게 −5% (당시 규칙)` · 종목 줄 `무게: 기준 40 → 복귀 37.5 · 수행 40` / `무게: 기준 15 · 내릴 무게 없음 · 수행 15` · 카드 칩 `복귀 — 반복 3회 남기기` |
+| 2 | 홈 카드 "오래 안 한 Day" | 카드에 한 줄 `오래 안 한 Day — Day 4 피지크 보완 기록 없음 · Day 2 Pull 19일` + Day 선택 시트 `{부제} · 마지막 N일 전` / `기록 없음` / `오늘` |
+| 3 | 정상 Day 공백 문구 | 홈 `이 Day는 22일 만이에요 — 복귀 조정은 마지막 운동(13일 전) 기준이라 적용되지 않습니다` · 내보내기 `Day 공백 22일 — 복귀 조정 없음 (직전 근력 세션 13일 전 기준)` |
+| 4 | 세트 부족 보류 사유 (과거 세션 내보내기도 바뀜) | `반복 상단 도달 · 계획 3세트 중 2세트 · 복귀 세션 — 3세트로는 아직 시험 안 됨` (모든 모드) |
+| 5 | 유산소만 한 세션 헤더 | `## 2026-08-03 (월) — 유산소만  [22:09–22:09, 0분]` (유산소 없으면 `— 근력 기록 없음`) |
