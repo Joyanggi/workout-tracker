@@ -7,10 +7,13 @@ import { completedSessions, doneSets, routineExerciseOfEntry, orderDeviations } 
 import { holdReasonText, progressionVerdicts, type ProgressionVerdict } from './progression'
 import { buildScaleMap, formatWeight, type WeightScaleMap } from './weightScale'
 import {
-  ADHERENCE_MARK,
+  dietDayStatusText,
+  dietMarkLegend,
   hasVariants,
   itemVariant,
   QUALITY_LABEL,
+  SLOT_MARK,
+  slotGrade,
   slotScore,
   slotsFor,
   splitsByTrainingDay,
@@ -62,15 +65,10 @@ export function dietSectionMarkdown(plan: DietPlan, day: DietDay): string[] {
    */
   const dayType = splitsByTrainingDay(plan) ? `${day.isTrainingDay ? '훈련일' : '휴식일'} · ` : ''
   out.push(
-    `### 식단 — ${plan.name} · ${dayType}준수 ` +
-      `${ADHERENCE_MARK[summary.adherence]} (단백질 추정 ${summary.proteinG}g / ${summary.targetProteinG}g)`,
+    `### 식단 — ${plan.name} · ${dayType}${dietDayStatusText(summary)} (단백질 추정 ${summary.proteinG}g / ${summary.targetProteinG}g)`,
   )
 
-  const markOf = (slotId: string, slot: (typeof slots)[number]) => {
-    const score = slotScore(slot, day.slots[slotId])
-    return score === null ? '—' : score >= 1 ? '●' : score > 0 ? '◐' : '✗'
-  }
-  out.push(`- 슬롯: ${logged.map((s) => `${s.name} ${markOf(s.id, s)}`).join(' · ')}`)
+  out.push(`- 슬롯: ${logged.map((s) => `${s.name} ${SLOT_MARK[slotGrade(slotScore(s, day.slots[s.id]))]}`).join(' · ')}`)
 
   for (const slot of logged) {
     const record = day.slots[slot.id]
@@ -331,6 +329,13 @@ export function exportMarkdown(args: {
   }
 
   /*
+   * 식단만 기록한 날도 내보낸다 — 빼면 "회식 다음 날" 같은 패턴을 LLM이 볼 수 없다.
+   * 운동이 있는 날은 운동 섹션 아래에 붙이고, 없는 날은 날짜 헤더만 세워 붙인다.
+   */
+  const dates = [...new Set([...inRange.map((s) => s.date), ...dietByDate.keys()])].sort()
+  // 식단 섹션이 실제로 나올 때만 범례를 붙인다 (II3) — 머리는 dates 계산 뒤에 만든다
+  const hasDiet = dates.some((d) => dietLines(d).length > 0)
+  /*
    * 캡션 (Z3) — "간격"이 순수 휴식이 아니라는 것을 문서 자체가 말해야 한다.
    * LLM이 이걸 휴식 시간으로 읽으면 "휴식을 줄여 밀도를 올리자" 같은 엉뚱한 조언이 나오고,
    * 그건 이 프로그램의 과부하 축(더블 프로그레션)과 경쟁한다.
@@ -340,12 +345,8 @@ export function exportMarkdown(args: {
     '',
     '> 간격 = 앞 세트 체크 ~ 이 세트 체크. **수행 시간이 포함되므로 순수 휴식이 아니다.**',
     '> 첫 세트는 앞이 없어 생략한다. (`—`는 그 세트에 타임스탬프가 없는 옛 기록)',
+    ...(hasDiet ? dietMarkLegend().map((l) => `> ${l}`) : []),
   ].join('\n')
-  /*
-   * 식단만 기록한 날도 내보낸다 — 빼면 "회식 다음 날" 같은 패턴을 LLM이 볼 수 없다.
-   * 운동이 있는 날은 운동 섹션 아래에 붙이고, 없는 날은 날짜 헤더만 세워 붙인다.
-   */
-  const dates = [...new Set([...inRange.map((s) => s.date), ...dietByDate.keys()])].sort()
   if (dates.length === 0) return `${head}\n\n(기간 내 기록 없음)\n`
 
   const body = dates.flatMap((date) => {

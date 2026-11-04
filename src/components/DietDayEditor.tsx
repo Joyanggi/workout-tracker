@@ -5,7 +5,7 @@ import DietVariantSheet from './DietVariantSheet'
 import { addDays } from '../lib/dates'
 import {
   additionNote,
-  ADHERENCE_MARK,
+  dietDayStatusText,
   SLOT_MARK,
   slotGrade,
   hasVariants,
@@ -157,13 +157,7 @@ export default function DietDayEditor({
         </div>
         <p className="row-sub" style={{ marginTop: 8 }}>
           {summary.kcal.toLocaleString()} / {summary.targetKcal.toLocaleString()}kcal ·{' '}
-          {summary.adherence === 'unlogged'
-            ? `기록 ${summary.loggedSlots}/${summary.totalSlots}슬롯`
-            : /*
-                 퍼센트를 함께 낸다 (Z6) — 마크만으로는 0.86과 1.0이 같아 보인다.
-                 연속 점수를 만들어도 표시가 3단이면 그 정밀도가 화면에 도달하지 않는다.
-               */
-              `준수 ${ADHERENCE_MARK[summary.adherence]} ${Math.round((summary.score ?? 0) * 100)}%`}
+          {dietDayStatusText(summary)}
         </p>
       </div>
 

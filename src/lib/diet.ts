@@ -351,11 +351,15 @@ export const SLOT_MARK: Record<SlotGrade, string> = {
   zero: '✗',
 }
 
+/** `slotGrade`의 임계값 — 범례 등 다른 표시도 이 이름으로 같은 값을 말한다 */
+export const SLOT_GRADE_HIGH = 0.8
+export const SLOT_GRADE_MID = 0.45
+
 export function slotGrade(score: number | null): SlotGrade {
   if (score === null) return 'none'
   if (score >= 1) return 'full'
-  if (score >= 0.8) return 'high'
-  if (score >= 0.45) return 'mid'
+  if (score >= SLOT_GRADE_HIGH) return 'high'
+  if (score >= SLOT_GRADE_MID) return 'mid'
   if (score > 0) return 'low'
   return 'zero'
 }
@@ -490,6 +494,31 @@ export const ADHERENCE_MARK: Record<Adherence, string> = {
   mid: '◐',
   poor: '○',
   unlogged: '—',
+}
+
+/**
+ * 하루 상태 문구 — 화면과 내보내기가 같은 글자를 쓴다 (II2).
+ * 퍼센트를 함께 낸다 (Z6) — 마크만으로는 0.86과 1.0이 같아 보인다.
+ * 마크는 반올림 전 점수로 정해지고 퍼센트만 반올림한다.
+ */
+export function dietDayStatusText(summary: DietDaySummary): string {
+  if (summary.adherence === 'unlogged') return `기록 ${summary.loggedSlots}/${summary.totalSlots}슬롯`
+  return `준수 ${ADHERENCE_MARK[summary.adherence]} ${Math.round((summary.score ?? 0) * 100)}%`
+}
+
+/**
+ * 식단 마크 범례 (II3) — 내보내기 머리에 `> `를 붙여 넣는다.
+ * 퍼센트와 글자는 상수·마크 표에서 만든다. 같은 `◐`가 슬롯과 하루에서 다른 구간이라
+ * "슬롯"·"준수"라는 이름과 정의를 함께 말한다.
+ */
+export function dietMarkLegend(): string[] {
+  const pct = (n: number) => `${Math.round(n * 100)}%`
+  const m = SLOT_MARK
+  const a = ADHERENCE_MARK
+  return [
+    `식단 슬롯 마크 = 그 끼니 이행률(항목 영양 가중): ${m.full} 100% · ${m.high} ${pct(SLOT_GRADE_HIGH)} 이상 · ${m.mid} ${pct(SLOT_GRADE_MID)} 이상 · ${m.low} ${pct(SLOT_GRADE_MID)} 미만 · ${m.zero} 0%. 대체·안 먹음은 상세 줄에 적는다.`,
+    `식단 준수 = 기록한 슬롯 점수의 평균: ${a.good} ${pct(ADHERENCE_GOOD)} 이상 · ${a.mid} ${pct(ADHERENCE_MID)} 이상 · ${a.poor} ${pct(ADHERENCE_MID)} 미만. ${MIN_SLOTS_FOR_VERDICT}슬롯 미만이면 판정하지 않고 "기록 n/m슬롯"으로 적는다.`,
+  ]
 }
 
 /**
