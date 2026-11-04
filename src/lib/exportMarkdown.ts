@@ -111,7 +111,7 @@ export function dietSectionMarkdown(plan: DietPlan, day: DietDay): string[] {
   return out
 }
 
-export function fmtWeight(n: number): string {
+function fmtWeight(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1)
 }
 

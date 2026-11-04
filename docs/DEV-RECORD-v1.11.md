@@ -119,7 +119,7 @@ GG1이 `main`에 들어간 뒤 `git merge main`으로 받아 시작했다.
 
 테스트: `v111.test.ts` 40개(GG1 26 + GG2 14, 1파일). 전체 50파일 / 1052개.
 
-경미 정리 3건(리뷰어가 GG1에서 남긴 점): ① `fmtWeight`를 export해 요약 유지 행(`{fmtWeight(verdict.from)}kg 유지`)이 내보내기와 같은 무게 표기를 쓴다 ② `ExerciseCard`의 `lastHoldChipText` 두 번 호출을 `holdChip` 한 번으로 ③ 이 문서 제약 목록 뒤 `---` 중복 제거.
+경미 정리 3건(리뷰어가 GG1에서 남긴 점): ① (리뷰 반려로 되돌림) 요약 유지 행은 GG1 형태 `{verdict.from}kg 유지` 그대로이고 `fmtWeight`도 export하지 않는다 ② `ExerciseCard`의 `lastHoldChipText` 두 번 호출을 `holdChip` 한 번으로 ③ 이 문서 제약 목록 뒤 `---` 중복 제거.
 기존 GG1 스캔 하나(`ExerciseCard의 hold 칩이 lastHoldChipText를 거친다`)는 import에 `modeSetNotice`가 같이 들어와 단일 이름 매칭을 풀었다.
 
 ### PLAN 검증 항목 ↔ 테스트 (describe `GG2`)
@@ -154,3 +154,4 @@ GG1이 `main`에 들어간 뒤 `git merge main`으로 받아 시작했다.
 
 - 실기기 확인: 복귀·디로드 세션 카드의 `복귀 세션 · 계획 4세트 중 N세트 완료 …` 칩이 체크할 때마다 바뀌는지, 복귀 배너의 `복귀 조정은 이번 세션에만 적용` 문구는 화면에서 직접 보지 않았다(RTL 없음).
 - 램프업 구현은 PLAN 범위 제외.
+- 내보내기 `fmtWeight`가 1.25 단위 무게를 소수 1자리로 반올림한다(8.75→8.8) — 다음 라운드 후보.

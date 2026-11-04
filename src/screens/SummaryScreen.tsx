@@ -2,7 +2,6 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import { compensationSummary, hasCompensation } from '../lib/compensation'
 import { holdReasonText, progressionVerdicts } from '../lib/progression'
-import { fmtWeight } from '../lib/exportMarkdown'
 import { revertWarning } from '../lib/bGroupGuide'
 import { sessionsForRecord } from '../lib/prefill'
 import { routineExerciseOfEntry } from '../lib/derive'
@@ -220,7 +219,7 @@ export default function SummaryScreen({
                   {formatProgression(verdict.from, verdict.to, inverse)}
                 </div>
               ) : (
-                <div className="row-meta">{fmtWeight(verdict.from)}kg 유지</div>
+                <div className="row-meta">{verdict.from}kg 유지</div>
               )}
             </div>
           ))}
