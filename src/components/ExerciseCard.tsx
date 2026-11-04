@@ -15,6 +15,7 @@ import { doneSetsAll } from '../lib/derive'
 import { noteLineText, type NoteEntry } from '../lib/noteHistory'
 import { setRowClass, zeroWeightHint } from '../lib/setRowState'
 import { DEFAULT_COUNT_IN_SEC, tempoPhasesFor, type TempoPhase } from '../lib/tempo'
+import { lastHoldChipText } from '../lib/progression'
 import type { RecordPrefill } from '../lib/prefill'
 import type { RecordKey, RoutineExercise, SessionEntry, SetRecord } from '../types'
 import { NO_AUTOFILL } from '../lib/inputProps'
@@ -386,6 +387,9 @@ export default function ExerciseCard({
             )}
             {firstExposure && !firstWork?.done && (
               <span className="chip chip-warn">첫 세트는 {CALIBRATION_RIR}로</span>
+            )}
+            {showPrefillHints && showProgression && lastHoldChipText(prefill?.lastVerdict) && (
+              <span className="chip">{lastHoldChipText(prefill?.lastVerdict)}</span>
             )}
             {showPrefillHints && showProgression && prefill?.progression && (
               <span className="chip chip-accent">

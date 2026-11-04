@@ -7,11 +7,10 @@ import type {
   SessionMode,
   SetRecord,
 } from '../types'
-import { NO_COMPENSATION } from '../types'
 import { completedSessions, doneSets } from './derive'
+import { judgeProgression, type ProgressionVerdict } from './progression'
 import { bGroupGuide, type BGroupGuide } from './bGroupGuide'
 import {
-  nextWeightForProgression,
   scaleFor,
   snapDownToScale,
   type WeightScale,
@@ -45,6 +44,11 @@ export interface RecordPrefill {
    * `to === null`이면 사다리 최상단 (T9) — 프리필 무게는 그대로 두고 표시만 바꾼다.
    */
   progression?: { from: number; to: number | null }
+  /**
+   * 직전 세션의 증량 판정 (up/hold + 사유). `progression`은 여기서 파생한다.
+   * hold `sets`면 카드가 "지난번 상단 도달 · 계획 N세트 중 M세트" 칩을 띄운다 (GG1).
+   */
+  lastVerdict?: ProgressionVerdict
   /**
    * B그룹 무게 회복/복귀 신호 (T10, Phase 2+).
    *
@@ -172,6 +176,16 @@ export function buildPrefill(args: {
     inverse,
   }
 
+  const lastVerdict = judgeProgression({
+    routine,
+    routineExercise,
+    phase,
+    sets: lastSets,
+    compensation: lastEntry?.compensation,
+    mode: history[0]?.mode,
+    scale,
+  })
+
   return {
     recordKey,
     bestBySet,
@@ -185,14 +199,8 @@ export function buildPrefill(args: {
       scale,
     }),
     bGroup: bGroupGuide({ history, recordKey, routineExercise, phase }),
-    progression: computeProgression({
-      routine,
-      routineExercise,
-      phase,
-      lastSets,
-      lastCompensation: lastEntry?.compensation,
-      scale,
-    }),
+    lastVerdict,
+    progression: lastVerdict?.kind === 'up' ? { from: lastVerdict.from, to: lastVerdict.to } : undefined,
   }
 }
 
@@ -214,18 +222,15 @@ export function computeProgression(args: {
   /** 종목별 무게 단위 (T9) + inverse 여부 (T8). 미지정 시 루틴 전역값 */
   scale?: WeightScale
 }): { from: number; to: number | null } | undefined {
-  const { routine, routineExercise, phase, lastSets, lastCompensation } = args
-  if (routineExercise.group !== 'A') return undefined
-  if (phase === 0 && !routine.rules.allowProgressionInPhase0) return undefined
-  if (lastSets.length === 0) return undefined
-  if ((lastCompensation ?? NO_COMPENSATION) !== NO_COMPENSATION) return undefined
-  // 계획 세트를 다 채운 세션만 증량 대상 (progression.ts와 동일 규칙)
-  if (lastSets.length < routineExercise.sets) return undefined
-  if (!lastSets.every((s) => s.reps >= routineExercise.repMax)) return undefined
-
-  const from = Math.max(...lastSets.map((s) => s.weight))
-  const scale = args.scale ?? { step: routine.rules.weightIncrementKg }
-  return { from, to: nextWeightForProgression(from, scale) }
+  const v = judgeProgression({
+    routine: args.routine,
+    routineExercise: args.routineExercise,
+    phase: args.phase,
+    sets: args.lastSets,
+    compensation: args.lastCompensation,
+    scale: args.scale,
+  })
+  return v?.kind === 'up' ? { from: v.from, to: v.to } : undefined
 }
 
 /**

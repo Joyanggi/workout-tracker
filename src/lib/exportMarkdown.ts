@@ -4,7 +4,7 @@ import { hasCompensation } from './compensation'
 import { formatClock, weekdayKo } from './dates'
 import { withObjectParticle } from './korean'
 import { completedSessions, doneSets, routineExerciseOfEntry, orderDeviations } from './derive'
-import { progressionSuggestions } from './progression'
+import { holdReasonText, progressionVerdicts, type ProgressionVerdict } from './progression'
 import { buildScaleMap, type WeightScaleMap } from './weightScale'
 import {
   ADHERENCE_MARK,
@@ -125,7 +125,7 @@ function entryLine(
   session: Session,
   routine: RoutineTemplate,
   catalog: Map<string, Exercise>,
-  nextWeights: Map<string, number | null>,
+  verdicts: Map<string, ProgressionVerdict>,
 ): string[] {
   const { exerciseId, dayId } = parseRecordKey(entry.recordKey)
   const routineExercise = routineExerciseOfEntry(routine, entry)
@@ -182,14 +182,19 @@ function entryLine(
   // 증량 폭은 종목별 무게 단위(T9)를 따른다 — 5kg 머신에 +2.5를 적어 보내면
   // LLM 분석도 존재하지 않는 무게를 전제하게 된다.
   if (routineExercise?.group === 'A' && sets.length > 0) {
-    if (!nextWeights.has(entry.recordKey)) {
-      lines.push(`다음: ${fmtWeight(weight)}kg 유지`)
-    } else {
-      const next = nextWeights.get(entry.recordKey) ?? null
+    const verdict = verdicts.get(entry.recordKey)
+    if (!verdict || verdict.kind === 'hold') {
+      // 유지는 사유를 같은 줄 괄호로 적는다 (GG1) — 판정 대상 밖이면 사유 없이 현행 그대로
       lines.push(
-        next === null
+        verdict
+          ? `다음: ${fmtWeight(weight)}kg 유지 (${holdReasonText(verdict.reason)})`
+          : `다음: ${fmtWeight(weight)}kg 유지`,
+      )
+    } else {
+      lines.push(
+        verdict.to === null
           ? `다음: ${fmtWeight(weight)}kg 유지 (증량 조건 충족 — 스택 최대)`
-          : `다음: ${fmtWeight(next)}kg로 증량`,
+          : `다음: ${fmtWeight(verdict.to)}kg로 증량`,
       )
     }
   }
@@ -254,13 +259,11 @@ export function sessionToMarkdown(
   }
   out.push('')
 
-  const nextWeights = new Map(
-    progressionSuggestions(session, routine, phase, scales, catalog).map((p) => [p.recordKey, p.to]),
-  )
+  const verdicts = progressionVerdicts(session, routine, phase, scales, catalog)
   // 워밍업만 체크한 종목은 작업 세트가 없어 반복수 줄이 비어버린다 — 본문에서 제외한다
   const performed = timeline.map((t) => t.entry).filter((e) => doneSets(e).length > 0)
   for (const entry of performed) {
-    out.push(...entryLine(entry, session, routine, catalog, nextWeights))
+    out.push(...entryLine(entry, session, routine, catalog, verdicts))
     out.push('')
   }
 

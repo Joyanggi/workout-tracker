@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import { compensationSummary, hasCompensation } from '../lib/compensation'
-import { progressionSuggestions } from '../lib/progression'
+import { holdReasonText, progressionVerdicts } from '../lib/progression'
 import { revertWarning } from '../lib/bGroupGuide'
 import { sessionsForRecord } from '../lib/prefill'
 import { routineExerciseOfEntry } from '../lib/derive'
@@ -70,13 +70,23 @@ export default function SummaryScreen({
 
   // 다음 세션 증량 대상 (§7 더블 프로그레션).
   // 홈 배지(§5.1)와 같은 함수를 쓴다 — 두 화면이 다른 답을 말하면 안 된다.
-  const progressed = progressionSuggestions(
+  const verdicts = progressionVerdicts(
     session,
     bundle.routine,
     phase,
     buildScaleMap(exerciseSettings, bundle.routine.rules.weightIncrementKg),
     bundle.catalog,
-  ).map((p) => ({ ...p, name: nameOf(p.recordKey) }))
+  )
+  // 수행 순서 (performedOrder 없으면 뒤로) — 같으면 entry 순서 유지
+  const nextWeightRows = session.entries
+    .filter((e) => verdicts.has(e.recordKey))
+    .sort((a, b) => (a.performedOrder ?? Infinity) - (b.performedOrder ?? Infinity))
+    .map((e) => ({
+      recordKey: e.recordKey,
+      name: nameOf(e.recordKey),
+      verdict: verdicts.get(e.recordKey)!,
+      inverse: isInverseKey(bundle.catalog, e.recordKey),
+    }))
 
   /*
     B그룹 복귀 경고 (T10, Phase 2+). 루틴 문서 9장의 절대 기준 —
@@ -191,18 +201,26 @@ export default function SummaryScreen({
         </div>
       )}
 
-      {progressed.length > 0 && (
+      {nextWeightRows.length > 0 && (
         <div className="card">
-          <div className="card-label">다음 세션 증량 제안</div>
-          {progressed.map((p) => (
-            <div className="row" key={p.recordKey}>
+          <div className="card-label">다음 세션 무게 (A그룹)</div>
+          {nextWeightRows.map(({ recordKey, name, verdict, inverse }) => (
+            <div className="row" key={recordKey}>
               <div className="row-main">
-                <div className="row-title">{p.name}</div>
-                <div className="row-sub">모든 세트 상단 도달 · 보상작용 없음</div>
+                <div className="row-title">{name}</div>
+                <div className="row-sub">
+                  {verdict.kind === 'up'
+                    ? '모든 세트 상단 도달 · 보상작용 없음'
+                    : holdReasonText(verdict.reason)}
+                </div>
               </div>
-              <div className="row-meta" style={{ color: 'var(--accent)' }}>
-                {formatProgression(p.from, p.to, p.inverse)}
-              </div>
+              {verdict.kind === 'up' ? (
+                <div className="row-meta" style={{ color: 'var(--accent)' }}>
+                  {formatProgression(verdict.from, verdict.to, inverse)}
+                </div>
+              ) : (
+                <div className="row-meta">{verdict.from}kg 유지</div>
+              )}
             </div>
           ))}
         </div>
