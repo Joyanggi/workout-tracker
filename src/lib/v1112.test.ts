@@ -152,7 +152,9 @@ describe('II2', () => {
 
   it('dietDayStatusText: 판정이 있으면 마크와 퍼센트', () => {
     expect(status(allChecked())).toBe('준수 ● 100%')
-    // PLAN 문구의 "안 먹음 = 0.5"는 실제와 달라(가중 평균 60%, 전부 안 먹음 45% ○) 치팅 추가 상한 0.5로 ◐를 만든다
+    // PLAN 픽스처: breakfast·lunch·afternoon·dinner만 안 먹음(각 0.5), shake 기록 없음 → 0.5 → ◐ 50%
+    expect(status(skipped(['breakfast', 'lunch', 'afternoon', 'dinner']))).toBe('준수 ◐ 50%')
+    // 같은 ◐ 50%를 치팅 추가 상한 0.5로도 만든다 (전 슬롯 체크 + 치팅 추가)
     const capped = allChecked()
     for (const sl of PLAN.slots) capped[sl.id] = { ...capped[sl.id], addition: { text: '야식', quality: 'cheat' } }
     expect(status(capped)).toBe('준수 ◐ 50%')
