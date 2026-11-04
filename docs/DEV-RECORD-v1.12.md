@@ -83,3 +83,53 @@
 ### 하지 않은 것
 
 - 내보내기·종료 시트 문구(JJ2·JJ3), v111 ② `after()` 필터, `package.json` 버전 — PLAN 순서상 후속 작업/기록 커밋.
+
+
+---
+
+
+## JJ2. 지나간 세션의 내보내기가 계획·생성·완료를 말한다
+
+### 범위
+
+| 커밋 | 내용 | 바뀐 파일 |
+|---|---|---|
+| JJ2 (이 커밋) | `sessionAdjustText`·`entrySetLine`(문구는 `setPlan.ts` 한 곳), `sessionToMarkdown(…, sessions?)`, 헤더 다음 줄·종목 반복 줄 다음 줄, v111 ② `after()` 필터 | `src/lib/setPlan.ts` · `src/lib/exportMarkdown.ts` · `src/lib/v111.test.ts` · `src/lib/v112.test.ts` · 이 문서 |
+
+- 기존 테스트 수정: v111 `after()`가 `복귀 조정:`·`세트:` 줄을 거른다 (주석 `JJ2(PLAN-v1.12)가 더한 줄 …`). 단언 본문은 그대로.
+- **PLAN 수치 정정:** 디로드 예시 `22세트 → 11세트`는 `ROUTINE` d1에서 `adjustedSetCount`를 종목별로 적용하면 **13세트**다(P 3 → round(1.5)=2 등 종목별 반올림 합). 식은 PLAN 그대로이고 예시의 산수만 어긋나 테스트는 13으로 단언한다. 복귀 22→15는 PLAN과 같다.
+
+### PLAN 검증 항목 ↔ 테스트 (`describe JJ2`)
+
+| PLAN 검증 | 테스트 |
+|---|---|
+| 08-26 재현 | `08-26 재현: 저장값 없음 + 21일 전 근력 세션 …` |
+| 두 규칙 독립 (modeAdjust만) | `modeAdjust만 저장 → 공백 재계산 문구 없음 …` |
+| modeAdjust + plannedSets | `modeAdjust + 전 entry plannedSets → 계획 22세트 …` |
+| sessions 없이 | `sessions 없이(저장값 없음) → 기록 없음 …` |
+| 디로드 저장 / 저장 없음 | `디로드(buildSession, 저장값 {−50,0}) …` · `저장값 없는 디로드 → (재계산)` |
+| step 없는 복귀 | `step 없는 복귀({0,0} 저장) …` |
+| 루틴 변경 (회귀) | `루틴 변경 (회귀) …` (종료 시트 한 줄은 JJ3에서) |
+| 계획 1세트 · normal undefined · 행 추가 | `계획 1세트 종목 …` · `entrySetLine(plan, "normal") → undefined` · `복귀에서 행을 더해 …` |
+| 얹은 종목 · skipped · 워밍업만 | `얹은 종목 …` · `skipped 종목 …` · `워밍업만 체크한 종목 …` |
+| normal 불변 (골든) | `JJ2 — normal 불변 (골든)` (JJ1에서 고정, 통과 유지) |
+| 08-26 diff: 1줄 + 7줄 | `08-26 픽스처 diff …` |
+| 소스 스캔 | `JJ2 › 소스 스캔` 2건 |
+
+### 결함 복원 (④⑥⑦)
+
+| # | 되살린 결함 | 실패한 테스트 | 원상복구 |
+|---|---|---|---|
+| ④ | `exportMarkdown`이 `sessions`를 넘기지 않음 | `08-26 재현` · 소스 스캔 `sessions를 넘긴다` | `cmp` 같음 |
+| ⑥ | `exportMarkdown.ts`에 `'복귀 조정'` 리터럴 | 12건 (골든·재현·스캔 등) | `cmp` 같음 |
+| ⑦ | `buildSession`에서 `plannedSets` 저장 지움 | 11건 (JJ1 저장·보존, JJ2 `루틴 변경`·`modeAdjust + plannedSets` 등) | `git status`로 `sessionFactory.ts` 무변경 확인 |
+
+### 실행 결과
+
+- `npm test`: Test Files 53 passed (53), Tests 1152 passed (1152)
+- `npm run build`: 성공 (`✓ built in 3.95s`)
+- 과거 판정 불변: `JJ_BUILD_GOLDEN`·`JJ_EXPORT_NORMAL_BEFORE` 일치, `GG1_GOLDEN`(v111) 통과
+
+### 하지 않은 것
+
+- 종료 시트(JJ3), `package.json` 버전. 이 PLAN의 "08-26 픽스처의 v1.11.2 출력 diff" 대조는 `fieldSession`(3종목)이 아니라 `ROUTINE` d1 7종목 복귀 세션으로 했다(`세트:` 7줄 + `복귀 조정:` 1줄 추가뿐).

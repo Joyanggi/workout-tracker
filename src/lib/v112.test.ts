@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { buildSession } from './sessionFactory'
 import {
   adjustedSetCount,
+  entrySetLine,
   entrySetPlan,
   modeAdjustFor,
+  sessionAdjustText,
   resolveSessionAdjust,
   sessionSetPlan,
   DELOAD_SET_PCT,
@@ -13,7 +15,7 @@ import { applyDayChange } from './dayChange'
 import { doneSets, workSetRows } from './derive'
 import { stripComments } from './sourceScan'
 import { makeRecordKey } from '../types'
-import { exportMarkdown } from './exportMarkdown'
+import { exportMarkdown, sessionToMarkdown } from './exportMarkdown'
 import { ROUTINE, completedSession } from './testFixtures'
 import EXERCISES from '../data/exercises.json'
 import type { Exercise, Phase, RoutineTemplate, Session, SessionMode } from '../types'
@@ -508,6 +510,150 @@ describe('JJ1', () => {
     })
     it('setPlan.ts는 저장값 우선(`plannedSets ??`)', () => {
       expect(src('setPlan.ts')).toContain('plannedSets ??')
+    })
+  })
+})
+
+// ─── JJ2 ─────────────────────────────────────────────────
+
+describe('JJ2', () => {
+  /** 수행한 것으로 — 내보내기 본문은 performedOrder가 있는 종목만 쓴다 */
+  const done = (s: Session): Session => ({
+    ...allChecked(s),
+    entries: allChecked(s).entries.map((e) => ({ ...e, performedOrder: e.plannedOrder, firstSetAt: '2026-10-07T18:20:00.000Z' })),
+  })
+  const FULL = (): Session => done(build('return', 0)) // 08-26 재현: 22세트 계획 → 15세트 생성·완료
+  const noJJ = () => stripJJ(FULL())
+  const all = (s: Session, sessions: Session[] = prevAt('2026-09-16')) => [s, ...sessions]
+  const out = (s: Session, sessions?: Session[], routine: RoutineTemplate = ROUTINE) =>
+    exportMarkdown({
+      sessions: sessions ?? all(s),
+      routine,
+      catalog,
+      phase: PHASE,
+      range: { from: '2026-10-01', to: '2026-10-31' },
+    }).split('\n')
+  const headerNext = (lines: string[]) => lines[lines.findIndex((l) => l.startsWith('## 2026-10-07')) + 1]
+  const block = (lines: string[], name: string) => {
+    const i = lines.findIndex((l) => l.startsWith(`### ${name}`))
+    return lines.slice(i + 1, i + 4)
+  }
+  const md = (s: Session) => sessionToMarkdown(s, ROUTINE, catalog, PHASE).split('\n')
+
+  it('08-26 재현: 저장값 없음 + 21일 전 근력 세션 — 헤더 다음 줄·리어델트 블록 순서·인클라인 세트 줄', () => {
+    const lines = out(noJJ())
+    expect(headerNext(lines)).toBe(
+      '복귀 조정: 세트 −30% · 무게 −5% (공백 21일로 재계산) — 현재 루틴 계획 22세트 → 15세트 생성 · 완료 15세트',
+    )
+    expect(block(lines, '리어델트')).toEqual([expect.stringMatching(/^\d+$/), '세트: 계획 2 → 복귀 조정 1 · 완료 1', expect.stringMatching(/^간격|^보상작용/)].slice(0, 3))
+    expect(block(lines, '리어델트')[1]).toBe('세트: 계획 2 → 복귀 조정 1 · 완료 1')
+    expect(lines).toContain('세트: 계획 4 → 복귀 조정 3 · 완료 3')
+  })
+  it('08-26 픽스처 diff: 복귀 조정 1줄 + 세트: 7줄이 추가될 뿐이다 (그 줄을 빼면 sessions 유무와 무관하게 같은 본문)', () => {
+    const withLines = md(noJJ())
+    const rest = withLines.filter((l) => !l.startsWith('복귀 조정:') && !l.startsWith('세트:'))
+    expect(withLines.filter((l) => l.startsWith('복귀 조정:'))).toHaveLength(1)
+    expect(withLines.filter((l) => l.startsWith('세트:'))).toHaveLength(7)
+    expect(withLines.length - rest.length).toBe(8)
+  })
+  it('modeAdjust만 저장 → 공백 재계산 문구 없음, 현재 루틴 계획 그대로 (조정률·P 출처는 독립)', () => {
+    const s = { ...noJJ(), modeAdjust: { setPct: -30, weightPct: -5 } }
+    expect(headerNext(out(s))).toBe(
+      '복귀 조정: 세트 −30% · 무게 −5% — 현재 루틴 계획 22세트 → 15세트 생성 · 완료 15세트',
+    )
+  })
+  it('modeAdjust + 전 entry plannedSets → 계획 22세트 (현재 루틴 없음)', () => {
+    expect(headerNext(out(FULL()))).toBe('복귀 조정: 세트 −30% · 무게 −5% — 계획 22세트 → 15세트 생성 · 완료 15세트')
+  })
+  it('sessions 없이(저장값 없음) → 기록 없음, 종목 줄은 세트: 계획 2 · 완료 1', () => {
+    const lines = md(noJJ())
+    expect(lines[lines.findIndex((l) => l.startsWith('## 2026-10-07')) + 1]).toBe('복귀 조정: 기록 없음 — 현재 루틴 계획 22세트 · 완료 15세트')
+    expect(lines).toContain('세트: 계획 2 · 완료 1')
+    expect(lines).not.toContain('세트: 계획 2 → 복귀 조정 1 · 완료 1')
+  })
+  it('디로드(buildSession, 저장값 {−50,0}) → 무게 없음', () => {
+    const s = done(build('deload'))
+    expect(headerNext(out(s, [s]))).toBe('디로드 조정: 세트 −50% — 계획 22세트 → 13세트 생성 · 완료 13세트')
+  })
+  it('저장값 없는 디로드 → (재계산)', () => {
+    const s = stripJJ(done(build('deload')))
+    expect(headerNext(out(s, [s]))).toBe(
+      '디로드 조정: 세트 −50% (재계산) — 현재 루틴 계획 22세트 → 13세트 생성 · 완료 13세트',
+    )
+  })
+  it('step 없는 복귀({0,0} 저장) → 복귀 조정: 없음 · 인클라인 세트: 계획 4 · 완료 4', () => {
+    const s = done(build('return'))
+    const lines = out(s, [s])
+    expect(headerNext(lines)).toMatch(/^복귀 조정: 없음 — 계획 22세트 · 완료 \d+세트$/)
+    expect(lines).toContain('세트: 계획 4 · 완료 4')
+  })
+  it('루틴 변경 (회귀): 인클라인 sets 4→5로 바꿔도 그날 헤더 줄·세트 줄이 같다', () => {
+    const s = FULL()
+    const a = out(s)
+    const b = out(s, undefined, withRoutineSets({ 'incline-chest-press': 5 }))
+    expect(headerNext(b)).toBe(headerNext(a))
+    expect(b).toContain('세트: 계획 4 → 복귀 조정 3 · 완료 3')
+    expect(a.filter((l) => l.startsWith('세트:'))).toEqual(b.filter((l) => l.startsWith('세트:')))
+  })
+  it('계획 1세트 종목 → 세트: 계획 1 · 완료 1', () => {
+    const s = FULL()
+    const k = K_REAR
+    const one = { ...s, entries: s.entries.map((e) => (e.recordKey === k ? { ...e, plannedSets: 1, sets: e.sets.slice(0, 1) } : e)) }
+    expect(out(one)).toContain('세트: 계획 1 · 완료 1')
+  })
+  it('entrySetLine(plan, "normal") → undefined', () => {
+    const s = FULL()
+    const p = entrySetPlan(s.entries[0], ROUTINE, { kind: 'known', setPct: -30, weightPct: -5, source: 'stored' })!
+    expect(entrySetLine(p, 'normal')).toBeUndefined()
+    expect(sessionAdjustText(build('normal'), undefined, { kind: 'none' })).toBeUndefined()
+  })
+  it('복귀에서 행을 더해 G보다 많이 완료 → 세트: 계획 4 → 복귀 조정 3 · 완료 4', () => {
+    const s = FULL()
+    const more = {
+      ...s,
+      entries: s.entries.map((e) =>
+        e.recordKey === K_INCLINE ? { ...e, sets: [...e.sets, { ...e.sets[e.sets.length - 1] }] } : e,
+      ),
+    }
+    expect(out(more)).toContain('세트: 계획 4 → 복귀 조정 3 · 완료 4')
+  })
+  it('얹은 종목 → 세트 줄 없음·세션 줄 합에 없음 · 대체 종목 → 원 종목 P', () => {
+    const s = FULL()
+    const withExtra = {
+      ...s,
+      entries: [...s.entries, { ...s.entries[0], recordKey: makeRecordKey('cable-curl', 'd1'), extra: true as const, plannedSets: undefined }],
+    }
+    const lines = out(withExtra)
+    expect(headerNext(lines)).toContain('계획 22세트')
+    expect(headerNext(lines)).toContain('완료 15세트')
+  })
+  it('skipped 종목 → 본문에 없음 · 세션 줄 완료만 줄어든다', () => {
+    const s = FULL()
+    const sk = { ...s, entries: s.entries.map((e, i) => (i === 0 ? { ...e, skipped: true, performedOrder: null, sets: e.sets.map((x) => ({ ...x, done: false })) } : e)) }
+    const h = headerNext(out(sk))
+    expect(h).toContain('계획 22세트 → 15세트 생성')
+    expect(h).toMatch(/완료 1[0-4]세트$/)
+  })
+  it('워밍업만 체크한 종목 → 본문에 없음 · 세션 줄 합엔 P·G로 들어가고 D 0', () => {
+    const s = FULL()
+    const w = { ...s, entries: s.entries.map((e, i) => (i === 0 ? { ...e, sets: e.sets.map((x, j) => ({ ...x, warmup: j === 0, done: j === 0 })) } : e)) }
+    const h = headerNext(out(w))
+    expect(h).toContain('계획 22세트 → 15세트 생성')
+    expect(h).toMatch(/완료 1[0-4]세트$/)
+  })
+
+  describe('소스 스캔', () => {
+    const raw = import.meta.glob('/src/lib/exportMarkdown.ts', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
+    const e = stripComments(Object.values(raw)[0])
+    it('exportMarkdown.ts: 문구 리터럴·Math.round( 없음, 초크포인트 import', () => {
+      expect(e).not.toContain('복귀 조정')
+      expect(e).not.toContain('생성')
+      expect(e).not.toContain('setPct') // 세트 수 계산은 setPlan.ts에만
+      for (const n of ['sessionAdjustText', 'entrySetLine', 'resolveSessionAdjust']) expect(e).toContain(n)
+    })
+    it('resolveSessionAdjust( 호출은 한 번, exportMarkdown이 sessions를 넘긴다', () => {
+      expect(e.split('resolveSessionAdjust(').length - 1).toBe(1)
+      expect(e).toContain('sessionToMarkdown(s, routine, catalog, phase, scales, sessions)')
     })
   })
 })

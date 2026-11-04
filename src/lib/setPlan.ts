@@ -142,3 +142,54 @@ export function sessionSetPlan(
     routinePlanned: plans.some((p) => p.plannedFrom === 'routine'),
   }
 }
+
+const MODE_NAME: Record<SessionMode, string> = { normal: '', return: '복귀', deload: '디로드' }
+
+/** 퍼센트 표기. 음수는 `−`(U+2212), 양수는 `+` */
+function signedPct(n: number): string {
+  if (n < 0) return `−${Math.abs(n)}%`
+  if (n > 0) return `+${n}%`
+  return '0%'
+}
+
+/**
+ * 세션 한 줄 (JJ2) — 내보내기와 종료 시트(JJ3)가 같은 문자열을 쓴다. normal이면 `undefined`.
+ * 조정률 출처(`재계산`)와 P 출처(`현재 루틴 계획`)는 서로 독립이다.
+ */
+export function sessionAdjustText(
+  session: Session,
+  plan: SessionSetPlan | undefined,
+  adjust: ResolvedAdjust,
+): string | undefined {
+  if (session.mode === 'normal' || adjust.kind === 'none') return undefined
+  const name = MODE_NAME[session.mode]
+  let head: string
+  if (adjust.kind === 'unknown') {
+    head = `${name} 조정: 기록 없음`
+  } else {
+    const parts =
+      adjust.setPct === 0 && adjust.weightPct === 0
+        ? '없음'
+        : [`세트 ${signedPct(adjust.setPct)}`, ...(adjust.weightPct !== 0 ? [`무게 ${signedPct(adjust.weightPct)}`] : [])].join(' · ')
+    const derived =
+      adjust.source === 'derived'
+        ? adjust.gapDays !== undefined
+          ? ` (공백 ${adjust.gapDays}일로 재계산)`
+          : ' (재계산)'
+        : ''
+    head = `${name} 조정: ${parts}${derived}`
+  }
+  if (!plan) return head
+  const generated =
+    plan.given !== null && plan.given !== plan.planned ? ` → ${plan.given}세트 생성` : ''
+  return `${head} — ${plan.routinePlanned ? '현재 루틴 계획' : '계획'} ${plan.planned}세트${generated} · 완료 ${plan.done}세트`
+}
+
+/** 종목 한 줄 (JJ2). normal이면 `undefined` */
+export function entrySetLine(plan: EntrySetPlan, mode: SessionMode): string | undefined {
+  if (mode === 'normal') return undefined
+  if (plan.given === null || plan.given === plan.planned) {
+    return `세트: 계획 ${plan.planned} · 완료 ${plan.done}`
+  }
+  return `세트: 계획 ${plan.planned} → ${MODE_NAME[mode]} 조정 ${plan.given} · 완료 ${plan.done}`
+}
