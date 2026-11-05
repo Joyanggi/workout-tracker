@@ -7,7 +7,7 @@
 
 지정받은 역할 파일을 먼저 읽고 따른다.
 설계자 `agents/DESIGNER.md` · 설계 검토자 `agents/PLAN-REVIEWER.md` · 구현자 `agents/IMPLEMENTER.md` ·
-리뷰어 `agents/REVIEWER.md` · 지휘자 `agents/COORDINATOR.md`
+리뷰어 `agents/REVIEWER.md` · 지휘자 `agents/COORDINATOR.md` · 규칙 정비자 `agents/RULES-KEEPER.md` (사람용 지도: `agents/README.md`)
 
 역할이 없으면 일반 대화다. 코드를 고치기 전에 무엇을 바꿀지 먼저 말한다.
 
@@ -34,13 +34,16 @@
 
 - `main`에 push하면 GitHub Pages로 바로 배포되고 실제로 쓰는 폰 앱이 바뀐다.
   그래서 `main`에는 PR로만 반영하고, 머지는 사람이 한다. 에이전트는 `main`에 직접 push하거나 로컬에서 머지하지 않고, PR도 머지하지 않는다.
-- 새 작업을 시작하기 전에 `main`에서 `git pull`을 먼저 한다. 작업은 그렇게 최신으로 맞춘 `main`에서 시작한 별도 브랜치에서 한다.
-  구현은 `feature/<PLAN 버전>-<작업 ID>`, 설계는 `plan-<PLAN 버전>`. Orca가 붙이는 `Joyanggi/` 접두사는 그대로 둔다.
+- 새 작업을 시작하기 전에 `main`에서 `git pull --ff-only`를 먼저 한다. 작업은 그렇게 최신으로 맞춘 `main`에서 시작한 별도 브랜치에서 한다.
+  브랜치 이름은 Orca가 정한다(예: `Joyanggi/v1.13`). 추측하지 말고 `git branch --show-current`로 확인한다.
+- PR 머지·main push·강제 push·`reset --hard` 같은 명령은 훅(`scripts/agent-guard.mjs`)이 막는다. `[agent-guard] 막음`이 나오면 우회하지 말고 다른 방법을 쓰거나 멈춘다.
 - `main` 작업 트리에서 브랜치를 만들어 PR을 올렸으면, 끝날 때 `git checkout main`으로 돌려놓는다.
 - `package.json` 버전은 PLAN이 정한 시점에만 올린다.
 
 ## 문서
 
+- `README.md` "핵심 설계 결정": 지금 동작의 명세. `docs/DESIGN.md`는 v1.0 당시 설계라 지금과 다를 수 있다.
+- 요청: GitHub 이슈(개선·새 기능·구조 변경 양식)나 `docs/FIELD-REPORT-*.md`.
 - `docs/PLAN-*.md`: 설계서. 설계자만 쓴다.
 - `docs/DEV-RECORD-*.md`: 구현 기록. 맨 위에 "이 환경에서 확인된 제약" 목록이 있다. 구현자가 쓴다.
 
