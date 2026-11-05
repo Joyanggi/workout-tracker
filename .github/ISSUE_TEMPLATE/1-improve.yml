@@ -1,0 +1,48 @@
+name: 개선
+description: 이미 있는 기능이 불편하거나 틀렸을 때
+title: "[개선] "
+labels: ["개선"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        지휘자에게는 "이슈 #번호를 작은 수정으로 진행해" 또는 "설계 작업. 주제: 이슈 #번호 / …"로 넘긴다.
+        크기를 모르겠으면 "모르겠음"을 고르면 된다. 지휘자·구현자가 작은 수정이 아니면 설계로 돌린다.
+  - type: textarea
+    id: situation
+    attributes:
+      label: 지금 상황
+      description: 어느 화면·기능에서, 언제 겪었나. 실사용 보고 절이나 내보내기 줄이 있으면 붙인다.
+      placeholder: "예: 복귀 세션 시트에서 랫풀다운 시작 무게가 37.5kg로 나온다 (기구는 5kg 단위)"
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: 왜 문제인가
+      description: 그래서 무엇이 불편하거나, 기록·판정이 어떻게 틀어지나
+    validations:
+      required: true
+  - type: textarea
+    id: success
+    attributes:
+      label: 성공 기준
+      description: 무엇이 보이거나 바뀌면 끝인가. 테스트로 옮길 수 있게 구체적으로.
+      placeholder: "예: 복귀 무게는 그 종목 기구의 무게 단위로 내림한다. 기록 없는 종목은 바뀌지 않는다."
+    validations:
+      required: true
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: 안 할 것
+      description: 이번에 손대지 않을 것 (없으면 비워둔다)
+  - type: dropdown
+    id: size
+    attributes:
+      label: 크기
+      options:
+        - 작은 수정
+        - 설계 필요
+        - 모르겠음
+    validations:
+      required: true

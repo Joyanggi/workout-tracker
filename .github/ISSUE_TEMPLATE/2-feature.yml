@@ -1,0 +1,62 @@
+name: 새 기능
+description: 지금 없는 것을 새로 붙이고 싶을 때
+title: "[새 기능] "
+labels: ["새 기능"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        지휘자에게는 "설계 작업. 주제: 이슈 #번호 / PLAN 파일: docs/PLAN-<버전>.md / 작업 ID: <접두사>"로 넘긴다.
+        설계자는 "안 만드는 안"도 선택지로 검토한다. 기능은 늘리기보다 유지하기가 비싸다.
+  - type: textarea
+    id: why
+    attributes:
+      label: 왜 필요한가
+      description: 어떤 순간에 무엇이 없어서 곤란했나 (실제 있었던 일로)
+    validations:
+      required: true
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: 얼마나 자주 겪나
+      options:
+        - 운동할 때마다
+        - 주 1회쯤
+        - 한 달에 한두 번
+        - 드물다
+    validations:
+      required: true
+  - type: textarea
+    id: success
+    attributes:
+      label: 성공 기준
+      description: 이 기능이 생기면 무엇이 달라지나. 확인할 수 있게.
+    validations:
+      required: true
+  - type: textarea
+    id: smallest
+    attributes:
+      label: 가장 작은 버전
+      description: 이것만 있어도 문제가 풀리는 최소한. 설계자는 이보다 크게 설계하지 않는다.
+    validations:
+      required: true
+  - type: checkboxes
+    id: principles
+    attributes:
+      label: 핵심 설계 결정 점검 (README)
+      description: 맞는 것에 체크한다. 체크 못 한 항목은 설계자가 따로 다룬다.
+      options:
+        - label: 서버·로그인 없이 된다
+        - label: 헬스장에서 입력할 게 늘지 않는다 (입력 마찰 최소화)
+        - label: 앱이 판단하지 않고 제안한다 (무시할 수 있다)
+        - label: 과거 기록의 판정이 바뀌지 않는다
+        - label: 내보내기를 LLM에 붙여넣는 것으로는 안 풀린다
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: 안 할 것
+  - type: textarea
+    id: removal
+    attributes:
+      label: 언제 지울까
+      description: "이 기능을 없애도 되는 조건 (예: 3개월 동안 한 번도 안 쓰면)"
