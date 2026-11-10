@@ -35,7 +35,7 @@
 
 ## LL1. "보상작용 있음" 판정을 `hasCompensation` 한 곳으로
 
-LL0 골든 커밋: `2bd9770`, `7b38cb7` (이후 고치지 않음).
+LL0 골든 커밋: `2bd9770`, 수정 커밋 `7b38cb7` (이후 고치지 않음).
 
 | 항목 | 내용 |
 |---|---|
@@ -165,3 +165,72 @@ LL0 골든 커밋: `2bd9770`, `7b38cb7` (이후 고치지 않음).
 실기기 확인: 종료 시트의 `천국의 계단` 선택·강도 placeholder(`4단계`), 기록 탭·요약·내보내기의 `· 강도 N ·` 표기.
 
 리뷰 반영: ① LL4 절 추가 ② 수정표 밖 변경 명시 ③ 결함 ⑧·⑨ 실행 기록. 코드·테스트 변경 없음.
+
+---
+
+## 과거 판정 불변 확인
+
+범위: 테스트 안에 고정한 루틴(배포 `routine-v2.4.json`)·Phase·픽스처로 한정한다. 저장된 실기기 데이터는 보지 않았다.
+
+① 골든 일치 (LL0 커밋 `2bd9770`, 수정 `7b38cb7`)
+
+| 골든 | 확인 테스트 | 결과 |
+|---|---|---|
+| `GG1_GOLDEN` | `v111.test.ts` | 통과 |
+| `JJ_BUILD_GOLDEN` | `v112.test.ts` | 통과 |
+| `JJ_EXPORT_NORMAL_BEFORE` | `v112.test.ts` | 통과 |
+| `LL_VERDICT_BEFORE` | `v114.test.ts` LL1·LL2 | 통과 (08-28 레그 컬 `hold compensation` 그대로) |
+
+② 기존 테스트 수정 ①~④ — diff는 `git diff -U0 7b38cb7 HEAD -- src/lib/export.test.ts src/lib/v113.test.ts src/lib/uiConsistency.test.ts`
+
+```
+export.test.ts:141
+-    expect(text).toContain('유산소: 마이마운틴 25/3.8 · 20분')
++    expect(text).toContain('유산소: 마이마운틴 · 강도 25/3.8 · 20분')            (수정 ①)
+v113.test.ts:960,966,993
+-    유산소: 유산소 마이마운틴 · 30분
++    유산소: 유산소 · 강도 마이마운틴 · 30분                                        (수정 ②)
+v113.test.ts:1037
+-    l.startsWith('유산소: 유산소 마이마운틴') ||
++    l.startsWith('유산소: 유산소 · 강도 마이마운틴') ||                            (수정 ③)
+uiConsistency.test.ts:88-89
+-    expect(src).toMatch(/current\.trim\(\) !== ''/)
+-    expect(src).toMatch(/current !== NO_COMPENSATION/)
++    expect(src).toMatch(/\{hasCompensation\(current\) &&/)                         (수정 ④)
+uiConsistency.test.ts:95
+-    /\{(current[^}]*?) &&\s*\(\s*<button/
++    /\{([^{}]*\bcurrent\b[^{}]*?) &&\s*\(\s*<button/  + expect(cond).not.toBe('')
+```
+
+③ `LL_EXPORT_BEFORE`와 새 출력의 diff는 유산소 두 줄뿐이다 (`v114.test.ts` `내보내기: LL_EXPORT_BEFORE와 다른 줄이 정확히 둘…`이 잠근다)
+
+```
+ ## 2026-08-26 (수) — Day 1 Push
+-유산소: 마이마운틴 25/3.8 · 20분
++유산소: 마이마운틴 · 강도 25/3.8 · 20분
+ ## 2026-11-04 (수) — Day 1 Push
+-유산소: 기타 4 · 16분
++유산소: 기타 · 강도 4 · 16분
+```
+(`2026-08-03`의 `유산소: 마이마운틴 30분`은 강도가 없어 그대로. 이 밖의 줄은 한 글자도 안 바뀐다.)
+
+④ 바뀌는 것: PLAN "과거 판정 불변" 표의 일곱 자리(유산소 강도 표기 3곳 · 빈 문자열 보상작용 · 통증 신규·과거 세션 직접 입력 · 유산소 종류 5개). 통증 없는 v1.14 이전 기록의 판정·세션 생성·내보내기는 불변.
+
+## 배포 영향
+
+- 강도를 적은 과거 유산소 기록의 내보내기·기록 탭 표기에 `강도`가 붙는다(11-04 `기타 4 · 16분` → `기타 · 강도 4 · 16분`).
+- 통증 칸의 삭제 조건: 배포 후 3개월 동안 `pain` 기록이 0건이면 LL2·LL3을 지운다.
+
+## 완료 요약 (v1.14)
+
+| 작업 | 커밋 |
+|---|---|
+| LL0 골든 | `2bd9770`, 수정 `7b38cb7` |
+| LL1 `hasCompensation` 한 곳 | `dd01001` |
+| LL2 통증 칸 | `75d5810` |
+| LL3 통증을 말하는 자리 | `aefa8cd` |
+| LL4 유산소 종류·강도 | `02e9c51` (기록 `8741482`) |
+| 기록·버전 | 이 커밋 · `package.json` 1.14.0 |
+
+실행: `Test Files 56 passed (56)` · `Tests 1379 passed (1379)` · `npm run build` 통과 · 결함 복원 11건 중 ①②③④⑤⑥⑦⑧⑨⑩⑪ 모두 작업 절에 기록(LL1 ①⑪, LL2 ②③④⑩, LL3 ⑤⑥⑦, LL4 ⑧⑨) · `git rev-list --count main..HEAD` 8 (이 커밋 포함).
+실기기 확인: 각 작업 절 목록.
