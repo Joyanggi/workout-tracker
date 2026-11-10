@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
+import { cardioText } from '../lib/cardio'
 import { compensationSummary, hasCompensation } from '../lib/compensation'
 import { hasPain } from '../lib/pain'
 import { holdReasonText, progressionVerdicts } from '../lib/progression'
@@ -285,11 +286,8 @@ export default function SummaryScreen({
             <div className="row">
               <div className="row-main">
                 <div className="row-title">유산소</div>
-                <div className="row-sub">{session.cardio.note ?? ''}</div>
               </div>
-              <div className="row-meta">
-                {session.cardio.type} {session.cardio.minutes}분
-              </div>
+              <div className="row-meta">{cardioText(session.cardio)}</div>
             </div>
           )}
           {session.sessionNote && (

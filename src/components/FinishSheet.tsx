@@ -1,12 +1,11 @@
 import { useState } from 'react'
+import { CARDIO_TYPES, intensityHintFor } from '../lib/cardio'
 import { doneSets } from '../lib/derive'
 import { partialEntries, resolveSessionAdjust, sessionAdjustText, sessionSetPlan } from '../lib/setPlan'
 import { compensationEntriesOf } from '../lib/compensationWatch'
 import type { RoutineBundle } from '../lib/useRoutine'
 import { useSessionStore } from '../store/session'
 import { NO_AUTOFILL } from '../lib/inputProps'
-
-const CARDIO_TYPES = ['마이마운틴', '자전거', '트레드밀', '기타']
 
 /**
  * 세션 종료 (DESIGN.md §5.2).
@@ -103,7 +102,7 @@ export default function FinishSheet({
           유산소 (선택)
         </div>
         <div className="pill-row">
-          {CARDIO_TYPES.map((t) => (
+          {CARDIO_TYPES.map((t) => t.name).map((t) => (
             <button
               key={t}
               className={`pill${cardioType === t ? ' pill-on' : ''}`}
@@ -129,8 +128,8 @@ export default function FinishSheet({
               className="field"
               value={cardioNote}
               onChange={(e) => setCardioNote(e.target.value)}
-              aria-label="유산소 메모"
-              placeholder="25/3.8"
+              aria-label="유산소 강도"
+              placeholder={intensityHintFor(cardioType)}
             />
           </div>
         )}

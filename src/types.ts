@@ -291,7 +291,7 @@ export interface SessionEntry {
 export interface CardioRecord {
   type: string
   minutes: number
-  note?: string // "마이마운틴 25/3.8"
+  note?: string // 강도(단계·속도·경사). 저장 키는 note 그대로 (LL4)
 }
 
 /** 세션 생성 때 앱이 적용한 조정 (JJ1). 단위 %, 음수가 감량 */

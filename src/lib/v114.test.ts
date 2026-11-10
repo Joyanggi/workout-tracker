@@ -7,6 +7,7 @@ import { hasPain, lastPainChipText, painText, painTrail } from './pain'
 import { exerciseHistory } from './history'
 import { applyPain, applySubstitute } from './sessionOps'
 import { applyDayChange } from './dayChange'
+import { CARDIO_TYPES, cardioText, intensityHintFor } from './cardio'
 import { scaleFor } from './weightScale'
 import { ROUTINE, completedSession } from './testFixtures'
 import EXERCISES from '../data/exercises.json'
@@ -71,12 +72,19 @@ export const LL_EXPORT_BEFORE: string = "# 운동 기록 2026-08-01 ~ 2026-11-30
 /** v1.13 코드로 뽑은 세션별 증량 판정 (날짜|recordKey → verdict) */
 export const LL_VERDICT_BEFORE: Record<string, unknown> = {"2026-08-26|incline-chest-press@d1":{"kind":"hold","from":40,"reason":{"kind":"reps","reached":0,"total":4,"repMax":10}},"2026-08-26|flat-chest-press@d1":{"kind":"hold","from":40,"reason":{"kind":"reps","reached":0,"total":3,"repMax":12}},"2026-08-26|shoulder-press@d1":{"kind":"hold","from":40,"reason":{"kind":"reps","reached":0,"total":3,"repMax":12}},"2026-08-28|leg-extension@d3":{"kind":"hold","from":40,"reason":{"kind":"reps","reached":0,"total":3,"repMax":15}},"2026-08-28|leg-curl@d3":{"kind":"hold","from":40,"reason":{"kind":"compensation"}},"2026-11-04|incline-chest-press@d1":{"kind":"hold","from":40,"reason":{"kind":"reps","reached":0,"total":4,"repMax":10}},"2026-11-04|flat-chest-press@d1":{"kind":"hold","from":40,"reason":{"kind":"reps","reached":0,"total":3,"repMax":12}},"2026-11-04|shoulder-press@d1":{"kind":"hold","from":40,"reason":{"kind":"reps","reached":0,"total":3,"repMax":12}}}
 
+/** LL4가 바꾼 유산소 두 줄만 v1.13 표기로 되돌린다 */
+const llCardioAsV113 = (md: string) =>
+  md
+    .replace('유산소: 마이마운틴 · 강도 25/3.8 · 20분', '유산소: 마이마운틴 25/3.8 · 20분')
+    .replace('유산소: 기타 · 강도 4 · 16분', '유산소: 기타 4 · 16분')
+
 describe('LL0 골든 — v1.13 출력', () => {
   it('LL_SESSIONS는 네 세션', () => {
     expect(llSessions().map((s) => s.date)).toEqual(['2026-08-03', '2026-08-26', '2026-08-28', '2026-11-04'])
   })
   it('LL_EXPORT_BEFORE: 지금 내보내기 = 골든', () => {
-    expect(renderLl()).toBe(LL_EXPORT_BEFORE)
+    // LL4(PLAN-v1.14): 유산소 두 줄만 새 표기라 옛 표기로 되돌려 견준다(기계적 결과)
+    expect(llCardioAsV113(renderLl())).toBe(LL_EXPORT_BEFORE)
   })
   it('LL_VERDICT_BEFORE: 지금 증량 판정 = 골든', () => {
     expect(verdictsLl()).toEqual(LL_VERDICT_BEFORE)
@@ -434,7 +442,8 @@ describe('LL3', () => {
     expect(md.slice(i, md.indexOf('\n\n', i))).toContain('통증: 있음 — 어깨')
   })
   it('새 출력이 LL_EXPORT_BEFORE와 같다(통증 줄 0개) · JJ_EXPORT_NORMAL_BEFORE 통과', () => {
-    expect(renderLl()).toBe(LL_EXPORT_BEFORE)
+    // LL4(PLAN-v1.14): 유산소 두 줄만 새 표기라 옛 표기로 되돌려 견준다(기계적 결과)
+    expect(llCardioAsV113(renderLl())).toBe(LL_EXPORT_BEFORE)
     expect(renderLl()).not.toContain('통증')
   })
   it('exerciseHistory: 통증 entry → pain true · 과거 entry → false', () => {
@@ -445,6 +454,68 @@ describe('LL3', () => {
     expect(Object.keys(ll3Sources)).toHaveLength(3)
     for (const [p, src] of Object.entries(ll3Sources)) {
       expect(/import\s*\{[^}]*\b(hasPain|painText)\b[^}]*\}\s*from\s*'[^']*\/pain'/.test(src), p).toBe(true)
+    }
+  })
+})
+
+// ─── LL4 — 유산소 종류 한 곳 · 천국의 계단 · 강도 ───────────────────
+
+const ll4Sources = import.meta.glob('/src/**/*.{ts,tsx}', { query: '?raw', import: 'default', eager: true }) as Record<
+  string,
+  string
+>
+const ll4Src = (name: string) => {
+  const hit = Object.entries(ll4Sources).filter(([p]) => p.endsWith('/' + name))
+  expect(hit, name).toHaveLength(1)
+  return hit[0][1]
+}
+
+describe('LL4', () => {
+  it('cardioText: 천국의 계단 + 4단계 → 강도 4단계', () => {
+    expect(cardioText({ type: '천국의 계단', minutes: 16, note: '4단계' })).toBe('천국의 계단 · 강도 4단계 · 16분')
+  })
+  it('cardioText: 기타 + 4 → 기타 · 강도 4 · 16분', () => {
+    expect(cardioText({ type: '기타', minutes: 16, note: '4' })).toBe('기타 · 강도 4 · 16분')
+  })
+  it('cardioText: 강도 없음 → 지금과 같은 모양', () => {
+    expect(cardioText({ type: '마이마운틴', minutes: 30 })).toBe('마이마운틴 30분')
+  })
+  it("cardioText: note '' · '  ' → 강도 없는 모양", () => {
+    expect(cardioText({ type: '마이마운틴', minutes: 30, note: '' })).toBe('마이마운틴 30분')
+    expect(cardioText({ type: '마이마운틴', minutes: 30, note: '  ' })).toBe('마이마운틴 30분')
+  })
+  it('cardioText: 목록에 없는 종류 → 그대로', () => {
+    expect(cardioText({ type: '걷기', minutes: 30 })).toBe('걷기 30분')
+  })
+  it('intensityHintFor: 천국의 계단 → 4단계 · 목록에 없음 → 강도', () => {
+    expect(intensityHintFor('천국의 계단')).toBe('4단계')
+    expect(intensityHintFor('걷기')).toBe('강도')
+  })
+  it('CARDIO_TYPES 이름 순서', () => {
+    expect(CARDIO_TYPES.map((t) => t.name)).toEqual(['마이마운틴', '천국의 계단', '자전거', '트레드밀', '기타'])
+  })
+  it('내보내기: LL_EXPORT_BEFORE와 다른 줄이 정확히 둘 — 08-26·11-04 유산소', () => {
+    const before = LL_EXPORT_BEFORE.split('\n')
+    const after = renderLl().split('\n')
+    expect(after).toHaveLength(before.length)
+    const diff = after.map((l, i) => [before[i], l]).filter(([a, b]) => a !== b)
+    expect(diff).toEqual([
+      ['유산소: 마이마운틴 25/3.8 · 20분', '유산소: 마이마운틴 · 강도 25/3.8 · 20분'],
+      ['유산소: 기타 4 · 16분', '유산소: 기타 · 강도 4 · 16분'],
+    ])
+    expect(renderLl()).toContain('유산소: 마이마운틴 30분')
+  })
+  it("소스 스캔: cardio.ts만 '마이마운틴' 리터럴을 가진다(테스트 제외)", () => {
+    const hits = Object.entries(ll4Sources)
+      .filter(([p]) => !/\.test\.tsx?$/.test(p) && ll4Sources[p].includes('마이마운틴'))
+      .map(([p]) => p)
+    expect(hits).toEqual(['/src/lib/cardio.ts'])
+  })
+  it('소스 스캔: 내보내기·기록·요약은 cardio.minutes 대신 cardioText를 쓴다', () => {
+    for (const f of ['exportMarkdown.ts', 'HistoryScreen.tsx', 'SummaryScreen.tsx']) {
+      const src = ll4Src(f)
+      expect(src, f).not.toContain('cardio.minutes')
+      expect(src, f).toContain('cardioText(')
     }
   })
 })

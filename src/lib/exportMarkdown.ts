@@ -1,6 +1,7 @@
 import type { Exercise, Phase, RoutineTemplate, Session, SessionEntry } from '../types'
 import { parseRecordKey } from '../types'
 import { hasCompensation } from './compensation'
+import { cardioText } from './cardio'
 import { hasPain, painText } from './pain'
 import { formatClock, weekdayKo } from './dates'
 import { dayLabel, sessionDayGapLine } from './dayGap'
@@ -238,8 +239,7 @@ function sessionTailLines(session: Session, nameOf: (recordKey: string) => strin
     )
   }
   if (session.cardio) {
-    const note = session.cardio.note ? `${session.cardio.note} · ` : ''
-    out.push(`유산소: ${session.cardio.type} ${note}${session.cardio.minutes}분`)
+    out.push(`유산소: ${cardioText(session.cardio)}`)
   }
   if (session.sessionNote) out.push(`메모: ${session.sessionNote}`)
   return out

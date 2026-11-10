@@ -6,6 +6,7 @@ import { addMonths, monthStart, todayLocal, weekdayKo } from '../lib/dates'
 import DietDayEditor from '../components/DietDayEditor'
 import { MIN_SLOTS_FOR_VERDICT, dietMonthStats } from '../lib/diet'
 import { useDiet } from '../lib/useDiet'
+import { cardioText } from '../lib/cardio'
 import { strengthDates } from '../lib/derive'
 import { calendarCells, sessionsInMonth, summarize } from '../lib/history'
 import { isInverseKey } from '../lib/weightScale'
@@ -149,7 +150,7 @@ export default function HistoryScreen({ bundle }: { bundle: RoutineBundle }) {
                     <div className="row-sub">
                       {session.date} ({weekdayKo(session.date)}) · {s.setCount}세트
                       {s.durationMin !== null && ` · ${s.durationMin}분`}
-                      {session.cardio && ` · ${session.cardio.type} ${session.cardio.minutes}분`}
+                      {session.cardio && ` · ${cardioText(session.cardio)}`}
                     </div>
                   </div>
                   <div className="row-meta">
