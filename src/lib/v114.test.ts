@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { exportMarkdown } from './exportMarkdown'
 import { hasCompensation } from './compensation'
-import { holdReasonText, judgeProgression, progressionVerdicts } from './progression'
+import { holdReasonText, judgeProgression, progressionVerdicts, type ProgressionVerdict } from './progression'
 import { buildPrefill, defaultSetFor } from './prefill'
-import { hasPain, painText, painTrail } from './pain'
+import { hasPain, lastPainChipText, painText, painTrail } from './pain'
+import { exerciseHistory } from './history'
 import { applyPain, applySubstitute } from './sessionOps'
 import { applyDayChange } from './dayChange'
 import { scaleFor } from './weightScale'
@@ -323,5 +324,127 @@ describe('LL2', () => {
       })
       .map(([p]) => p)
     expect(offenders).toEqual([])
+  })
+})
+
+// ─── LL3 ─────────────────────────────────────────────────
+const ll3Verdict = (reason: 'pain' | 'phase0'): ProgressionVerdict =>
+  reason === 'pain'
+    ? { kind: 'hold', from: 30, reason: { kind: 'pain' } }
+    : { kind: 'hold', from: 30, reason: { kind: 'phase0' } }
+const ll3Export = (sessions: Session[]) =>
+  exportMarkdown({
+    sessions,
+    routine: ROUTINE,
+    catalog,
+    phase: PHASE,
+    range: { from: '2026-09-01', to: '2026-09-30' },
+  }).replace(/\[\d\d:\d\d–\d\d:\d\d, /g, '[시각, ')
+const ll3Block = (md: string, name: string) => {
+  const i = md.indexOf(`### ${name}`)
+  const j = md.indexOf('\n\n', i)
+  return md.slice(i, j === -1 ? undefined : j)
+}
+const ll3Sources = import.meta.glob(
+  ['/src/lib/exportMarkdown.ts', '/src/screens/SummaryScreen.tsx', '/src/lib/history.ts'],
+  { query: '?raw', import: 'default', eager: true },
+) as Record<string, string>
+
+describe('LL3', () => {
+  const T = (streak: number, note = '') => ({ date: '2026-09-01', note, streak })
+  it('lastPainChipText: 표의 여섯 줄', () => {
+    const pain = ll3Verdict('pain')
+    expect(lastPainChipText(undefined, pain, 'normal')).toBeUndefined()
+    expect(lastPainChipText(T(1), undefined, 'normal')).toBe('지난번 통증')
+    expect(lastPainChipText(T(2), undefined, 'normal')).toBe('통증 2세션 연속')
+    expect(lastPainChipText(T(1, '발목'), undefined, 'normal')).toBe('지난번 통증 — 발목')
+    expect(lastPainChipText(T(1, '발목'), pain, 'normal')).toBe('지난번 통증 — 발목 · 증량 보류')
+    expect(lastPainChipText(T(2, '발목'), pain, 'normal')).toBe('통증 2세션 연속 — 발목 · 증량 보류')
+    expect(lastPainChipText(T(1), pain, 'normal')).toBe('지난번 통증 · 증량 보류')
+  })
+  it("lastPainChipText: mode 'deload'면 증량 보류 없음 · phase0 verdict면 없음 · verdict undefined면 없음", () => {
+    expect(lastPainChipText(T(1, '발목'), ll3Verdict('pain'), 'deload')).toBe('지난번 통증 — 발목')
+    expect(lastPainChipText(T(1, '발목'), ll3Verdict('phase0'), 'normal')).toBe('지난번 통증 — 발목')
+    expect(lastPainChipText(T(1, '발목'), undefined, 'normal')).toBe('지난번 통증 — 발목')
+  })
+  it('기록 없는 종목의 세트 0 통증 → 칩은 지난번 통증으로 시작하고 증량 보류가 없다', () => {
+    const p = ll2Prefill([ll2Session('2026-09-01', { pain: { note: '발목' }, noSets: true })])
+    const chip = lastPainChipText(p.lastPain, p.lastVerdict, 'normal')!
+    expect(chip.startsWith('지난번 통증')).toBe(true)
+    expect(chip).not.toContain('증량 보류')
+  })
+  it('내보내기: 통증 + 메모 → 보상작용 · 통증 · 다음 순서', () => {
+    const s = ll2Session('2026-09-01', { pain: { note: '첫 세트 왼쪽 발목 찌릿' } })
+    const b = ll3Block(ll3Export([s]), '인클라인 프레스')
+    expect(b).toContain('보상작용: 없음\n통증: 있음 — 첫 세트 왼쪽 발목 찌릿\n다음: 40kg 유지 (통증 있음)')
+  })
+  it('내보내기: 메모 없음 → `통증: 있음` · 통증 없는 entry → 통증 글자가 블록에 없다', () => {
+    const s = ll2Session('2026-09-01', { pain: { note: '' } })
+    const md = ll3Export([s])
+    expect(ll3Block(md, '인클라인 프레스')).toContain('\n통증: 있음\n')
+    expect(ll3Block(md, '체스트프레스')).not.toContain('통증')
+  })
+  it('내보내기: 보상작용 + 통증 → 두 줄이 각각 나오고 다음 사유는 통증 있음', () => {
+    const s = ll2Session('2026-09-01', { pain: { note: '' } })
+    s.entries.find((e) => e.recordKey === ICP)!.compensation = '승모 개입'
+    const b = ll3Block(ll3Export([s]), '인클라인 프레스')
+    expect(b).toContain('보상작용: 승모 개입\n통증: 있음\n다음: 40kg 유지 (통증 있음)')
+  })
+  it('내보내기: B그룹 통증 → 통증 줄은 있고 다음 줄은 없다', () => {
+    const s = completedSession({ dayId: 'd1', date: '2026-09-01', fullReps: true })
+    const pec = makeRecordKey('pec-deck-fly', 'd1')
+    const key = s.entries.find((e) => e.recordKey.startsWith('pec'))?.recordKey ?? pec
+    const painted = applyPain(s, key, { note: '손목' })
+    const b = ll3Block(ll3Export([painted]), '펙덱 플라이')
+    expect(b).toContain('통증: 있음 — 손목')
+    expect(b).not.toContain('다음:')
+  })
+  it('내보내기: 세트 0 통증(근력 세션) → 미수행 다음 줄 · 워밍업만 체크 + 통증도 같은 줄 · 유산소만 세션은 헤더 다음', () => {
+    const s = ll2Session('2026-09-01', { pain: { note: '첫 반복에서 왼쪽 발목' }, noSets: true })
+    const e = s.entries.find((x) => x.recordKey === ICP)!
+    e.performedOrder = null
+    const notDone = ll3Export([s]).split('\n')
+    const i = notDone.findIndex((l) => l.startsWith('미수행:'))
+    expect(notDone[i]).toContain('인클라인 프레스')
+    expect(notDone[i + 1]).toBe('통증(작업 세트 없음): 인클라인 프레스 — 첫 반복에서 왼쪽 발목')
+
+    const w = ll2Session('2026-09-02', { pain: { note: '' }, noSets: true })
+    const we = w.entries.find((x) => x.recordKey === ICP)!
+    we.sets = [{ weight: 20, reps: 10, done: true, warmup: true } as never, ...we.sets]
+    expect(ll3Export([w])).toContain('통증(작업 세트 없음): 인클라인 프레스')
+
+    const c = completedSession({ dayId: 'd1', date: '2026-09-03' })
+    for (const x of c.entries) for (const st of x.sets) st.done = false
+    c.cardio = { type: '마이마운틴', minutes: 20 }
+    c.entries.find((x) => x.recordKey === ICP)!.pain = { note: '' }
+    const lines = ll3Export([c]).split('\n')
+    const h = lines.findIndex((l) => l.includes('— 유산소만'))
+    expect(lines[h + 1]).toBe('통증(작업 세트 없음): 인클라인 프레스')
+    expect(lines[h + 2]).toContain('유산소: 마이마운틴')
+  })
+  it('내보내기: 대체 entry 통증 → 대체 블록 안에 통증 줄', () => {
+    const s = ll2Session('2026-09-01')
+    const e = s.entries.find((x) => x.recordKey === ICP)!
+    e.recordKey = makeRecordKey('flat-chest-press', 'd1')
+    e.substituteFor = ICP
+    e.pain = { note: '어깨' }
+    const md = ll3Export([s])
+    const i = md.indexOf('(대체: 인클라인 프레스 — 자리 없음)')
+    expect(i).toBeGreaterThan(0)
+    expect(md.slice(i, md.indexOf('\n\n', i))).toContain('통증: 있음 — 어깨')
+  })
+  it('새 출력이 LL_EXPORT_BEFORE와 같다(통증 줄 0개) · JJ_EXPORT_NORMAL_BEFORE 통과', () => {
+    expect(renderLl()).toBe(LL_EXPORT_BEFORE)
+    expect(renderLl()).not.toContain('통증')
+  })
+  it('exerciseHistory: 통증 entry → pain true · 과거 entry → false', () => {
+    const h = exerciseHistory([ll2Session('2026-09-01'), ll2Session('2026-09-03', { pain: { note: '' } })], ICP)
+    expect(h.map((p) => p.pain)).toEqual([true, false])
+  })
+  it('소스 스캔: exportMarkdown · SummaryScreen · history가 hasPain 또는 painText를 import한다', () => {
+    expect(Object.keys(ll3Sources)).toHaveLength(3)
+    for (const [p, src] of Object.entries(ll3Sources)) {
+      expect(/import\s*\{[^}]*\b(hasPain|painText)\b[^}]*\}\s*from\s*'[^']*\/pain'/.test(src), p).toBe(true)
+    }
   })
 })

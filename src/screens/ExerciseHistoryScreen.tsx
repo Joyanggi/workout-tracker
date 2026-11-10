@@ -157,6 +157,7 @@ export default function ExerciseHistoryScreen({
                 {point.topWeight}kg · {point.sets.map((s) => s.reps).join(' / ')}
                 {point.sensoryScore !== undefined && ` · 감각 ${point.sensoryScore}`}
                 {hasCompensation(point.compensation) && ' · 보상작용'}
+                {point.pain && ' · 통증'}
               </div>
             </div>
             {!inverse && (

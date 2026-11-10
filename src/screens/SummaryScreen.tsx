@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import { compensationSummary, hasCompensation } from '../lib/compensation'
+import { hasPain } from '../lib/pain'
 import { holdReasonText, progressionVerdicts } from '../lib/progression'
 import { revertWarning } from '../lib/bGroupGuide'
 import { sessionsForRecord } from '../lib/prefill'
@@ -249,6 +250,7 @@ export default function SummaryScreen({
                 {doneSets(entry).map((s) => s.reps).join(' / ')} · {doneSets(entry)[0]?.weight}kg
                 {entry.sensoryScore !== undefined && ` · 감각 ${entry.sensoryScore}점`}
                 {hasCompensation(entry.compensation) && ` · ${compensationSummary(entry.compensation)}`}
+                {hasPain(entry) && ' · 통증'}
               </div>
             </div>
             <div className="row-meta">{entry.firstSetAt ? formatClock(entry.firstSetAt) : ''}</div>

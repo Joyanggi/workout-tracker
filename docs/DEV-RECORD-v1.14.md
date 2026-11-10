@@ -95,3 +95,38 @@ LL0 골든 커밋: `2bd9770`, `7b38cb7` (이후 고치지 않음).
 
 실행: `Test Files 56 passed (56)` · `Tests 1357 passed (1357)` · `npm run build` 통과.
 실기기 확인: 카드의 통증 없음↔있음 토글·메모 입력, 접힌 카드 `통증` 칩, 보상작용 시트 안내 줄.
+
+---
+
+## LL3. 통증을 말하는 자리
+
+| 항목 | 내용 |
+|---|---|
+| 바뀐 소스 | `pain.ts`(`lastPainChipText`) · `exportMarkdown.ts`(`통증:` 줄, `cardioNoteLines` → `sessionTailLines`에 세트 0 통증 줄) · `ExerciseCard.tsx`(칩) · `SummaryScreen.tsx`(` · 통증`) · `history.ts`(`HistoryPoint.pain`) · `ExerciseHistoryScreen.tsx`(` · 통증`) · `README.md` |
+| 바뀐 테스트 | `v114.test.ts` describe `LL3` 12건 (기존 테스트 수정 없음) |
+| 수정표 밖 변경 | 없음 |
+
+| PLAN 검증 항목 | 테스트 |
+|---|---|
+| `lastPainChipText` 표의 여섯 줄 | `lastPainChipText: 표의 여섯 줄` |
+| deload · phase0 · verdict undefined | `lastPainChipText: mode 'deload'면…` |
+| 기록 없는 종목의 세트 0 통증 칩 | `기록 없는 종목의 세트 0 통증 → 칩은…` |
+| 내보내기 순서 · 메모 없음 · 통증 없는 entry | `내보내기: 통증 + 메모…` · `메모 없음…` |
+| 보상작용 + 통증 | `내보내기: 보상작용 + 통증…` |
+| B그룹 통증 | `내보내기: B그룹 통증…` |
+| 세트 0 통증 (근력·워밍업만·유산소만) | `내보내기: 세트 0 통증(근력 세션)…` |
+| 대체 entry | `내보내기: 대체 entry 통증…` |
+| `LL_EXPORT_BEFORE` 일치 · `JJ_EXPORT_NORMAL_BEFORE` | `새 출력이 LL_EXPORT_BEFORE와 같다…` (JJ는 `v112.test.ts` 통과) |
+| `exerciseHistory` pain | `exerciseHistory: 통증 entry…` |
+| 소스 스캔 | `소스 스캔: exportMarkdown · SummaryScreen · history…` |
+
+| 되살린 결함 | 실패한 테스트 | 원상복구 |
+|---|---|---|
+| ⑤ `lastPainChipText`의 `mode === 'normal'` 조건 삭제 | `mode 'deload'면…` | `cmp` 같음 |
+| ⑥ 내보내기에 `통증: 없음`도 내게 | `메모 없음…` · `LL_EXPORT_BEFORE 일치` | `cmp` 같음 |
+| ⑦ `sessionTailLines`의 세트 0 통증 줄 삭제 | `세트 0 통증(근력 세션)…` | `cmp` 같음 |
+
+과거 판정·출력 불변: `LL_EXPORT_BEFORE`(통증 줄 0개) 일치.
+
+실행: `Test Files 56 passed (56)` · `Tests 1369 passed (1369)` · `npm run build` 통과.
+실기기 확인: 통증 기록 후 다음 세션 카드 칩, 요약·종목 기록의 ` · 통증`, 내보내기 `통증:`/`통증(작업 세트 없음):` 줄.

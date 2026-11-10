@@ -16,6 +16,7 @@ import { doneSetsAll } from '../lib/derive'
 import { noteLineText, type NoteEntry } from '../lib/noteHistory'
 import { setRowClass, zeroWeightHint } from '../lib/setRowState'
 import { DEFAULT_COUNT_IN_SEC, tempoPhasesFor, type TempoPhase } from '../lib/tempo'
+import { lastPainChipText } from '../lib/pain'
 import { lastHoldChipText, modeSetNotice } from '../lib/progression'
 import type { RecordPrefill } from '../lib/prefill'
 import type { RecordKey, RoutineExercise, SessionEntry, SessionMode, SetRecord } from '../types'
@@ -179,6 +180,7 @@ export default function ExerciseCard({
   const complete = done.length >= entry.sets.length
   const isB = routineExercise.group === 'B'
   const holdChip = lastHoldChipText(prefill?.lastVerdict)
+  const painChip = lastPainChipText(prefill?.lastPain, prefill?.lastVerdict, sessionMode)
   const modeNotice = modeSetNotice(sessionMode, routineExercise, entry)
 
   /*
@@ -402,6 +404,7 @@ export default function ExerciseCard({
             {firstExposure && !firstWork?.done && (
               <span className="chip chip-warn">첫 세트는 {CALIBRATION_RIR}로</span>
             )}
+            {showPrefillHints && painChip && <span className="chip chip-warn">{painChip}</span>}
             {showPrefillHints && sessionMode === 'normal' && holdChip && (
               <span className="chip">{holdChip}</span>
             )}

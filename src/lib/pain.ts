@@ -1,5 +1,6 @@
 import type { RecordKey, Session, SessionEntry } from '../types'
 import { completedSessions, doneSets } from './derive'
+import type { ProgressionVerdict } from './progression'
 
 /**
  * 통증 (LL2). "통증 있음"을 묻는 곳은 전부 `hasPain` 하나를 쓴다.
@@ -43,4 +44,23 @@ export function painTrail(sessions: Session[], recordKey: RecordKey): PainTrail 
     streak++
   }
   return first ? { ...first, streak } : undefined
+}
+
+/**
+ * 다음 세션 카드 칩 문구 (LL3). 연속 통증은 `painTrail` 하나에서 나온다.
+ * ` · 증량 보류`는 normal 세션이고 판정이 hold `pain`일 때만 붙는다
+ * (B그룹·코어·작업 세트 기록 없는 종목은 판정이 없어 안 붙는다).
+ */
+export function lastPainChipText(
+  trail: PainTrail | undefined,
+  verdict: ProgressionVerdict | undefined,
+  mode: Session['mode'],
+): string | undefined {
+  if (!trail) return undefined
+  let text = trail.streak >= 2 ? `통증 ${trail.streak}세션 연속` : '지난번 통증'
+  if (trail.note !== '') text += ` — ${trail.note}`
+  if (mode === 'normal' && verdict?.kind === 'hold' && verdict.reason.kind === 'pain') {
+    text += ' · 증량 보류'
+  }
+  return text
 }
