@@ -8,6 +8,7 @@ import type {
   SetRecord,
 } from '../types'
 import { completedSessions, doneSets } from './derive'
+import { painTrail, type PainTrail } from './pain'
 import { judgeProgression, type ProgressionVerdict } from './progression'
 import { bGroupGuide, type BGroupGuide } from './bGroupGuide'
 import {
@@ -49,6 +50,11 @@ export interface RecordPrefill {
    * hold `sets`면 카드가 "지난번 상단 도달 · 계획 N세트 중 M세트" 칩을 띄운다 (GG1).
    */
   lastVerdict?: ProgressionVerdict
+  /**
+   * 가장 최근에 닿은 세션(작업 세트 또는 통증)에 통증이 있었으면 그 내용 (LL2).
+   * 작업 세트 없이 통증만 적은 세션도 닿은 것으로 센다 — `history`와 기준이 다르다.
+   */
+  lastPain?: PainTrail
   /**
    * B그룹 무게 회복/복귀 신호 (T10, Phase 2+).
    *
@@ -176,12 +182,14 @@ export function buildPrefill(args: {
     inverse,
   }
 
+  const trail = painTrail(sessions, recordKey)
   const lastVerdict = judgeProgression({
     routine,
     routineExercise,
     phase,
     sets: lastSets,
     compensation: lastEntry?.compensation,
+    pain: trail !== undefined,
     mode: history[0]?.mode,
     scale,
   })
@@ -200,6 +208,7 @@ export function buildPrefill(args: {
     }),
     bGroup: bGroupGuide({ history, recordKey, routineExercise, phase }),
     lastVerdict,
+    lastPain: trail,
     progression: lastVerdict?.kind === 'up' ? { from: lastVerdict.from, to: lastVerdict.to } : undefined,
   }
 }
@@ -219,6 +228,7 @@ export function computeProgression(args: {
   phase: Phase
   lastSets: SetRef[]
   lastCompensation?: string
+  lastPain?: boolean
   /** 종목별 무게 단위 (T9) + inverse 여부 (T8). 미지정 시 루틴 전역값 */
   scale?: WeightScale
 }): { from: number; to: number | null } | undefined {
@@ -228,6 +238,7 @@ export function computeProgression(args: {
     phase: args.phase,
     sets: args.lastSets,
     compensation: args.lastCompensation,
+    pain: args.lastPain,
     scale: args.scale,
   })
   return v?.kind === 'up' ? { from: v.from, to: v.to } : undefined

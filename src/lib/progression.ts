@@ -1,5 +1,6 @@
 import { parseRecordKey } from '../types'
 import { hasCompensation } from './compensation'
+import { hasPain } from './pain'
 import type {
   Exercise,
   Phase,
@@ -50,6 +51,7 @@ export interface ProgressionSuggestion {
 /** 증량하지 않는 이유. 판정 순서(위에서 처음 걸리는 것)가 곧 우선순위다. */
 export type HoldReason =
   | { kind: 'phase0' } // Phase 0 + allowProgressionInPhase0=false
+  | { kind: 'pain' } // 통증 있음 (LL2)
   | { kind: 'compensation' } // 보상작용 있음
   | { kind: 'reps'; reached: number; total: number; repMax: number } // 상단 도달 세트 수 / 수행 세트 수
   | { kind: 'sets'; done: number; planned: number; mode: SessionMode } // 전 세트 상단, 세트 부족
@@ -62,8 +64,9 @@ export type ProgressionVerdict =
  * 증량 판정의 **유일한 초크포인트.** progressionSuggestions·computeProgression·buildPrefill이
  * 모두 이 함수를 거친다 — 규칙을 다른 곳에 복제하지 않는다 (소스 스캔이 잠근다).
  *
- * 순서: 0 판정 대상 아님 → 1 Phase 0 → 2 보상작용 → 3 반복 미달 → 4 세트 부족 → 5 증량.
- * 3을 4보다 먼저 본다: 반복이 모자라면 세트를 채워도 증량이 안 되므로 "세트 부족"은 틀린 처방이다.
+ * 순서: 0 판정 대상 아님 → 1 Phase 0 → 2 통증 → 3 보상작용 → 4 반복 미달 → 5 세트 부족 → 증량.
+ * 0이 통증보다 앞이다 — 세트가 없으면 보류할 무게(`from`)가 없다 (LL2).
+ * 반복 미달을 세트 부족보다 먼저 본다: 반복이 모자라면 세트를 채워도 증량이 안 되므로 "세트 부족"은 틀린 처방이다.
  * `mode`는 사유 문구에만 쓰고 판정에는 쓰지 않는다.
  */
 export function judgeProgression(args: {
@@ -72,6 +75,7 @@ export function judgeProgression(args: {
   phase: Phase
   sets: SetRef[] // doneSets 결과 (워밍업 제외)
   compensation?: string
+  pain?: boolean
   mode?: SessionMode
   scale?: WeightScale
 }): ProgressionVerdict | undefined {
@@ -81,6 +85,9 @@ export function judgeProgression(args: {
   const from = Math.max(...sets.map((s) => s.weight))
   if (phase === 0 && !routine.rules.allowProgressionInPhase0) {
     return { kind: 'hold', from, reason: { kind: 'phase0' } }
+  }
+  if (args.pain) {
+    return { kind: 'hold', from, reason: { kind: 'pain' } }
   }
   if (hasCompensation(args.compensation)) {
     return { kind: 'hold', from, reason: { kind: 'compensation' } }
@@ -116,6 +123,8 @@ export function holdReasonText(reason: HoldReason): string {
   switch (reason.kind) {
     case 'phase0':
       return 'Phase 0 — 증량 판정 꺼짐'
+    case 'pain':
+      return '통증 있음'
     case 'compensation':
       return '보상작용 있음'
     case 'reps':
@@ -169,6 +178,7 @@ export function progressionVerdicts(
       phase,
       sets: doneSets(entry),
       compensation: entry.compensation,
+      pain: hasPain(entry),
       mode: session.mode,
       scale: { ...scaleFor(scales, entry.recordKey, routine.rules.weightIncrementKg), inverse },
     })

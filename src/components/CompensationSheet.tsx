@@ -73,6 +73,9 @@ export default function CompensationSheet({
           placeholder="예: 마지막 세트 엉덩이 살짝 뜸"
           aria-label="보상작용 직접 입력"
         />
+        <p className="row-sub">
+          여기에 적으면 "보상작용 있음"으로 기록되고 다음 증량이 보류됩니다. 통증은 카드의 통증 칸에 적어 주세요.
+        </p>
 
         <p className="row-sub" style={{ marginTop: 12 }}>
           저장될 값: <strong style={{ color: hasCompensation(preview) ? 'var(--warn)' : 'var(--text-dim)' }}>{preview}</strong>

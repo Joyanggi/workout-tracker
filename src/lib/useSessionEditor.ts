@@ -7,6 +7,7 @@ import {
   applyCompensation,
   applyPatchSet,
   applyRemoveSet,
+  applyPain,
   applySensoryNote,
   applySensoryScore,
   applySkipped,
@@ -82,6 +83,7 @@ export function useSessionEditor(sessionId: string | null): SessionEditor {
     setSensoryScore: (key, v) => update((s) => applySensoryScore(s, key, v)),
     setSensoryNote: (key, v) => update((s) => applySensoryNote(s, key, v)),
     setCompensation: (key, v) => update((s) => applyCompensation(s, key, v)),
+    setPain: (key, v) => update((s) => applyPain(s, key, v)),
   }
 
   return {

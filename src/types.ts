@@ -242,6 +242,8 @@ export interface SessionEntry {
   sensoryScore?: 0 | 1 | 2 | 3 // B그룹
   sensoryNote?: string // "가슴 바깥쪽 — 벌릴 때 느낌 옴"
   compensation: string // 기본값 "없음". 비우기 불가(루틴 문서 규칙)
+  /** 통증 (LL2). **있으면 통증 있음**이다 — note가 비어도. 없으면(v1.14 이전 기록 전부) 통증 기록 없음 */
+  pain?: { note: string }
   skipped: boolean
   /**
    * 대체 수행 (T8). **원 종목의 recordKey.**

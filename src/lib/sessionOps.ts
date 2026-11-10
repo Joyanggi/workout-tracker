@@ -180,6 +180,8 @@ export function applySubstitute(
     // 새 행의 무게는 앱의 복귀 무게가 아니다 (KK1)
     returnWeight: undefined,
     compensation: NO_COMPENSATION,
+    // 통증도 원 종목 라인의 사실이다 (LL2)
+    pain: undefined,
     skipped: false,
   }))
 }
@@ -201,6 +203,17 @@ export function applySensoryNote(session: Session, recordKey: RecordKey, note: s
     ...entry,
     sensoryNote: note.trim() === '' ? undefined : note,
   }))
+}
+
+/**
+ * 통증 (LL2). `undefined`면 통증 없음 — 키를 지우지 않고 값만 비운다(기준은 `hasPain`).
+ */
+export function applyPain(
+  session: Session,
+  recordKey: RecordKey,
+  pain: { note: string } | undefined,
+): Session {
+  return mapEntry(session, recordKey, (entry) => ({ ...entry, pain }))
 }
 
 /**

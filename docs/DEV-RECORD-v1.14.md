@@ -61,3 +61,37 @@ LL0 골든 커밋: `2bd9770`, `7b38cb7` (이후 고치지 않음).
 수정표 밖 변경: 없음. 구현 중 `node:fs` import는 빌드 타입 오류라 `import.meta.glob ?raw`로 바꿨다(uiConsistency와 같은 방식).
 
 실행: `Test Files 56 passed (56)` · `Tests 1335 passed (1335)` · `npm run build` 통과.
+
+---
+
+## LL2. 통증 칸 — 저장·입력·증량 보류
+
+| 항목 | 내용 |
+|---|---|
+| 바뀐 소스 | `types.ts`(`pain?`) · 새 `lib/pain.ts`(`hasPain`·`painText`·`painTrail`) · `progression.ts`(`HoldReason pain`, 통증 분기는 Phase 0 뒤·보상작용 앞, `holdReasonText`, `progressionVerdicts`) · `prefill.ts`(`lastPain`, `computeProgression.lastPain`) · `sessionOps.ts`(`applyPain`, `applySubstitute`가 `pain: undefined`) · `store/session.ts`·`useSessionEditor.ts`(`setPain`) · `ExerciseCard.tsx`(통증 칸·접힌 칩) · `CompensationSheet.tsx`(안내 한 줄) · `README.md` |
+| 바뀐 테스트 | `v114.test.ts` describe `LL2` 22건 (기존 테스트 수정 없음) |
+| 수정표 밖 변경 | 없음 |
+
+| PLAN 검증 항목 | 테스트 |
+|---|---|
+| 통증 → hold pain · 통증+보상작용 · 통증+반복 미달 · Phase 0 | `judgeProgression: …` 4건 |
+| `{ note: '' }`도 hold | `progressionVerdicts: 통증 { note: '' }…` |
+| B그룹 키 없음 | `B그룹 entry에 통증…` |
+| `buildPrefill` 기본 | `buildPrefill: 직전 세션 전 세트 상단 + 통증…` |
+| 세트 0 통증 / 기록 없는 종목 / `sets: []` / 키 없음 | `세트 0 통증…` · `기록 없는 종목의 세트 0 통증…` · `judgeProgression({ sets: [], pain: true })…` · `progressionVerdicts: 세트 0 통증…` |
+| 통증 없이 수행 뒤 · 디로드 · 대체 · 어시스티드 · 얹은 종목 · Day 변경 | 같은 이름 테스트 6건 |
+| `applyPain` · `hasPain` · `painTrail` | 같은 이름 테스트 3건 |
+| `LL_VERDICT_BEFORE` | `LL_VERDICT_BEFORE 일치 (통증 없는 기록의 판정 불변)` (`GG1_GOLDEN`은 `v111.test.ts` 통과) |
+| 소스 스캔 | `소스 스캔: pain.ts 밖의…` |
+
+| 되살린 결함 | 실패한 테스트 | 원상복구 |
+|---|---|---|
+| ② 통증 분기를 보상작용 분기 뒤로 | `통증 + 보상작용 → pain` | `cmp` 같음 |
+| ③ `painTrail` "닿은 것"에서 통증 조건 삭제 | `세트 0 통증…` · `기록 없는 종목의 세트 0 통증…` | `cmp` 같음 |
+| ④ `applySubstitute`의 `pain: undefined` 삭제 | `대체…` | `cmp` 같음 |
+| ⑩ 통증 분기를 `sets.length === 0` 검사 앞으로 | `sets: []` · 기록 없는 종목 · 세트 0 키 없음 · Phase 0 | `cmp` 같음 |
+
+과거 판정 불변: `LL_VERDICT_BEFORE`·`GG1_GOLDEN` 일치. 통증 없는 기록(v1.14 이전 전부)은 `pain` 키가 없어 판정이 바뀌지 않는다.
+
+실행: `Test Files 56 passed (56)` · `Tests 1357 passed (1357)` · `npm run build` 통과.
+실기기 확인: 카드의 통증 없음↔있음 토글·메모 입력, 접힌 카드 `통증` 칩, 보상작용 시트 안내 줄.

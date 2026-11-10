@@ -10,6 +10,7 @@ import TempoGuideSheet from './TempoGuideSheet'
 import { IconScale, IconSliders } from './icons'
 import type { CompensationWatch } from '../lib/compensationWatch'
 import { compensationSummary, hasCompensation } from '../lib/compensation'
+import { hasPain } from '../lib/pain'
 import { commitPendingEdits } from '../lib/commitEdits'
 import { doneSetsAll } from '../lib/derive'
 import { noteLineText, type NoteEntry } from '../lib/noteHistory'
@@ -44,6 +45,7 @@ export interface EntryActions {
   setSensoryScore: (recordKey: RecordKey, score: 0 | 1 | 2 | 3) => void
   setSensoryNote: (recordKey: RecordKey, note: string) => void
   setCompensation: (recordKey: RecordKey, value: string) => void
+  setPain: (recordKey: RecordKey, pain: { note: string } | undefined) => void
 }
 
 function ghostText(prefill: RecordPrefill | undefined, index: number): string {
@@ -275,7 +277,7 @@ export default function ExerciseCard({
             {entry.sets.length}세트 × {routineExercise.repMin}~{routineExercise.repMax} · {summary}
           </span>
           {substituteForName && <span className="ex-sub">{substituteForName} 대신 · 자리 없음</span>}
-          {(isB && entry.sensoryScore !== undefined) || hasCompensation(entry.compensation) ? (
+          {(isB && entry.sensoryScore !== undefined) || hasCompensation(entry.compensation) || hasPain(entry) ? (
             <span className="ex-sub">
               {isB && entry.sensoryScore !== undefined && (
                 <span className="chip chip-accent">감각 {entry.sensoryScore}</span>
@@ -283,6 +285,11 @@ export default function ExerciseCard({
               {hasCompensation(entry.compensation) && (
                 <span className="chip chip-warn" style={{ marginLeft: 4 }}>
                   {compensationSummary(entry.compensation)}
+                </span>
+              )}
+              {hasPain(entry) && (
+                <span className="chip chip-warn" style={{ marginLeft: 4 }}>
+                  통증
                 </span>
               )}
             </span>
@@ -631,6 +638,28 @@ export default function ExerciseCard({
               <span style={{ textAlign: 'left' }}>{entry.compensation}</span>
               <span aria-hidden="true">▸</span>
             </button>
+          </div>
+
+          {/* 통증 (LL2) — 기본값 없음. 있음일 때만 메모 칸이 열린다 */}
+          <div className="sub-field">
+            <div className="card-label">통증</div>
+            <button
+              className={`btn btn-sm${hasPain(entry) ? ' btn-warn' : ''}`}
+              aria-pressed={hasPain(entry)}
+              onClick={() => actions.setPain(entry.recordKey, hasPain(entry) ? undefined : { note: '' })}
+            >
+              {hasPain(entry) ? '있음' : '없음'}
+            </button>
+            {entry.pain && (
+              <input
+                {...NO_AUTOFILL}
+                className="field"
+                value={entry.pain.note}
+                onChange={(e) => actions.setPain(entry.recordKey, { note: e.target.value })}
+                placeholder="부위·상황 (예: 왼쪽 발목 찌릿)"
+                aria-label={`${name} 통증 메모`}
+              />
+            )}
           </div>
         </div>
       )}
