@@ -10,9 +10,11 @@
 
 | 종류 | 지정 예시 | 추가로 읽을 파일 |
 |---|---|---|
-| 구현 (기본) | "`docs/PLAN-v1.13.md`의 KK1을 진행해" | 없음 |
+| 기획 (요청 본문) | "통증을 따로 적는 칸을 넣고 싶어. …" | `agents/coordinator/INTAKE.md` → 이슈를 만들고 아래 둘 중 하나로 |
+| 이슈 (흐름 미지정) | "이슈 #24 진행해" | `agents/coordinator/INTAKE.md` 2절만 → 아래 둘 중 하나로 |
 | 작은 수정 | "이슈 #23을 작은 수정으로 진행해" | `agents/coordinator/SMALL.md` |
-| 설계 | "설계 작업. 주제: 이슈 #24 (또는 `docs/FIELD-REPORT-….md` 2·5절) / PLAN 파일: `docs/PLAN-v1.14.md` / 작업 ID: LL" | `agents/coordinator/DESIGN.md` |
+| 설계 | "설계 작업. 주제: 이슈 #24 (또는 `docs/FIELD-REPORT-….md` 2·5절)" (PLAN 파일·작업 ID는 적으면 따르고, 없으면 DESIGN.md가 정한다) | `agents/coordinator/DESIGN.md` |
+| 구현 | "`docs/PLAN-v1.13.md`의 KK1을 진행해" | 없음 |
 | 여러 작업 연속 구현 | "`docs/PLAN-v1.13.md`의 미구현 작업을 전부 진행해" | `agents/coordinator/BATCH.md` |
 
 PR을 만드는 일이면 마무리 때 `agents/coordinator/PR.md`도 읽는다. 해당하는 파일만 읽고 나머지는 읽지 않는다.
@@ -24,7 +26,8 @@ PR을 만드는 일이면 마무리 때 `agents/coordinator/PR.md`도 읽는다.
 3. **진행 파일을 본다.** `.reports/run-<대상>.md`(7절)가 있으면 이어서 하는 일이다. 거기 적힌 다음 단계부터 한다.
 4. **main을 최신으로 맞춘다.** 지휘자가 띄워진 main 작업 트리에서 `git fetch -q origin && git pull --ff-only`.
    새 작업 트리는 이렇게 맞춘 `main`을 기준으로 만든다. 맞추지 않으면 머지된 PR이 빠진 옛 main에서 시작한다.
-5. Run을 하나 만든다. 구현이면 태스크를 둘 만들고, 리뷰는 구현이 끝난 뒤 시작하도록 순서를 건다.
+5. 기획이나 흐름이 지정되지 않은 이슈면 여기서 `agents/coordinator/INTAKE.md`를 한다.
+6. Run을 하나 만든다. 구현이면 태스크를 둘 만들고, 리뷰는 구현이 끝난 뒤 시작하도록 순서를 건다.
 
 ## 2. 일꾼 배치
 
@@ -36,6 +39,9 @@ PR을 만드는 일이면 마무리 때 `agents/coordinator/PR.md`도 읽는다.
 - 구현은 토큰을 가장 많이 쓰는 단계라 sonnet으로, 리뷰는 읽는 양이 적고 품질 관문이라 opus·high로 둔다.
 - 구현자와 리뷰어는 반드시 다른 모델이다. 같은 모델이 자기 결과를 리뷰하지 않게 하기 위해서다.
 - **일꾼은 동시에 하나만.** 다음 일꾼을 띄우기 전에 앞 일꾼을 release한다. (설계 작업의 검토자 둘은 예외다. `coordinator/DESIGN.md`)
+- **모델 지정.** 사람의 첫 메시지에 `<역할> 모델: <모델>`(예: `설계자 모델: fable`)이 있으면 **이 Run에서만** 그 역할의 모델을 바꾼다. effort는 표 그대로다.
+  구현자와 리뷰어가 같은 모델이 되는 지정은 따르지 않고 사람에게 알린다. 띄우기가 모델 이름 때문에 실패하면 기본 모델로 바꾸지 말고 gate를 걸어 알린다.
+  지정한 모델은 진행 파일 첫 줄과 PR 본문 "경과"에 적는다.
 
 ### 작업 트리 지정
 
@@ -128,7 +134,8 @@ agents/REVIEWER.md 4절대로 재리뷰해. 지난 "고칠 것":
 
 ```
 # run-v1.13
-종류: 여러 작업 | 브랜치: Joyanggi/v1.13 | 작업 트리: C:\Users\...\workspaces\workout-tracker\v1.13
+종류: 여러 작업 | 접수: <이슈 #번호 또는 없음> | 모델 지정: <없음 또는 "설계자 fable">
+브랜치: Joyanggi/v1.13 | 작업 트리: C:\Users\...\workspaces\workout-tracker\v1.13
 시작 커밋(main): <해시> | PR: <번호 또는 없음>
 
 | 단계 | 일꾼 | 시작 | 끝 | 결과 첫 줄 | 커밋 |

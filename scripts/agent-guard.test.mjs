@@ -29,6 +29,15 @@ describe('agent-guard: 막는 명령', () => {
     ['git worktree remove --force ../x'],
     ['git stash clear'],
     ['npm test 2>&1 | tail -15; git reset --hard'],
+    // main 보호를 끄는 길 (2026-11-10 규칙 정비)
+    ['gh repo edit --visibility private'],
+    ['gh repo delete Joyanggi/workout-tracker --yes'],
+    ['gh api -X DELETE repos/Joyanggi/workout-tracker/rulesets/1'],
+    ['gh api --method PUT repos/Joyanggi/workout-tracker/rulesets/1 --input r.json'],
+    ['gh api -XPATCH repos/Joyanggi/workout-tracker/rulesets/1 -f enforcement=disabled'],
+    ['gh api repos/Joyanggi/workout-tracker/rulesets -f name=x'],
+    ['gh api -X DELETE repos/Joyanggi/workout-tracker/branches/main/protection'],
+    ['gh api -X DELETE repos/Joyanggi/workout-tracker/git/refs/heads/main'],
   ])('%s', (cmd) => {
     expect(checkCommand(cmd, onFeature)).not.toBeNull();
   });
@@ -58,6 +67,12 @@ describe('agent-guard: 통과시키는 명령 (평소 작업)', () => {
     ['gh pr view 20 --json state -q .state'],
     ['gh pr comment 20 --body-file .reports/memo.md'],
     ['gh api repos/Joyanggi/workout-tracker/pulls/20 -q .body'],
+    ['gh api repos/Joyanggi/workout-tracker/rulesets'],
+    ['gh api -X GET repos/Joyanggi/workout-tracker/rulesets/1'],
+    ['gh api -X DELETE repos/Joyanggi/workout-tracker/git/refs/heads/Joyanggi/v1.13'],
+    ['gh repo view --json name'],
+    ['gh issue create --title "[새 기능] x" --label "새 기능" --body-file .reports/issue-draft.md'],
+    ['gh issue list --state open --search "통증 in:title" --json number,title'],
     ['npm test 2>&1 | tail -15'],
     ['cp src/lib/a.ts /tmp/a.ts.bak && cmp src/lib/a.ts /tmp/a.ts.bak'],
     ['echo "PR 머지는 사람이 한다"'],
