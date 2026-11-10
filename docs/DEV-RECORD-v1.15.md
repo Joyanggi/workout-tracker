@@ -137,3 +137,44 @@ PLAN 검증 ↔ 테스트 (v115.test.ts, 이름은 `MM2 …`로 시작)
 
 하지 않은 것: 내보내기(MM3), 버전 상향(기록 커밋).
 사람 확인 필요: iOS 홈 화면 앱에서 `<input type="time">`이 휠로 열리고 `HH:MM`으로 들어오는지(이 레포 첫 `type="time"`). 시트·카드의 실제 모양(CSS 클래스는 기존 `diet-item`·`check-list` 재사용, 실기기 미확인).
+
+---
+
+## MM3. 내보내기에 먹은 것
+
+범위:
+
+| 파일 | 바뀐 것 |
+|---|---|
+| `src/lib/exportMarkdown.ts` | `dietSectionMarkdown`: `hasDietRecord`로 절 판정, 슬롯 줄은 기록된 슬롯이 있을 때만, 먹은 것 줄(`sortedLog`·`logEntryText`)·합계 줄(2건 이상, 전부 미입력이면 숫자 없이 `영양 미입력 n건`). `exportMarkdown`이 범위 안 `log` 유무를 `dietMarkLegend`에 넘김 |
+| `src/lib/diet.ts` | `dietMarkLegend(opts?: { withLog?: boolean })` — 먹은 것 범례 한 줄 추가 |
+| `src/lib/v115.test.ts` | describe `MM3` 10건 (v115 전체 50건) |
+
+README 반영: 없음(PLAN). 기존 테스트 수정: 없음. 수정표 밖: 없음.
+
+PLAN 검증 ↔ 테스트 (v115.test.ts, `MM3 …`)
+
+| PLAN 검증 | 테스트 |
+|---|---|
+| log 없는 날 = MM_EXPORT_BEFORE | `log가 없는 날의 dietSectionMarkdown이 MM_EXPORT_BEFORE와 같다` |
+| 먹은 것만 있는 날 | `먹은 것만 있는 날: 머리 '기록 0/5슬롯' …` |
+| 슬롯+2건+메모 순서 | `슬롯 + 먹은 것 2건 + 메모: …` |
+| 1건이면 합계 없음 | `먹은 것 1건이면 합계 줄이 없다` |
+| 미입력 1건 + 값 1건 | `영양 미입력 1건 + 값 있는 1건 …` |
+| 미입력 2건뿐 | `영양 미입력 2건뿐 …0kcal이 없다` |
+| 시각순 | `21:00을 먼저 넣고 09:00을 나중에 …` |
+| 전문 범례 2/3줄·운동 없음 | `exportMarkdown 전문: …범례 2줄/3줄` · `…운동 없음 아래` |
+| logEntryText 한 자리 스캔 | `스캔: DietDayEditor.tsx와 exportMarkdown.ts가 둘 다 logEntryText를 부른다` |
+
+결함 복원 (PLAN ⑧⑨⑩)
+
+| 되살린 결함 | 실패한 테스트 | 원상복구 |
+|---|---|---|
+| ⑧ `- 슬롯:` 줄을 항상 냄 | `MM3 먹은 것만 있는 날 …` | `cmp` 동일 |
+| ⑨ 범례가 항상 3줄 | `MM3 exportMarkdown 전문: …범례 2줄, 3줄` | `cmp` 동일 |
+| ⑩ `DietDayEditor.tsx`가 `logEntryText`를 안 부름 | `MM3 스캔 …`, `MM2 스캔 …logEntryText 한 자리` | `cmp` 동일 |
+
+과거 판정 불변: `MM0 dietSectionMarkdown 줄 배열이 v1.14와 같다`와 MM3 첫 테스트가 네 날 전부 통과. 먹은 것이 없는 내보내기는 범례 포함 한 글자도 바뀌지 않는다. 바뀌는 것: 먹은 것만 적은 날이 식단 절로 나오고, 먹은 것이 있는 내보내기의 범례가 3줄이다.
+
+실행 결과: `Test Files 59 passed (59)` · `Tests 1469 passed (1469)` · 빌드 통과 · `quality-scan 통과`.
+하지 않은 것: JSON 백업·주간/월간 통계(범위 제외), 버전 상향(기록 커밋).

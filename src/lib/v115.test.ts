@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { BUNDLED_DIET_PLANS } from "../db/seed"
-import { dietMonthStats, hasDietRecord, logEntryText, logTotals, nutritionText, resolveTrainingDays, sortedLog, summarizeDietDay } from "./diet"
+import { dietMarkLegend, dietMonthStats, hasDietRecord, logEntryText, logTotals, nutritionText, resolveTrainingDays, sortedLog, summarizeDietDay } from "./diet"
 import {
   applyAddition,
   applyAddLog,
@@ -18,10 +18,12 @@ import {
   applyVariantChoice,
   seedVariantChoices,
 } from "./dietOps"
-import { dietSectionMarkdown } from "./exportMarkdown"
+import { dietSectionMarkdown, exportMarkdown } from "./exportMarkdown"
+import { ROUTINE, completedSession } from "./testFixtures"
+import EXERCISES from "../data/exercises.json"
 import { applyAddFood, applyRemoveFood, applyUpdateFood, foodCatalog, foodKey, planFoods, validateFood } from "./foods"
 import { stripComments } from "./sourceScan"
-import type { DietDay, DietPlan, Food, FoodLogEntry } from "../types"
+import type { DietDay, DietPlan, Exercise, Food, FoodLogEntry } from "../types"
 
 /**
  * v1.15 MM — 내 음식 목록과 시간별 먹은 것 기록.
@@ -544,5 +546,92 @@ describe("MM2 스캔", () => {
 
   it("MM2 스캔: 먹은 것 줄 글자는 logEntryText 한 자리에서 온다", () => {
     expect(code("/src/components/DietDayEditor.tsx")).toMatch(/logEntryText\(/)
+  })
+})
+
+// ─── MM3 내보내기에 먹은 것 ─────────────────────────────────────
+describe("MM3", () => {
+  const sources = import.meta.glob("/src/**/*.{ts,tsx}", { query: "?raw", import: "default", eager: true }) as Record<
+    string,
+    string
+  >
+  const catalog = new Map<string, Exercise>((EXERCISES as Exercise[]).map((e) => [e.id, e]))
+  const RANGE = { from: "2026-11-01", to: "2026-11-30" }
+  const md = (dietDays: DietDay[], sessions = [completedSession({ dayId: "d1", date: "2026-11-02", weight: 40 })]) =>
+    exportMarkdown({ sessions, routine: ROUTINE, catalog, phase: 1, range: RANGE, dietPlans: [PLAN], dietDays })
+  const onlyLog = (log: FoodLogEntry[]): DietDay => ({ ...BASE, log })
+
+  it("MM3 log가 없는 날의 dietSectionMarkdown이 MM_EXPORT_BEFORE와 같다 (네 날 전부)", () => {
+    for (const day of MM_DAYS) expect(dietSectionMarkdown(PLAN, day)).toEqual(MM_EXPORT_BEFORE[day.date])
+  })
+
+  it("MM3 먹은 것만 있는 날: 머리 '기록 0/5슬롯', 먹은 것 줄 순, 슬롯 줄 없음", () => {
+    const lines = dietSectionMarkdown(PLAN, onlyLog([E()]))
+    expect(lines[0]).toMatch(/^### 식단 — .* · 기록 0\/5슬롯 \(단백질 추정 25g \/ \d+g\)$/)
+    expect(lines[1]).toBe("- 먹은 것: 13:20 서브웨이 터키 15cm — 350kcal · 단 25g")
+    expect(lines).toHaveLength(2)
+    expect(lines.some((l) => l.startsWith("- 슬롯:"))).toBe(false)
+  })
+
+  it("MM3 슬롯 + 먹은 것 2건 + 메모: 머리 → 슬롯 → 슬롯 상세 → 먹은 것 2줄 → 합계 → 메모", () => {
+    const day: DietDay = {
+      ...withSlots(1),
+      slots: { [PLAN.slots[0].id]: { checkedItemIds: [], skipped: true } },
+      log: [E({ id: "a", time: "13:20" }), E({ id: "b", time: "16:00", name: "바나나", qty: "1개", kcal: 105, proteinG: 1, count: 2 })],
+      note: "회식",
+    }
+    const lines = dietSectionMarkdown(PLAN, day)
+    expect(lines[0]).toMatch(/^### 식단 — /)
+    expect(lines[1]).toMatch(/^- 슬롯: /)
+    expect(lines[2]).toMatch(new RegExp(`^- ${PLAN.slots[0].name}: `))
+    expect(lines[3]).toBe("- 먹은 것: 13:20 서브웨이 터키 15cm — 350kcal · 단 25g")
+    expect(lines[4]).toBe("- 먹은 것: 16:00 바나나 1개 ×2 — 210kcal · 단 2g")
+    expect(lines[6]).toBe("- 메모: 회식")
+    expect(lines[5]).toBe("- 먹은 것 합계: 560kcal · 단 27g")
+  })
+
+  it("MM3 먹은 것 1건이면 합계 줄이 없다", () => {
+    expect(dietSectionMarkdown(PLAN, onlyLog([E()])).some((l) => l.startsWith("- 먹은 것 합계"))).toBe(false)
+  })
+
+  it("MM3 영양 미입력 1건 + 값 있는 1건: 합계 줄 끝에 ' · 영양 미입력 1건'", () => {
+    const lines = dietSectionMarkdown(PLAN, onlyLog([E(), E({ id: "u", time: "14:00", name: "국", kcal: undefined, proteinG: undefined })]))
+    expect(lines).toContain("- 먹은 것 합계: 350kcal · 단 25g · 영양 미입력 1건")
+  })
+
+  it("MM3 영양 미입력 2건뿐: '- 먹은 것 합계: 영양 미입력 2건'이고 0kcal이 없다", () => {
+    const none = { kcal: undefined, proteinG: undefined }
+    const lines = dietSectionMarkdown(PLAN, onlyLog([E({ ...none }), E({ id: "u", time: "14:00", ...none })]))
+    expect(lines).toContain("- 먹은 것 합계: 영양 미입력 2건")
+    expect(lines.join(" | ")).not.toContain("0kcal")
+  })
+
+  it("MM3 먹은 것 줄은 21:00을 먼저 넣고 09:00을 나중에 넣어도 09:00이 먼저다", () => {
+    const lines = dietSectionMarkdown(PLAN, onlyLog([E({ id: "x", time: "21:00" }), E({ id: "y", time: "09:00" })]))
+    const eaten = lines.filter((l) => l.startsWith("- 먹은 것: "))
+    expect(eaten[0]).toContain("09:00")
+    expect(eaten[1]).toContain("21:00")
+  })
+
+  it("MM3 exportMarkdown 전문: 먹은 것이 없으면 범례 2줄, 있으면 3줄", () => {
+    const legendLines = (out: string) => out.split(String.fromCharCode(10)).filter((l) => l.startsWith("> ") && /식단|먹은 것/.test(l)).length
+    expect(legendLines(md([MM_DAYS[0]]))).toBe(2)
+    expect(legendLines(md([MM_DAYS[0], onlyLog([E()])]))).toBe(3)
+    expect(dietMarkLegend()).toHaveLength(2)
+    expect(dietMarkLegend({ withLog: true })).toHaveLength(3)
+  })
+
+  it("MM3 exportMarkdown 전문: 먹은 것만 있는 날이 '운동 없음' 아래에 나온다", () => {
+    const out = md([onlyLog([E()])])
+    const i = out.indexOf("## 2026-11-06 (")
+    expect(i).toBeGreaterThanOrEqual(0)
+    expect(out.slice(i)).toContain("— 운동 없음")
+    expect(out.indexOf("- 먹은 것: 13:20")).toBeGreaterThan(i)
+  })
+
+  it("MM3 스캔: DietDayEditor.tsx와 exportMarkdown.ts가 둘 다 logEntryText를 부른다", () => {
+    for (const f of ["/src/components/DietDayEditor.tsx", "/src/lib/exportMarkdown.ts"]) {
+      expect(stripComments(sources[f]!)).toMatch(/logEntryText\(/)
+    }
   })
 })

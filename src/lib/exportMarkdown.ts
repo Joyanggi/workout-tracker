@@ -27,13 +27,18 @@ import { buildScaleMap, formatWeight, type WeightScaleMap } from './weightScale'
 import {
   dietDayStatusText,
   dietMarkLegend,
+  hasDietRecord,
   hasVariants,
   itemVariant,
+  logEntryText,
+  logTotals,
+  nutritionText,
   QUALITY_LABEL,
   SLOT_MARK,
   slotGrade,
   slotScore,
   slotsFor,
+  sortedLog,
   splitsByTrainingDay,
   summarizeDietDay,
 } from './diet'
@@ -72,9 +77,9 @@ export interface ExportRange {
 export function dietSectionMarkdown(plan: DietPlan, day: DietDay): string[] {
   const slots = slotsFor(plan, day.isTrainingDay)
   const logged = slots.filter((s) => day.slots[s.id] !== undefined)
-  if (logged.length === 0) return []
-
   const summary = summarizeDietDay(plan, day)
+  // 슬롯 기록이나 먹은 것(MM3) 중 하나라도 있어야 절이 나온다
+  if (!hasDietRecord(summary)) return []
   const out: string[] = []
   /*
    * 훈련일/휴식일 표기는 **옛 플랜에서만** 낸다 (DD2). 새 플랜은 매일 같은 5끼라
@@ -86,7 +91,10 @@ export function dietSectionMarkdown(plan: DietPlan, day: DietDay): string[] {
     `### 식단 — ${plan.name} · ${dayType}${dietDayStatusText(summary)} (단백질 추정 ${summary.proteinG}g / ${summary.targetProteinG}g)`,
   )
 
-  out.push(`- 슬롯: ${logged.map((s) => `${s.name} ${SLOT_MARK[slotGrade(slotScore(s, day.slots[s.id]))]}`).join(' · ')}`)
+  // 먹은 것만 있는 날은 슬롯 줄이 없다 (MM3)
+  if (logged.length > 0) {
+    out.push(`- 슬롯: ${logged.map((s) => `${s.name} ${SLOT_MARK[slotGrade(slotScore(s, day.slots[s.id]))]}`).join(' · ')}`)
+  }
 
   for (const slot of logged) {
     const record = day.slots[slot.id]
@@ -121,6 +129,17 @@ export function dietSectionMarkdown(plan: DietPlan, day: DietDay): string[] {
       )
     }
     if (details.length > 0) out.push(`- ${slot.name}: ${details.join(' / ')}`)
+  }
+
+  // 먹은 것 (MM3) — 화면과 같은 logEntryText, 시각순, 한 건에 한 줄
+  for (const entry of sortedLog(day.log)) out.push(`- 먹은 것: ${logEntryText(entry)}`)
+  if (summary.logCount >= 2) {
+    const t = logTotals(day.log)
+    out.push(
+      t.unknown === t.count
+        ? `- 먹은 것 합계: ${nutritionText()} ${t.unknown}건`
+        : `- 먹은 것 합계: ${t.kcal}kcal · 단 ${t.proteinG}g${t.unknown > 0 ? ` · 영양 미입력 ${t.unknown}건` : ''}`,
+    )
   }
 
   if (day.note) out.push(`- 메모: ${day.note}`)
@@ -401,6 +420,8 @@ export function exportMarkdown(args: {
   const dates = [...new Set([...inRange.map((s) => s.date), ...dietDates])].sort()
   // 식단 섹션이 실제로 나올 때만 범례를 붙인다 (II3) — 머리는 dates 계산 뒤에 만든다
   const hasDiet = dates.some((d) => dietLines(d).length > 0)
+  // 범례의 먹은 것 줄은 범위 안에 먹은 것이 있을 때만 (MM3)
+  const withLog = dietInRange.some((d) => (d.log?.length ?? 0) > 0)
   /*
    * 캡션 (Z3) — "간격"이 순수 휴식이 아니라는 것을 문서 자체가 말해야 한다.
    * LLM이 이걸 휴식 시간으로 읽으면 "휴식을 줄여 밀도를 올리자" 같은 엉뚱한 조언이 나오고,
@@ -411,7 +432,7 @@ export function exportMarkdown(args: {
     '',
     '> 간격 = 앞 세트 체크 ~ 이 세트 체크. **수행 시간이 포함되므로 순수 휴식이 아니다.**',
     '> 첫 세트는 앞이 없어 생략한다. (`—`는 그 세트에 타임스탬프가 없는 옛 기록)',
-    ...(hasDiet ? dietMarkLegend().map((l) => `> ${l}`) : []),
+    ...(hasDiet ? dietMarkLegend({ withLog }).map((l) => `> ${l}`) : []),
   ].join('\n')
   if (dates.length === 0) return `${head}\n\n(기간 내 기록 없음)\n`
 

@@ -573,13 +573,16 @@ export function dietDayStatusText(summary: DietDaySummary): string {
  * 퍼센트와 글자는 상수·마크 표에서 만든다. 같은 `◐`가 슬롯과 하루에서 다른 구간이라
  * "슬롯"·"준수"라는 이름과 정의를 함께 말한다.
  */
-export function dietMarkLegend(): string[] {
+export function dietMarkLegend(opts?: { withLog?: boolean }): string[] {
   const pct = (n: number) => `${Math.round(n * 100)}%`
   const m = SLOT_MARK
   const a = ADHERENCE_MARK
   return [
     `식단 슬롯 마크 = 그 끼니 이행률(항목 영양 가중): ${m.full} 100% · ${m.high} ${pct(SLOT_GRADE_HIGH)} 이상 · ${m.mid} ${pct(SLOT_GRADE_MID)} 이상 · ${m.low} ${pct(SLOT_GRADE_MID)} 미만 · ${m.zero} 0%. 대체·안 먹음은 상세 줄에 적는다.`,
     `식단 준수 = 기록한 슬롯 점수의 평균: ${a.good} ${pct(ADHERENCE_GOOD)} 이상 · ${a.mid} ${pct(ADHERENCE_MID)} 이상 · ${a.poor} ${pct(ADHERENCE_MID)} 미만. ${MIN_SLOTS_FOR_VERDICT}슬롯 미만이면 판정하지 않고 "기록 n/m슬롯"으로 적는다.`,
+    ...(opts?.withLog
+      ? ['먹은 것 = 플랜 밖에서 시간별로 적은 음식. 단백질 추정에는 들어가고 준수에는 들어가지 않는다. "영양 미입력"은 값을 모르는 음식이라 합계에서 빠진다.']
+      : []),
   ]
 }
 
