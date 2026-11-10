@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        지휘자에게는 "이슈 #번호 진행해"로 넘긴다. 구조 변경은 늘 설계 흐름이다.
+        지휘자에게는 "/coord 이슈 #번호 진행해"로 넘긴다. 구조 변경은 늘 설계 흐름이다.
         설계자는 데이터 이전·되돌리기·단계 나누기를 반드시 설계서에 둔다.
   - type: textarea
     id: limit
