@@ -82,7 +82,11 @@ const inWindow = (ts, since, until) => {
  */
 export function parseClaude(text, since, until, match = () => true) {
   const lines = parseLines(text);
-  const prompt = textOf(lines.find((l) => l.type === 'user' && !l.isMeta)?.message?.content);
+  const users = lines.filter((l) => l.type === 'user');
+  const i = users.findIndex((l) => !l.isMeta);
+  let prompt = textOf(users[i]?.message?.content);
+  // 슬래시 명령(/coord)은 명령 줄 다음에 펼친 본문이 isMeta 줄로 따로 남는다. 역할 파일은 본문에 있다.
+  if (prompt.includes('<command-name>')) prompt += '\n' + textOf(users[i + 1]?.message?.content);
   const byId = new Map();
   let cwd = '';
   for (const l of lines) {

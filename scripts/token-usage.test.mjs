@@ -49,6 +49,16 @@ describe('token-usage: Claude 세션 기록', () => {
     expect(s.models['claude-sonnet-5-5'].input).toBe(1);
   });
 
+  it('슬래시 명령(/coord)으로 시작한 세션은 펼친 본문에서 역할을 가린다', () => {
+    const cmd = jl(
+      { type: 'user', isMeta: true, timestamp: '2026-11-10T04:00:30Z', message: { role: 'user', content: '<local-command-caveat>…</local-command-caveat>' } },
+      user('<command-message>coord</command-message>\n<command-name>/coord</command-name>\n<command-args>이슈 #24 진행해</command-args>'),
+      { type: 'user', isMeta: true, timestamp: '2026-11-10T04:01:01Z', message: { role: 'user', content: [{ type: 'text', text: 'agents/COORDINATOR.md를 읽고 진행해.\n\n이슈 #24 진행해' }] } },
+      asst('a', '2026-11-10T04:02:00Z', u(1, 0, 0, 1)),
+    );
+    expect(roleOf(parseClaude(cmd, T0, T1).prompt)).toBe('지휘자');
+  });
+
   it('창 안에 응답이 없으면 null', () => {
     expect(parseClaude(jl(user('x')), T0, T1)).toBeNull();
   });
