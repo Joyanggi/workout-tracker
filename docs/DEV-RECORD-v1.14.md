@@ -130,3 +130,38 @@ LL0 골든 커밋: `2bd9770`, `7b38cb7` (이후 고치지 않음).
 
 실행: `Test Files 56 passed (56)` · `Tests 1369 passed (1369)` · `npm run build` 통과.
 실기기 확인: 통증 기록 후 다음 세션 카드 칩, 요약·종목 기록의 ` · 통증`, 내보내기 `통증:`/`통증(작업 세트 없음):` 줄.
+
+---
+
+## LL4. 유산소 종류 한 곳 · 천국의 계단 · 강도
+
+| 항목 | 내용 |
+|---|---|
+| 바뀐 소스 | 새 `lib/cardio.ts`(`CARDIO_TYPES`·`intensityHintFor`·`cardioText`) · `FinishSheet.tsx`(지역 목록 삭제, 강도 칸 placeholder) · `exportMarkdown.ts` · `HistoryScreen.tsx` · `SummaryScreen.tsx` · `SessionDetailScreen.tsx`(`src/screens/`) · `types.ts`(주석) · `README.md` |
+| 바뀐 테스트 | `v114.test.ts` describe `LL4` 10건 · 기존 수정 ①`export.test.ts:141` ②`v113.test.ts` KK5 단언 3곳 ③`v113.test.ts` 허용 접두사 (PLAN 수정표 ①~③) |
+| 수정표 밖 변경 | `v114.test.ts` `LL0`·`LL3`의 `LL_EXPORT_BEFORE` 단언(`renderLl()` → `llCardioAsV113(renderLl())`). LL4 검증 "`LL_EXPORT_BEFORE`와 다른 줄이 정확히 둘"과 `toBe(LL_EXPORT_BEFORE)`는 양립할 수 없다. `llCardioAsV113`은 두 유산소 줄 문자열 치환만 한다(나머지 줄은 그대로 견줌). 테스트 이름은 그대로. |
+
+| PLAN 검증 항목 | 테스트 |
+|---|---|
+| `cardioText` 천국의 계단 + `4단계` | `cardioText: 천국의 계단 + 4단계 → 강도 4단계` |
+| `기타` + `4` | `cardioText: 기타 + 4 → 기타 · 강도 4 · 16분` |
+| 강도 없음 | `cardioText: 강도 없음 → 지금과 같은 모양` |
+| `note ''`·`'  '` | `cardioText: note '' · '  ' → 강도 없는 모양` |
+| 목록에 없는 종류 | `cardioText: 목록에 없는 종류 → 그대로` |
+| `intensityHintFor` | `intensityHintFor: 천국의 계단 → 4단계 · 목록에 없음 → 강도` |
+| `CARDIO_TYPES` 이름 | `CARDIO_TYPES 이름 순서` |
+| 내보내기 다른 줄 정확히 둘 | `내보내기: LL_EXPORT_BEFORE와 다른 줄이 정확히 둘…` |
+| 소스 스캔 두 건 | `소스 스캔: cardio.ts만 '마이마운틴'…` · `소스 스캔: 내보내기·기록·요약은 cardio.minutes 대신 cardioText…` |
+| 옛 표기 단언 갱신 | `export.test.ts` · `v113.test.ts` KK5 (수정 ①~③) |
+
+| 되살린 결함 | 실패한 테스트 | 원상복구 |
+|---|---|---|
+| ⑧ `FinishSheet.tsx`에 지역 `CARDIO_TYPES` 복원 | `소스 스캔: cardio.ts만 '마이마운틴' 리터럴을 가진다` | `cmp` 같음 |
+| ⑨ `cardioText`를 `${type} ${note} · ${minutes}분`으로 | `cardioText: 천국의 계단 + 4단계…` · `cardioText: 기타 + 4…` · `내보내기: …다른 줄이 정확히 둘…` | `cmp` 같음 |
+
+과거 출력 불변: 강도(note) 없는 유산소 줄(`마이마운틴 30분`)은 그대로. 바뀐 것은 note 있는 두 줄뿐이다.
+
+실행: `Test Files 56 passed (56)` · `Tests 1379 passed (1379)` · `npm run build` 통과 · `git rev-list --count main..HEAD` 6 (이 반영 커밋 전).
+실기기 확인: 종료 시트의 `천국의 계단` 선택·강도 placeholder(`4단계`), 기록 탭·요약·내보내기의 `· 강도 N ·` 표기.
+
+리뷰 반영: ① LL4 절 추가 ② 수정표 밖 변경 명시 ③ 결함 ⑧·⑨ 실행 기록. 코드·테스트 변경 없음.
