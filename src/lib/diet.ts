@@ -4,6 +4,7 @@ import type {
   DietItemVariant,
   DietPlan,
   DietSlot,
+  FoodLogEntry,
   LegacyRestDayPlan,
   SlotQuality,
   SlotRecord,
@@ -406,6 +407,10 @@ export interface DietDaySummary {
   targetProteinG: number
   kcal: number
   targetKcal: number
+  /** 먹은 것(`log`) 줄 수 (MM2) */
+  logCount: number
+  /** 영양값이 둘 다 없는 줄 수 (MM2) */
+  logUnknown: number
 }
 
 /**
@@ -430,6 +435,8 @@ export function summarizeDietDay(plan: DietPlan, day: DietDay | undefined): Diet
       targetProteinG,
       kcal: 0,
       targetKcal,
+      logCount: 0,
+      logUnknown: 0,
     }
   }
 
@@ -467,6 +474,11 @@ export function summarizeDietDay(plan: DietPlan, day: DietDay | undefined): Diet
     }
   }
 
+  // 먹은 것은 합계에만 더한다 — 준수 점수(`scores`)에는 넣지 않는다 (MM2)
+  const logSum = logTotals(day.log)
+  proteinG += logSum.proteinG
+  kcal += logSum.kcal
+
   const score = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : null
   const adherence: Adherence =
     scores.length < MIN_SLOTS_FOR_VERDICT || score === null
@@ -486,7 +498,57 @@ export function summarizeDietDay(plan: DietPlan, day: DietDay | undefined): Diet
     targetProteinG,
     kcal,
     targetKcal,
+    logCount: day.log?.length ?? 0,
+    logUnknown: logSum.unknown,
   }
+}
+
+export interface LogTotals {
+  kcal: number
+  proteinG: number
+  /** 줄 수 */
+  count: number
+  /** 영양값이 둘 다 없는 줄 수 */
+  unknown: number
+}
+
+/** 먹은 것 합계 (MM2). 줄마다 개수를 곱해 반올림한 값을 더한다 */
+export function logTotals(log: FoodLogEntry[] | undefined): LogTotals {
+  const out: LogTotals = { kcal: 0, proteinG: 0, count: 0, unknown: 0 }
+  for (const e of log ?? []) {
+    out.count += 1
+    if (e.kcal === undefined && e.proteinG === undefined) out.unknown += 1
+    if (e.kcal !== undefined) out.kcal += Math.round(e.kcal * e.count)
+    if (e.proteinG !== undefined) out.proteinG += Math.round(e.proteinG * e.count)
+  }
+  return out
+}
+
+/** `time` 오름차순, 같으면 저장 순서 (정렬이 안정적이다) */
+export function sortedLog(log: FoodLogEntry[] | undefined): FoodLogEntry[] {
+  return [...(log ?? [])].sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0))
+}
+
+/** "이 날 기록이 있는가"의 **유일한 판정** — 슬롯 기록 또는 먹은 것 */
+export function hasDietRecord(summary: DietDaySummary): boolean {
+  return summary.loggedSlots > 0 || summary.logCount > 0
+}
+
+/** 영양값 글자의 **유일한 자리**. 없는 쪽을 0으로 적지 않는다 */
+export function nutritionText(kcal?: number, proteinG?: number): string {
+  if (kcal !== undefined && proteinG !== undefined) return `${kcal}kcal · 단 ${proteinG}g`
+  if (kcal !== undefined) return `${kcal}kcal`
+  if (proteinG !== undefined) return `단 ${proteinG}g`
+  return '영양 미입력'
+}
+
+/** 먹은 것 한 줄의 글자 — 화면과 내보내기가 같은 글자를 쓴다 */
+export function logEntryText(e: FoodLogEntry): string {
+  const qty = e.qty.trim() === '' ? '' : ` ${e.qty.trim()}`
+  const times = e.count !== 1 ? ` ×${e.count}` : ''
+  const kcal = e.kcal === undefined ? undefined : Math.round(e.kcal * e.count)
+  const protein = e.proteinG === undefined ? undefined : Math.round(e.proteinG * e.count)
+  return `${e.time} ${e.name}${qty}${times} — ${nutritionText(kcal, protein)}`
 }
 
 export const ADHERENCE_MARK: Record<Adherence, string> = {
@@ -746,7 +808,7 @@ export function dietMonthStats(
        */
       const day = inMonth.find((d) => d.date === date)
       const plan = day ? byId.get(day.planId) : undefined
-      if (day && plan && summarizeDietDay(plan, day).loggedSlots > 0) partialDates.add(date)
+      if (day && plan && hasDietRecord(summarizeDietDay(plan, day))) partialDates.add(date)
       continue
     }
     logged += 1

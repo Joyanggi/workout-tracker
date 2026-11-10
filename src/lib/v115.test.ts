@@ -1,6 +1,23 @@
 import { describe, expect, it } from "vitest"
 import { BUNDLED_DIET_PLANS } from "../db/seed"
-import { dietMonthStats, summarizeDietDay } from "./diet"
+import { dietMonthStats, hasDietRecord, logEntryText, logTotals, nutritionText, resolveTrainingDays, sortedLog, summarizeDietDay } from "./diet"
+import {
+  applyAddition,
+  applyAddLog,
+  applyCheckAllItems,
+  applyClearAddition,
+  applyClearSlot,
+  applyClearSubstitution,
+  applyNote,
+  applyPlan,
+  applyRemoveLog,
+  applySkipSlot,
+  applySubstitution,
+  applyToggleItem,
+  applyUpdateLog,
+  applyVariantChoice,
+  seedVariantChoices,
+} from "./dietOps"
 import { dietSectionMarkdown } from "./exportMarkdown"
 import { applyAddFood, applyRemoveFood, applyUpdateFood, foodCatalog, foodKey, planFoods, validateFood } from "./foods"
 import { stripComments } from "./sourceScan"
@@ -308,5 +325,224 @@ describe("MM1 내 음식 목록", () => {
       .filter(([, src]) => /`[^`]*\$\{[^}]*name[^}]*\}\|\$\{[^}]*qty[^}]*\}/.test(stripComments(src)))
       .map(([p]) => p)
     expect(hits).toEqual([])
+  })
+})
+
+// ─── MM2 먹은 것 시간별 기록 ───────────────────────────────────
+const E = (over: Partial<FoodLogEntry> = {}): FoodLogEntry => ({
+  id: "e1",
+  time: "13:20",
+  name: "서브웨이 터키",
+  qty: "15cm",
+  kcal: 350,
+  proteinG: 25,
+  count: 1,
+  ...over,
+})
+const BASE: DietDay = { date: "2026-11-06", planId: PLAN.id, isTrainingDay: true, slots: {} }
+const withSlots = (n: number): DietDay => {
+  const slots: DietDay["slots"] = {}
+  for (const sl of PLAN.slots.slice(0, n)) slots[sl.id] = { checkedItemIds: sl.items.map((i) => i.id) }
+  return { ...BASE, slots }
+}
+
+describe("MM2 먹은 것 기록", () => {
+  it("MM2 합계: applyAddLog 뒤 proteinG·kcal이 줄 값만큼 늘고 score·adherence·loggedSlots는 같다", () => {
+    const before = summarizeDietDay(PLAN, withSlots(3))
+    const after = summarizeDietDay(PLAN, applyAddLog(withSlots(3), E()))
+    expect(after.proteinG).toBe(before.proteinG + 25)
+    expect(after.kcal).toBe(before.kcal + 350)
+    expect(after.score).toBe(before.score)
+    expect(after.adherence).toBe(before.adherence)
+    expect(after.loggedSlots).toBe(before.loggedSlots)
+  })
+
+  it("MM2 합계: count 2, kcal 105, proteinG 1.3 → 210kcal · 3g (줄마다 반올림)", () => {
+    const t = logTotals([E({ kcal: 105, proteinG: 1.3, count: 2 })])
+    expect(t).toMatchObject({ kcal: 210, proteinG: 3, count: 1, unknown: 0 })
+  })
+
+  it("MM2 합계: kcal·proteinG가 둘 다 없는 줄은 합계 변화 없음, logUnknown 1, logCount 1", () => {
+    const base = summarizeDietDay(PLAN, BASE)
+    const s = summarizeDietDay(PLAN, applyAddLog(BASE, E({ kcal: undefined, proteinG: undefined })))
+    expect(s.kcal).toBe(base.kcal)
+    expect(s.proteinG).toBe(base.proteinG)
+    expect(s.logUnknown).toBe(1)
+    expect(s.logCount).toBe(1)
+  })
+
+  it("MM2 합계: proteinG만 있는 줄은 단백질만, kcal만 있는 줄은 칼로리만 늘고 logUnknown 0", () => {
+    const p = summarizeDietDay(PLAN, applyAddLog(BASE, E({ kcal: undefined, proteinG: 20 })))
+    expect(p).toMatchObject({ kcal: 0, proteinG: 20, logUnknown: 0 })
+    const k = summarizeDietDay(PLAN, applyAddLog(BASE, E({ kcal: 140, proteinG: undefined })))
+    expect(k).toMatchObject({ kcal: 140, proteinG: 0, logUnknown: 0 })
+  })
+
+  it("MM2 nutritionText: 네 경우와 (0, 0)은 미입력이 아니다", () => {
+    expect(nutritionText(350, 25)).toBe("350kcal · 단 25g")
+    expect(nutritionText(140, undefined)).toBe("140kcal")
+    expect(nutritionText(undefined, 20)).toBe("단 20g")
+    expect(nutritionText(undefined, undefined)).toBe("영양 미입력")
+    expect(nutritionText(0, 0)).toBe("0kcal · 단 0g")
+  })
+
+  it("MM2 logEntryText: 표기 표 다섯 줄, 칼로리만 있는 줄에는 단이 없다", () => {
+    expect(logEntryText(E())).toBe("13:20 서브웨이 터키 15cm — 350kcal · 단 25g")
+    expect(logEntryText(E({ time: "16:00", name: "바나나", qty: "1개", kcal: 105, proteinG: 1.3, count: 2 }))).toBe(
+      "16:00 바나나 1개 ×2 — 210kcal · 단 3g",
+    )
+    expect(logEntryText(E({ time: "19:00", name: "프로틴바", qty: "1개", kcal: undefined, proteinG: 20 }))).toBe(
+      "19:00 프로틴바 1개 — 단 20g",
+    )
+    const cider = logEntryText(E({ time: "14:00", name: "사이다", qty: "1캔", kcal: 140, proteinG: undefined }))
+    expect(cider).toBe("14:00 사이다 1캔 — 140kcal")
+    expect(cider).not.toContain("단")
+    expect(logEntryText(E({ time: "21:10", name: "회식", qty: "", kcal: undefined, proteinG: undefined }))).toBe(
+      "21:10 회식 — 영양 미입력",
+    )
+  })
+
+  it("MM2 슬롯을 건드리지 않고 먹은 것 1건만 있는 날: unlogged · hasDietRecord · 달력 회색 점", () => {
+    const day = applyAddLog(BASE, E())
+    const s = summarizeDietDay(PLAN, day)
+    expect(s.adherence).toBe("unlogged")
+    expect(hasDietRecord(s)).toBe(true)
+    expect(dietMonthStats([day], [PLAN], "2026-11-01").partialDates.has(day.date)).toBe(true)
+  })
+
+  it("MM2 slots {}이고 log가 없는 날(MM0의 11-05): hasDietRecord false, 회색 점 없음", () => {
+    const day = MM_DAYS.find((d) => d.date === "2026-11-05")!
+    expect(hasDietRecord(summarizeDietDay(PLAN, day))).toBe(false)
+    expect(dietMonthStats([day], [PLAN], "2026-11-01").partialDates.has(day.date)).toBe(false)
+  })
+
+  it("MM2 슬롯 3개 이상 + 먹은 것 여러 건: adherence가 먹은 것을 뺀 날과 같다 (kcal이 아무리 커도)", () => {
+    const plain = withSlots(3)
+    let withLog = plain
+    for (let i = 0; i < 3; i += 1) withLog = applyAddLog(withLog, E({ id: `x${i}`, kcal: 99999, proteinG: 999 }))
+    const a = summarizeDietDay(PLAN, plain)
+    const b = summarizeDietDay(PLAN, withLog)
+    expect(b.adherence).toBe(a.adherence)
+    expect(b.score).toBe(a.score)
+  })
+
+  it("MM2 applyRemoveLog로 마지막 줄을 지우면 'log' in day === false", () => {
+    const day = applyRemoveLog(applyAddLog(BASE, E()), "e1")
+    expect("log" in day).toBe(false)
+  })
+
+  it("MM2 applyUpdateLog는 time·count만 바꾼다. count 0.2 → 0.5, 1.3 → 1.5", () => {
+    const day = applyAddLog(BASE, E())
+    const t = applyUpdateLog(day, "e1", { time: "14:00", count: 1.3 })
+    expect(t.log![0]).toEqual({ ...E(), time: "14:00", count: 1.5 })
+    expect(applyUpdateLog(day, "e1", { count: 0.2 }).log![0].count).toBe(0.5)
+    expect(applyUpdateLog(day, "e1", { time: "99:99" })).toBe(day)
+  })
+
+  it("MM2 applyAddLog에 time '25:00'이나 ''이면 받은 day와 같은 객체를 돌려준다", () => {
+    expect(applyAddLog(BASE, E({ time: "25:00" }))).toBe(BASE)
+    expect(applyAddLog(BASE, E({ time: "" }))).toBe(BASE)
+  })
+
+  it("MM2 sortedLog: 09:00, 21:00, 09:00 순으로 넣으면 먼저 넣은 09:00 → 09:00 → 21:00", () => {
+    const out = sortedLog([E({ id: "a", time: "09:00" }), E({ id: "b", time: "21:00" }), E({ id: "c", time: "09:00" })])
+    expect(out.map((e) => e.id)).toEqual(["a", "c", "b"])
+  })
+
+  it("MM2 기존 연산이 log를 지우지 않는다 (옛 코드를 되돌려 배포해도 기록이 남는 근거)", () => {
+    const slot = PLAN.slots[0]
+    const day: DietDay = { ...withSlots(2), log: [E()] }
+    const results: DietDay[] = [
+      applyToggleItem(day, slot.id, slot.items[0].id),
+      applyCheckAllItems(day, slot),
+      applySkipSlot(day, slot.id),
+      applySubstitution(day, slot.id, { text: "x", quality: "other" }),
+      applyAddition(day, slot.id, { text: "x", quality: "other" }),
+      applyClearAddition(day, slot.id),
+      applyClearSubstitution(day, slot.id),
+      applyVariantChoice(day, slot.id, slot.items[0].id, 0),
+      applyClearSlot(day, slot.id),
+      applyPlan(day, "other-plan"),
+      applyNote(day, "메모"),
+      seedVariantChoices(day, PLAN.slots, undefined),
+    ]
+    for (const r of results) expect(r.log).toEqual([E()])
+  })
+
+  it("MM2 목록의 음식을 고치거나 지워도 이미 만든 기록과 그날 합계가 그대로다", () => {
+    const foods = [mkFood("f1", "서브웨이 터키", "15cm", "2026-11-01T00:00:00Z", { kcal: 350, proteinG: 25 })]
+    const entry = E()
+    const day = applyAddLog(BASE, entry)
+    const before = summarizeDietDay(PLAN, day)
+    applyUpdateFood(foods, "f1", { name: "다른", qty: "1", kcal: 1, proteinG: 1 })
+    applyRemoveFood(foods, "f1")
+    expect(day.log![0]).toEqual(entry)
+    expect(summarizeDietDay(PLAN, day)).toEqual(before)
+  })
+
+  it("MM2 플랜을 바꿔도(applyPlan) log의 합계 기여는 같다", () => {
+    const day = applyAddLog(BASE, E())
+    expect(logTotals(applyPlan(day, "other-plan").log)).toEqual(logTotals(day.log))
+  })
+
+  it("MM2 resolveTrainingDays를 거친 날에도 log가 남는다", () => {
+    const day = applyAddLog(BASE, E())
+    const [out] = resolveTrainingDays([day], new Set([day.date]), new Set())
+    expect(out.log).toEqual([E()])
+  })
+
+  it("MM2 MM0 골든 셋이 그대로 통과한다 (log 없는 날의 새 필드는 0)", () => {
+    for (const day of MM_DAYS) {
+      expect(summarizeDietDay(PLAN, day)).toMatchObject({
+        ...MM_SUMMARY_BEFORE[day.date as keyof typeof MM_SUMMARY_BEFORE],
+        logCount: 0,
+        logUnknown: 0,
+      })
+    }
+  })
+})
+
+describe("MM2 스캔", () => {
+  const sources = import.meta.glob("/src/**/*.{ts,tsx}", { query: "?raw", import: "default", eager: true }) as Record<
+    string,
+    string
+  >
+  const code = (path: string) => stripComments(sources[path]!)
+
+  it("MM2 스캔: loggedSlots > 0 을 직접 비교하는 곳이 hasDietRecord 정의 밖에 없다", () => {
+    const hits = Object.entries(sources)
+      .filter(([p]) => !p.endsWith(".test.ts"))
+      .flatMap(([p, src]) =>
+        stripComments(src)
+          .split("\n")
+          .filter((l) => /loggedSlots\s*>\s*0/.test(l) && !/logCount\s*>\s*0/.test(l))
+          .map(() => p),
+      )
+    expect(hits).toEqual([])
+  })
+
+  it("MM2 스캔: FoodLogSheet.tsx·DietDayEditor.tsx에 requestSync(가 없다 (쓰기 함수가 예약한다)", () => {
+    expect(code("/src/components/FoodLogSheet.tsx")).not.toMatch(/requestSync\(/)
+    expect(code("/src/components/DietDayEditor.tsx")).not.toMatch(/requestSync\(/)
+  })
+
+  it("MM2 스캔: 먹은 것 개수 NumberStepper에 decimals={2}가 있다", () => {
+    const src = code("/src/components/DietDayEditor.tsx")
+    const m = src.match(/<NumberStepper[\s\S]*?\/>/)
+    expect(m, "먹은 것 NumberStepper가 있어야 한다").not.toBeNull()
+    expect(m![0]).toMatch(/decimals=\{2\}/)
+  })
+
+  it("MM2 스캔: DietDayEditor를 부르는 세 화면이 모두 userFoods=를 넘긴다", () => {
+    for (const f of ["DietScreen", "HistoryScreen", "SessionDetailScreen"]) {
+      const src = code(`/src/screens/${f}.tsx`)
+      const m = src.match(/<DietDayEditor[\s\S]*?\/>/)
+      expect(m, `${f}에 DietDayEditor가 있어야 한다`).not.toBeNull()
+      expect(m![0]).toMatch(/userFoods=/)
+    }
+  })
+
+  it("MM2 스캔: 먹은 것 줄 글자는 logEntryText 한 자리에서 온다", () => {
+    expect(code("/src/components/DietDayEditor.tsx")).toMatch(/logEntryText\(/)
   })
 })

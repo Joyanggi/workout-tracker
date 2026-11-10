@@ -175,6 +175,7 @@ describe('II2', () => {
     const s: DietDaySummary = {
       score: 0.846, adherence: 'mid', loggedSlots: 5, totalSlots: 5,
       proteinG: 0, targetProteinG: 0, kcal: 0, targetKcal: 0,
+      logCount: 0, logUnknown: 0, // MM2(PLAN-v1.15): DietDaySummary에 필드가 늘었다 — 기계적 결과
     }
     expect(dietDayStatusText(s)).toBe('준수 ◐ 85%')
   })
