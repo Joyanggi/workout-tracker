@@ -2,6 +2,7 @@
 
 > 작성: Fable 5.2 (설계자), 2026-11-10. 대상 코드: v1.13.0 (`main` `26bb3d4`).
 > 근거: 이슈 #24 (새 기능). 배경은 `docs/FIELD-REPORT-2026-11-04.md` 7절.
+> 검토 반영: 2026-11-10, `.reports/v1.14-codex.md`·`.reports/v1.14-antigravity.md` (끝 "검토 반영 기록"). "사람이 정할 것" 5건은 추천안으로 확정해 본문에 넣었다.
 >
 > **성격**: 새 저장 필드는 **하나**다(`SessionEntry.pain`). 증량 판정에 보류 사유가 하나 늘고(`통증`), 나머지는 표시와 정리다.
 > Day 제안·세트 수·복귀 규칙·PR·볼륨·빈도 경고·Phase 조건·홈 배너는 바뀌지 않는다.
@@ -48,7 +49,7 @@
 | 사실 | 근거 |
 |---|---|
 | "있음" 판정 함수는 이미 있다 | `compensation.ts:41` `hasCompensation` |
-| 그런데 같은 판정을 다섯 곳이 따로 한다 | `progression.ts:84` · `compensationWatch.ts:55`, `:96` · `noteHistory.ts:77` · `phaseReadiness.ts:208` · `CompensationSheet.tsx:100` |
+| 그런데 같은 판정을 다섯 파일 여섯 줄이 따로 한다 | `progression.ts:84` · `compensationWatch.ts:55`, `:96` · `noteHistory.ts:77` · `phaseReadiness.ts:208` · `CompensationSheet.tsx:100` |
 | 기준도 서로 다르다. 빈 문자열을 `progression`·`phaseReadiness`는 "있음", `hasCompensation`·`compensationWatch`는 "없음"으로 본다 | 위 줄들 (`!== NO_COMPENSATION`만 보는 곳과 `trim() !== ''`를 같이 보는 곳) |
 | 앱 입력으로는 빈 문자열이 저장되지 않는다. 직접 고친 백업·가져오기로만 들어온다 | `sessionOps.ts:210-218` `applyCompensation` · `compensation.ts:23-26` |
 | 08-28 건의 원인은 이 판정이 아니다. 자유 입력은 원래 "적으면 있음"이고, A그룹 카드에 다른 글 칸이 없어서 통증이 여기로 왔다 | `CompensationSheet.tsx:67-76` · `ExerciseCard.tsx:583`(감각 메모는 B그룹만) |
@@ -56,7 +57,8 @@
 ### 설계
 
 1. `hasCompensation(stored: string | undefined): boolean` — `const v = (stored ?? '').trim(); return v !== '' && v !== NO_COMPENSATION`.
-2. 위 다섯 곳과 `CompensationSheet.tsx:79`(미리보기 색)를 `hasCompensation` 호출로 바꾼다. `judgeProgression`은 `if (hasCompensation(args.compensation))`.
+2. 위 여섯 줄과 `CompensationSheet.tsx:79`(미리보기 색)를 `hasCompensation` 호출로 바꾼다. `judgeProgression`은 `if (hasCompensation(args.compensation))`.
+   `CompensationSheet.tsx:100`은 `{hasCompensation(current) && (`가 된다. 이 줄의 옛 식을 `uiConsistency.test.ts` X9가 소스 스캔으로 잡고 있으므로 그 테스트를 같이 고친다("기존 테스트 수정" ④).
 3. **글을 해석하지 않는다.** "보상작용은 아니고…" 같은 부정문을 앱이 읽어내는 규칙은 만들지 않는다(오판하면 안전 쪽이 아니라 증량 쪽으로 틀린다). 08-28 같은 글은 LL2의 통증 칸과 시트 안내 문구가 막는다.
 
 ### 검증 (`v114.test.ts`, describe `LL1`)
@@ -65,10 +67,11 @@
 - `judgeProgression`: 전 세트 상단 + `compensation: ''` → `up` (전: hold `compensation`) · `'승모 개입'` → hold `compensation`.
 - `LL_VERDICT_BEFORE` 일치 (08-28 레그 컬은 그대로 hold `compensation`).
 - **소스 스캔**: `src`의 테스트 아닌 파일 중 `compensation.ts`를 뺀 어디에도 `/[!=]==?\s*NO_COMPENSATION/`이 없다(주석 제거 후).
+- `uiConsistency.test.ts` X9(수정 ④ 뒤): `CompensationSheet.tsx`의 비우기 버튼 조건이 `hasCompensation(current)`이고, 조건식을 **찾았고**(빈 문자열이 아니다) 그 안에 `selected`·`free`·`preview`가 없다.
 
 ### 범위 제외
 
-- 자유 입력을 판정에서 빼거나 "판정에 넣지 않기" 구분을 더하는 것 — 체크리스트가 빈 종목은 자유 입력이 유일한 입력이다. "사람이 정할 것" 3.
+- 자유 입력을 판정에서 빼거나 "판정에 넣지 않기" 구분을 더하는 것 — 체크리스트가 빈 종목은 자유 입력이 유일한 입력이고, 저장 필드와 누를 것이 하나씩 는다. 지금처럼 "적으면 있음"으로 두고 시트 안내 문구(LL2 6번)를 넣는다(확정).
 - 08-28 기록 변환 — 이슈 "안 할 것". 사용자가 기록 탭에서 직접 옮길 수는 있다(LL2).
 
 ### README 반영
@@ -91,7 +94,7 @@
 | 대체는 행을 새로 만들며 감각·보상작용을 지운다. Day 변경은 entry를 펼쳐 복사한다 | `sessionOps.ts:157-185` · `dayChange.ts:81` |
 | 필드 추가는 백업 하위 호환이다(스키마 버전을 올리지 않는다) | `backup.ts:30` |
 
-**안 만들면:** 통증은 계속 보상작용 칸(틀린 사유)이나 세션 메모(종목과 무관, 보류 없음)로 간다. 내보내기를 LLM에 붙여도 "다음 세션에 올리지 않는다"는 앱 안에서 일어나야 하므로 풀리지 않는다. 안 만드는 안은 "사람이 정할 것" 1.
+**안 만들면:** 통증은 계속 보상작용 칸(틀린 사유)이나 세션 메모(종목과 무관, 보류 없음)로 간다. 내보내기를 LLM에 붙여도 "다음 세션에 올리지 않는다"는 앱 안에서 일어나야 하므로 풀리지 않는다. 안 만드는 안(LL1과 시트 안내 문구만 넣고 통증은 세션 메모에)은 증량 보류가 안 돼 이슈 성공 기준 둘째 줄을 못 채우므로 택하지 않았다(확정).
 
 **파생으로 안 되는 이유:** 통증은 기존 기록(무게·반복·감각)에서 계산할 수 없는 새 사실이다.
 
@@ -110,7 +113,7 @@ pain?: { note: string }
 
 | 함수 | 반환 | 규칙 |
 |---|---|---|
-| `hasPain(entry)` | `boolean` | `entry.pain !== undefined`. 통증 여부를 묻는 곳은 전부 이것을 쓴다 |
+| `hasPain(entry)` | `boolean` | `entry.pain !== undefined`. 통증 여부를 묻는 곳은 전부 이것을 쓴다. `pain` 키가 없는 것과 값이 `undefined`인 것은 같다 — `'pain' in entry`로 묻지 않는다 |
 | `painText(entry)` | `string \| undefined` | 없으면 `undefined` · 메모(trim) 있으면 `있음 — {메모}` · 없으면 `있음` |
 | `painTrail(sessions, recordKey)` | `{ date: string; note: string; streak: number } \| undefined` | 완료 세션 최신순으로 그 `recordKey` entry 중 **닿은 것**(작업 세트 1개 이상 **또는** 통증 있음)만 본다. 가장 최근에 닿은 entry에 통증이 없으면 `undefined`. 있으면 그 세션의 `date`·`note`(trim)와, 최근부터 연속으로 통증인 닿은 세션 수 `streak`(≥ 1) |
 
@@ -124,11 +127,20 @@ pain?: { note: string }
 - `progressionVerdicts`: `pain: hasPain(entry)`.
 - `prefill.ts` `buildPrefill`: `const trail = painTrail(sessions, recordKey)` → `judgeProgression({ …, pain: trail !== undefined })`. `RecordPrefill`에 `lastPain?: { date; note; streak }`(= `trail`)를 싣는다. `computeProgression`에는 `lastPain?: boolean`을 더해 그대로 넘긴다.
 - 효과: 보류면 `progression`이 없어 프리필 무게는 지금의 보류와 같이 "최근 3세션 최고"다. 무게를 내리지는 않는다(내릴지는 사용자가 정한다).
+- **0번(대상 아님)은 그대로 통증보다 앞이다.** `sets.length === 0`이면 통증이 있어도 `undefined`다(`progression.ts:78`) — 보류할 무게(`from`)가 없기 때문이다. 무게 없는 보류 판정은 만들지 않는다. 그래서 `buildPrefill`의 결과는 셋으로 갈린다(`history`·`lastSets`·`bestBySet`·`hasHistory`·`startEstimate`는 지금처럼 `sessionsForRecord`만 따른다 — 통증만 적은 세션은 무게 기록이 아니다):
+
+  | 작업 세트를 한 과거 세션 | `painTrail` | `lastVerdict` | `progression` | `lastPain` |
+  |---|---|---|---|---|
+  | 있음 | 있음 | hold `pain`. `from`은 **작업 세트를 한 직전 세션**의 최고 무게(통증만 적은 세션이 그 뒤에 있어도) | 없음 | `trail` |
+  | **없음** (그 종목 기록이 통증만 적은 세션뿐) | 있음 | **`undefined`** | 없음 | `trail` — 칩은 뜨고 ` · 증량 보류`는 안 붙는다(LL3 1번). 프리필 무게는 기록 없는 종목과 같다(`startEstimate` 또는 0) |
+  | 있음·없음 | 없음 | 지금과 같다 | 지금과 같다 | 없음 |
+
+  `progressionVerdicts`(세션 하나의 판정)도 같다: 세트 0 통증 entry는 키가 없고, 내보내기는 `통증(작업 세트 없음):` 줄로 말한다(LL3 2번).
 - B그룹·코어는 증량 판정이 없으므로 통증은 표시만 된다. `bGroupGuide`는 건드리지 않는다.
 
 **4. 기록 연산** — `sessionOps.ts`
 
-- `applyPain(session, recordKey, pain: { note: string } | undefined): Session`. `undefined`면 `pain` 키를 지운다.
+- `applyPain(session, recordKey, pain: { note: string } | undefined): Session` — `{ ...entry, pain }`. `undefined`를 받으면 값이 `undefined`가 된다(`applySensoryNote`와 같은 방식. 키를 따로 지우지 않는다 — 기준은 `hasPain`이다).
 - `applySubstitute`: `pain: undefined`를 더한다(감각·보상작용과 같은 줄). 통증은 그 종목 기록 라인에 붙는 사실이고, 새 행은 다른 종목이다.
 - Day 변경·얹기(`applyAddExercise`)는 고치지 않는다(펼쳐 복사로 따라가고, 새 entry에는 없다).
 - `store/session.ts`·`useSessionEditor.ts`에 `setPain`, `ExerciseCard`의 `EntryActions`에 `setPain`.
@@ -156,14 +168,18 @@ pain?: { note: string }
 - 통증 `{ note: '' }`(메모 없음)도 hold `pain`.
 - B그룹 entry에 통증 → `progressionVerdicts`에 그 키가 없다.
 - `buildPrefill`: 직전 세션 전 세트 상단 + 통증 → `progression` 없음, `defaultSetFor` 무게 = 직전 무게, `lastVerdict.reason.kind === 'pain'`, `lastPain.streak === 1`.
-- **세트 0 통증**: S1 전 세트 상단(통증 없음) → S2 같은 종목 통증만, 체크 0 → `lastVerdict` hold `pain`, `progression` 없음. S2가 없으면 `up`.
+- **세트 0 통증**: S1 전 세트 상단(통증 없음) → S2 같은 종목 통증만, 체크 0 → `lastVerdict` hold `pain`, `from`은 S1 무게, `progression` 없음. S2가 없으면 `up`.
+- **기록 없는 종목의 세트 0 통증**: 그 종목의 유일한 세션이 통증만, 체크 0 → `lastVerdict === undefined`, `progression` 없음, `lastPain.streak === 1`, `hasHistory === false`, `lastSets`·`bestBySet` 빈 배열, `startEstimate`는 통증이 없을 때와 같은 값. 통증만 적은 세션이 둘 이어지면 `streak === 2`이고 `lastVerdict`는 여전히 `undefined`.
+- `judgeProgression({ sets: [], pain: true })` → `undefined` (A그룹이어도).
+- `progressionVerdicts`: 세트 0 통증 entry의 키가 없다.
 - 통증 다음 세션에 통증 없이 수행 → 그다음 프리필은 통증과 무관하게 판정(`lastPain` 없음).
 - **디로드·복귀**: 디로드 세션(세트 절반, 전 세트 상단) + 통증 → 다음 normal 프리필 사유는 `pain`(`sets`가 아니다).
-- **대체**: 대체 entry(`substituteFor` 있음)에 통증 → 대체 종목 라인만 보류, 원 종목 라인의 `buildPrefill`은 `lastPain` 없음. 통증 표시 후 `applySubstitute` → 새 행에 `pain` 키 없음.
+- **대체**: 대체 entry(`substituteFor` 있음)에 통증 → 대체 종목 라인만 보류, 원 종목 라인의 `buildPrefill`은 `lastPain` 없음. 통증 표시 후 `applySubstitute` → 새 행은 `hasPain === false`.
 - **어시스티드**: `inverse` 종목 전 세트 상단 + 통증 → hold `pain`, `from`은 수행 무게.
 - **얹은 종목**: `extra` entry 통증 → 그 종목 본 라인(`@원소속 Day`)의 다음 프리필이 보류.
 - **Day 변경**: `applyDayChange` 뒤에도 `pain`이 그대로다.
-- `applyPain`: 설정 → `{ note }` · `undefined` → `'pain' in entry === false` · 없는 `recordKey` → 세션 그대로.
+- `applyPain`: 설정 → `{ note }` · `undefined` → `hasPain === false`이고 `painText`가 `undefined` · 없는 `recordKey` → 세션 그대로.
+- `hasPain`: `pain` 키 없음·`pain: undefined` → false · `{ note: '' }` → true.
 - `painTrail`: 통증·통증·정상(최신순) → `streak 2` · 통증·(안 한 세션)·통증 → `streak 2` · 정상·통증 → `undefined` · 진행 중 세션은 세지 않는다.
 - `LL_VERDICT_BEFORE` 일치 · `GG1_GOLDEN` 통과.
 - **소스 스캔**: `pain.ts` 밖의 테스트 아닌 파일에 `.pain !== undefined`·`.pain === undefined`·`!entry.pain`이 없다(입력 칸의 `entry.pain.note` 읽기는 허용).
@@ -207,7 +223,7 @@ pain?: { note: string }
 **연속 통증 경고의 필요성 (이슈가 설계자에게 맡긴 것):** 홈 카드 줄은 만들지 않는다. 대신 그 종목 카드의 칩이 연속 횟수를 말한다.
 - 경고가 쓰이는 순간은 그 종목을 하려는 때다. 홈 카드는 Day를 고르는 자리다.
 - 칩은 `painTrail` 하나에서 나온다. 홈 줄은 전 종목을 훑는 함수와 KK3·KK4 줄과의 자리 규칙이 더 든다.
-- 13주에 통증 1건이다. 3개월 뒤 지울 수도 있는 기능에 홈 자리를 먼저 쓰지 않는다. 선택지는 "사람이 정할 것" 2.
+- 13주에 통증 1건이다. 3개월 뒤 지울 수도 있는 기능에 홈 자리를 먼저 쓰지 않는다(확정. 홈 줄이 필요해지면 새 작업으로 설계한다).
 
 ### 설계
 
@@ -220,8 +236,9 @@ pain?: { note: string }
 | `streak >= 2` | `통증 {streak}세션 연속` |
 | 메모 있음 | 뒤에 ` — {메모}` |
 | `mode === 'normal'`이고 `verdict`가 hold `pain` | 뒤에 ` · 증량 보류` |
+| 그 밖의 `verdict`(`undefined` 포함 — B그룹·코어, 작업 세트 기록이 없는 종목) | 안 붙는다 |
 
-예: `지난번 통증 — 왼쪽 발목 찌릿 · 증량 보류` · `통증 2세션 연속 — 왼쪽 발목 찌릿 · 증량 보류` · (B그룹) `지난번 통증 — 손목`.
+예: `지난번 통증 — 왼쪽 발목 찌릿 · 증량 보류` · `통증 2세션 연속 — 왼쪽 발목 찌릿 · 증량 보류` · (B그룹, 또는 기록 없는 종목) `지난번 통증 — 손목`.
 `ExerciseCard`의 칩 줄(보상작용 감시 칩 다음)에 `chip chip-warn`으로, `showPrefillHints`일 때만(과거 세션 편집에는 안 뜬다). 인자는 `prefill.lastPain`·`prefill.lastVerdict`·`sessionMode`.
 
 **2. 내보내기** — `exportMarkdown.ts`
@@ -246,7 +263,8 @@ pain?: { note: string }
 
 ### 검증 (`v114.test.ts`, describe `LL3`)
 
-- `lastPainChipText`: 표의 다섯 줄 각각 · `mode: 'deload'`면 ` · 증량 보류` 없음 · verdict가 `phase0`이면 없음.
+- `lastPainChipText`: 표의 여섯 줄 각각 · `mode: 'deload'`면 ` · 증량 보류` 없음 · verdict가 `phase0`이면 없음 · verdict가 `undefined`면 없음(`지난번 통증 — {메모}`까지만).
+- 기록 없는 종목의 세트 0 통증(LL2 검증의 픽스처) → `lastPainChipText(prefill.lastPain, prefill.lastVerdict, 'normal')`이 `지난번 통증`으로 시작하고 `증량 보류`가 없다.
 - 내보내기: 통증 + 메모 → 블록에 `보상작용: 없음\n통증: 있음 — …\n다음: 40kg 유지 (통증 있음)` 순서 · 메모 없음 → `통증: 있음` · 통증 없는 entry → `통증` 글자가 블록에 없다.
 - 보상작용 `승모 개입` + 통증 → 두 줄이 각각 나오고 `다음:` 사유는 `통증 있음`.
 - B그룹 통증 → `통증:` 줄은 있고 `다음:` 줄은 없다.
@@ -259,6 +277,7 @@ pain?: { note: string }
 ### 범위 제외
 
 - 홈 카드 연속 통증 줄·홈 배너 — 위 "필요성".
+- 요약 화면·종목 기록 화면에 세트 0 통증 싣기 — 두 화면은 수행한 종목만 싣는다(`SummaryScreen.tsx:21` · `history.ts:91`). 세트 0 통증은 세션 카드의 통증 칸, 다음 세션 카드 칩, 내보내기 `통증(작업 세트 없음):` 줄이 말한다.
 - 종목 메모 이력(CC14 `noteHistory`)에 통증 싣기 — B그룹 카드의 "지난번" 줄과 통증 칩이 같은 말을 두 번 한다. 통증 글은 세션 상세와 내보내기에 있다.
 - 내보내기 머리말 범례 — `통증:` 줄은 설명 없이 읽힌다. 범례를 더하면 모든 과거 내보내기가 바뀐다.
 
@@ -274,17 +293,17 @@ pain?: { note: string }
 
 | 사실 | 근거 |
 |---|---|
-| 종류 상수가 두 곳에 따로 있다 | `FinishSheet.tsx:9` · `SessionDetailScreen.tsx:17` |
+| 종류 상수가 두 곳에 따로 있다 | `src/components/FinishSheet.tsx:9` · `src/screens/SessionDetailScreen.tsx:17` |
 | 천국의 계단이 없어 `기타`를 골랐다 | 보고서 7절 (11-04) |
 | 글 칸은 이미 있다. 이름이 "유산소 메모"이고 안내값이 `25/3.8`이라 무엇을 적는 칸인지 말하지 않는다 → `4`만 적혔다 | `FinishSheet.tsx:127-134` · `SessionDetailScreen.tsx:195-202` · `types.ts:292` |
 | 내보내기가 그 글을 종류 뒤에 그대로 붙인다 → `기타 4 · 16분` | `exportMarkdown.ts:222-223` |
 | 유산소를 글로 만드는 곳이 세 군데고 모양이 다르다(기록 탭은 메모를 뺀다) | `exportMarkdown.ts:223` · `HistoryScreen.tsx:152` · `SummaryScreen.tsx:286-289` |
 
-**안 만들면:** 지금도 메모 칸에 `천국의계단 4단계`라고 쓰면 읽힌다. 다만 실제로는 `4`만 적혔고, 칸이 뜻을 말하지 않는 한 반복된다. 안 만드는 안은 상수 통합 + 천국의 계단 추가만 하는 것이다("사람이 정할 것" 4의 C).
+**안 만들면:** 지금도 메모 칸에 `천국의계단 4단계`라고 쓰면 읽힌다. 다만 실제로는 `4`만 적혔고, 칸이 뜻을 말하지 않는 한 반복된다. 안 만드는 안(상수 통합 + 천국의 계단 추가만)은 `기타 4`가 그대로 남아 이슈 성공 기준 넷째 줄을 못 채우므로 택하지 않았다(확정).
 
 ### 설계
 
-**결정: 새 필드를 만들지 않고 `cardio.note`를 강도로 읽는다.** 이 칸은 처음부터 강도를 받았다(타입 주석 `"마이마운틴 25/3.8"`, 안내값 `25/3.8`, 실제 기록 `4`). 저장 키 이름은 그대로 둔다(이전 없음).
+**결정(확정): 새 필드를 만들지 않고 `cardio.note`를 강도로 읽는다.** 이 칸은 처음부터 강도를 받았다(타입 주석 `"마이마운틴 25/3.8"`, 안내값 `25/3.8`, 실제 기록 `4`). 저장 키 이름은 그대로 둔다(이전 없음). 새 필드 `intensity`를 두는 안은 과거 내보내기가 안 바뀌는 대신 11-04가 `기타 4`로 남고 표기 경로가 둘이 된다.
 
 **1. 새 파일 `src/lib/cardio.ts`**
 
@@ -315,7 +334,7 @@ export function cardioText(c: CardioRecord): string
 
 | 파일 | 변경 |
 |---|---|
-| `FinishSheet.tsx` · `SessionDetailScreen.tsx` | 지역 상수 삭제, `CARDIO_TYPES.map((t) => t.name)`. 글 칸 `aria-label="유산소 강도"`, `placeholder={intensityHintFor(종류)}` |
+| `src/components/FinishSheet.tsx` · `src/screens/SessionDetailScreen.tsx` | 지역 상수 삭제, `CARDIO_TYPES.map((t) => t.name)`. 글 칸 `aria-label="유산소 강도"`, `placeholder={intensityHintFor(종류)}` |
 | `exportMarkdown.ts` | `유산소: ${cardioText(session.cardio)}` |
 | `HistoryScreen.tsx:152` | `` ` · ${cardioText(session.cardio)}` `` |
 | `SummaryScreen.tsx:282-291` | `row-meta`에 `cardioText`, `row-sub`(메모) 삭제 |
@@ -386,6 +405,7 @@ export function cardioText(c: CardioRecord): string
   | ① | `export.test.ts:141` | `유산소: 마이마운틴 25/3.8 · 20분` → `유산소: 마이마운틴 · 강도 25/3.8 · 20분` | LL4 |
   | ② | `v113.test.ts:960`, `:966`, `:993` | `유산소: 유산소 마이마운틴 · 30분` → `유산소: 유산소 · 강도 마이마운틴 · 30분` (픽스처의 `note`가 강도 자리로 간다. 픽스처는 고치지 않는다) | LL4 |
   | ③ | `v113.test.ts:1037` 허용 접두사 | `유산소: 유산소 마이마운틴` → `유산소: 유산소 · 강도 마이마운틴` | LL4 |
+  | ④ | `uiConsistency.test.ts:88-89`, `:95` (X9) | `:88-89`의 옛 식 단언 둘(`current.trim() !== ''`, `current !== NO_COMPENSATION`) → `expect(src).toMatch(/\{hasCompensation\(current\) &&/)` 하나. `:95`의 조건 추출 정규식은 `current`로 시작하는 식만 잡아 새 식에서는 빈 문자열로 헛돈다 → `/\{([^{}]*\bcurrent\b[^{}]*?) &&\s*\(\s*<button/`로 바꾸고 `expect(cond).not.toBe('')`를 더한다. `NO_COMPENSATION`이 `'없음'`이라는 셋째 단언은 그대로 | LL1 |
 
 - **새 스캔 결함 복원 확인:** `cp` 백업 뒤 결함을 되살려 실패를 보고 되돌린다(`cmp`로 같음 확인). 최소:
   ① `progression.ts`를 `(args.compensation ?? NO_COMPENSATION) !== NO_COMPENSATION`으로 복원 → LL1 스캔·`''` 단언 실패
@@ -397,9 +417,11 @@ export function cardioText(c: CardioRecord): string
   ⑦ `sessionTailLines`에서 세트 0 통증 줄 삭제 → LL3 `통증(작업 세트 없음)` 실패
   ⑧ `FinishSheet.tsx`에 지역 `CARDIO_TYPES` 복원 → LL4 스캔 실패
   ⑨ `cardioText`를 `${type} ${note} · ${minutes}분`으로 → LL4 `기타 · 강도 4` 실패
+  ⑩ `judgeProgression`의 통증 분기를 `sets.length === 0` 검사 앞으로 옮겨 `from` 없이 hold를 내게 → LL2 `judgeProgression({ sets: [], pain: true })`·기록 없는 종목 단언 실패
+  ⑪ `CompensationSheet.tsx:100`을 `{(selected.length > 0 || hasCompensation(current)) && (`로 → `uiConsistency` X9 실패(수정 ④의 정규식이 헛돌지 않는지 확인)
 - **과거 판정 불변 확인 절** (DEV-RECORD). 범위는 테스트 안에 고정한 루틴(배포 `routine-v2.4.json`)·Phase·픽스처로 한정한다고 첫 줄에 적는다:
   ① `GG1_GOLDEN`·`JJ_BUILD_GOLDEN`·`JJ_EXPORT_NORMAL_BEFORE`·`LL_VERDICT_BEFORE` 일치 (LL0 커밋 해시)
-  ② 기존 테스트 수정 ①~③의 diff를 붙인다
+  ② 기존 테스트 수정 ①~④의 diff를 붙인다
   ③ `LL_EXPORT_BEFORE`와 새 출력의 diff가 유산소 두 줄뿐이다 (diff 전문을 붙인다)
   ④ 바뀌는 것: "과거 판정 불변" 표의 자리
 - 완료 후 `docs/DEV-RECORD-v1.14.md` (맨 위 "이 환경에서 확인된 제약"은 v1.13 목록을 이어받는다). "배포 영향" 절에 두 줄을 남기고 PR 본문 맨 위에도 넣는다:
@@ -412,33 +434,49 @@ export function cardioText(c: CardioRecord): string
 
 ---
 
-## 사람이 정할 것
+## 검토 반영 기록 (2026-11-10)
 
-**1. 통증 칸을 만들 것인가**
-- **A (추천)**: LL2·LL3대로 만든다. 통증이 없는 날은 입력이 늘지 않는다(기본 없음). 통증이 있던 날만 한 번 누르고 메모를 적는다.
-- B: 만들지 않는다. LL1과 보상작용 시트 안내 문구만 넣고, 통증은 세션 메모에 적는다. 증량 보류가 안 되므로 이슈의 성공 기준 둘째 줄을 못 채운다.
+검토: Codex `.reports/v1.14-codex.md`("수정 필요") · Antigravity `.reports/v1.14-antigravity.md`("수정 필요"). 둘 다 커밋 `cb069ed` 기준. 지적마다 코드를 직접 확인했다. Codex는 네트워크 제한으로 이슈 #24 본문을 읽지 못하고 `FIELD-REPORT-2026-11-04.md` 7절로 검토했다.
 
-**2. 연속 통증 경고**
-- **A (추천)**: 홈 카드 줄은 만들지 않는다. 그 종목 카드의 칩이 `통증 2세션 연속 — {메모} · 증량 보류`로 말한다.
-- B: A에 더해 홈 카드에 한 줄(`통증 연속 — 레그 컬 2세션`). 전 종목을 훑는 함수 하나와, KK3·KK4 줄과 합쳐 세 줄이 될 때의 순서 규칙이 더 든다. 고르면 LL5로 설계한다.
-- C: 연속 횟수도 세지 않는다. 칩은 늘 `지난번 통증`이다.
+### 반영
 
-**3. 보상작용 자유 입력에 적은 글의 판정**
-- **A (추천)**: 지금처럼 "적으면 있음"으로 두고 시트에 안내 문구를 넣는다. 앱은 글을 해석하지 않는다. 08-28 같은 글은 통증 칸이 받는다. 과거 08-28 기록은 `보상작용 있음`으로 남는다(원하면 기록 탭에서 직접 통증 칸으로 옮긴다).
-- B: 자유 입력 옆에 "증량 판정에 넣지 않기" 구분을 더한다. 저장 필드와 누를 것이 하나씩 는다.
+| 지적 | 확인한 코드 | 반영 |
+|---|---|---|
+| Codex 1 [높음] — 통증만 적은 첫 세션(그 종목의 작업 세트 기록이 없음)의 증량 판정이 정의되지 않았다 | `progression.ts:78` `sets.length === 0`이면 Phase·통증보다 먼저 `undefined` · `prefill.ts:122-126`, `:153`, `:169-172` `history`·`lastSets`는 작업 세트를 한 세션만 | Codex의 첫째 안(표시만, 판정 생략)으로 명시했다. LL2 3번에 `buildPrefill` 세 경우 표, LL2 검증 세 줄(기록 없는 종목·`sets: []`·`progressionVerdicts` 키 없음), LL3 칩 표 한 줄과 검증 두 줄, 결함 복원 ⑩ |
+| Antigravity 고칠 것 1 — LL1이 `CompensationSheet.tsx:100`을 바꾸면 `uiConsistency.test.ts` X9가 깨지는데 "기존 테스트 수정" 목록에 없다 | `uiConsistency.test.ts:88-89`(옛 식 단언 둘), `:95`(조건 추출 정규식) · `CompensationSheet.tsx:100`. 실제 소스에 새 식을 넣어 돌려 봤다: `:88-89`는 실패하고, `:95`는 실패가 아니라 **빈 문자열을 잡아 그냥 통과**한다 | 기존 테스트 수정 ④(LL1), LL1 설계 2번·검증 한 줄, 결함 복원 ⑪, 불변 확인 절 ② `①~④`. 검토자 제안에 더해 `:95`에 `expect(cond).not.toBe('')`를 넣어 헛도는 통과를 막았다 |
+| Antigravity 경미 1 — `SessionDetailScreen.tsx`는 `src/screens/`에 있다 | `src/screens/SessionDetailScreen.tsx` · `src/components/FinishSheet.tsx` | LL4 진단·"쓰는 곳" 표에 전체 경로 |
+| Antigravity 경미 2 — `applyPain`을 `{ ...entry, pain: undefined }`로 쓰면 키가 남아 `'pain' in entry`가 `true`다 | `sessionOps.ts:199-204` `applySensoryNote`·`:176-182` `applySubstitute` 모두 `x: undefined`로 둔다 | 모순 지적은 맞다. 설계("키를 지운다")·검증(`'pain' in`)이 같은 PLAN의 `applySubstitute`(`pain: undefined`)와도 어긋나 있었다. **푸는 방향은 검토자 제안(구조분해로 키 삭제)과 반대로 잡았다**: 기준을 `hasPain` 하나로 두고 키 유무는 묻지 않는다(LL2 2·4번, 검증의 `'pain' in`·"키 없음"을 `hasPain === false`로). 이유: 기존 연산의 관례와 같고, 키 유무가 판정에 끼면 "통증 있음"을 묻는 길이 둘이 된다 |
 
-**4. 유산소 강도를 어디에 저장하나**
-- **A (추천)**: 기존 `cardio.note`를 강도로 읽는다. 새 필드가 없다. 대신 강도를 적은 과거 기록의 내보내기에 `강도`가 붙는다(11-04 `기타 4 · 16분` → `기타 · 강도 4 · 16분`).
-- B: 새 필드 `intensity`를 만들고 과거 `note`는 옛 모양 그대로 낸다. 과거 내보내기는 안 바뀌지만 11-04는 `기타 4`로 남고, 표기 경로가 둘이 된다.
-- C: 강도 표기를 바꾸지 않는다. 상수 통합과 천국의 계단 추가만 한다.
+설계자가 같이 고친 것: LL1 진단의 "다섯 곳"을 "다섯 파일 여섯 줄"로(개요 표의 "6곳"과 맞춤) · LL3 범위 제외에 "요약·종목 기록 화면은 세트 0 통증을 싣지 않는다"(`SummaryScreen.tsx:21` · `history.ts:91`).
 
-**5. 문구와 목록** (추천안 원문. 고칠 곳이 있으면 고쳐 주세요)
+### 기각
+
+| 지적 | 이유 |
+|---|---|
+| Codex 1의 둘째 안 — 판정 모델이 무게 없는 통증 보류를 표현하게 한다 | hold는 `from: number`가 필수이고(`progression.ts:58`) 요약·내보내기가 그 무게를 읽는다. 타입과 읽는 곳을 다 바꿔 얻는 것은 칩의 ` · 증량 보류`뿐이다. 작업 세트 기록이 없는 종목은 증량 제안도 원래 없어서 막을 증량이 없다 |
+
+**두 검토자가 다르게 본 지점 — 기록 없는 첫 세션의 세트 0 통증.** Antigravity는 "설계에 포함됨"(칩이 뜨고 `judgeProgression`이 `undefined`라 부당 증량이 없다), Codex는 "정의되지 않음"으로 봤다. 코드로는 동작이 Antigravity가 읽은 대로다(`progression.ts:78`이 통증 분기보다 앞). 다만 PLAN에는 그 문장이 없어 판정 순서 목록의 "0 대상 아님"에서 유추해야 했고, 검증은 S1 기록이 있는 경우뿐이었다. 문서의 결함이라는 점에서 Codex가 맞다. 동작은 그대로 두고 명시와 검증을 더했다.
+X9 누락은 Antigravity만 짚었고 코드로 확인돼 반영했다.
+
+### "사람이 정할 것" — 다섯 건 모두 추천안 A로 확정
+
+Antigravity는 다섯 건 모두 A에 동의했고(조건 없음), Codex는 의견 없음(반대 없음)이다. 본문은 처음부터 A로 쓰여 있어 설계가 바뀐 곳은 없다.
+
+| # | 항목 | 확정 | 택하지 않은 안 |
+|---|---|---|---|
+| 1 | 통증 칸을 만들 것인가 | 만든다(LL2·LL3). 기본값이 없음이라 통증이 없는 날은 입력이 늘지 않는다 | 만들지 않고 LL1 + 시트 안내만(증량 보류가 안 된다) |
+| 2 | 연속 통증 경고 | 홈 카드 줄은 만들지 않는다. 그 종목 카드의 칩이 연속 횟수를 말한다 | 홈 카드 한 줄 추가 · 연속 횟수를 세지 않기 |
+| 3 | 보상작용 자유 입력에 적은 글 | 지금처럼 "적으면 있음" + 시트 안내 문구. 앱은 글을 해석하지 않는다. 08-28 기록은 `보상작용 있음`으로 남는다(원하면 기록 탭에서 직접 통증 칸으로 옮긴다) | 자유 입력 옆 "증량 판정에 넣지 않기" 구분 |
+| 4 | 유산소 강도 저장 | 기존 `cardio.note`를 강도로 읽는다. 강도를 적은 과거 기록의 내보내기에 `강도`가 붙는다(11-04 `기타 4 · 16분` → `기타 · 강도 4 · 16분`) | 새 필드 `intensity` · 강도 표기를 안 바꾸기 |
+| 5 | 문구와 목록 | 아래 표 그대로 | — |
+
+확정한 문구 원문:
 
 | 자리 | 문구 |
 |---|---|
 | 카드 통증 칸 | 제목 `통증` · 버튼 `없음` / `있음` · 메모 안내값 `부위·상황 (예: 왼쪽 발목 찌릿)` |
 | 접힌 카드 칩 | `통증` |
-| 다음 세션 카드 칩 | `지난번 통증 — 왼쪽 발목 찌릿 · 증량 보류` / `통증 2세션 연속 — 왼쪽 발목 찌릿 · 증량 보류` |
+| 다음 세션 카드 칩 | `지난번 통증 — 왼쪽 발목 찌릿 · 증량 보류` / `통증 2세션 연속 — 왼쪽 발목 찌릿 · 증량 보류` (B그룹·기록 없는 종목은 ` · 증량 보류` 없이) |
 | 보류 사유 (내보내기·요약) | `다음: 40kg 유지 (통증 있음)` |
 | 내보내기 종목 줄 | `통증: 있음 — 첫 세트 왼쪽 발목 찌릿` (메모 없으면 `통증: 있음`) |
 | 내보내기, 세트 없이 통증만 | `통증(작업 세트 없음): 레그 컬 — 첫 반복에서 왼쪽 발목` |
