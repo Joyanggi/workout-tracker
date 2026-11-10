@@ -1,5 +1,5 @@
 import type { RecordKey, Session } from '../types'
-import { NO_COMPENSATION } from '../types'
+import { hasCompensation } from './compensation'
 import { completedSessions, doneSets } from './derive'
 
 /**
@@ -52,7 +52,7 @@ export function compensationWatches(sessions: Session[]): CompensationWatch[] {
       if (list.length >= WATCH_WINDOW) continue
       list.push({
         compensation: entry.compensation,
-        had: entry.compensation.trim() !== '' && entry.compensation !== NO_COMPENSATION,
+        had: hasCompensation(entry.compensation),
       })
       perKey.set(entry.recordKey, list)
     }
@@ -91,9 +91,7 @@ export function compensationEntriesOf(session: Session): { recordKey: RecordKey;
   return session.entries
     .filter(
       (e) =>
-        doneSets(e).length > 0 &&
-        e.compensation.trim() !== '' &&
-        e.compensation !== NO_COMPENSATION,
+        doneSets(e).length > 0 && hasCompensation(e.compensation),
     )
     .map((e) => ({ recordKey: e.recordKey, note: e.compensation }))
 }

@@ -5,6 +5,7 @@ import {
   applyCompensation,
   applyPatchSet,
   applyRemoveSet,
+  applyPain,
   applySensoryNote,
   applySensoryScore,
   applyAddExercise,
@@ -63,6 +64,7 @@ interface SessionState {
   setSensoryScore: (recordKey: RecordKey, score: 0 | 1 | 2 | 3) => void
   setSensoryNote: (recordKey: RecordKey, note: string) => void
   setCompensation: (recordKey: RecordKey, compensation: string) => void
+  setPain: (recordKey: RecordKey, pain: { note: string } | undefined) => void
   setNote: (note: string) => void
   setCardio: (cardio: CardioRecord | undefined) => void
 }
@@ -135,6 +137,8 @@ export const useSessionStore = create<SessionState>((set, get) => {
 
     setCompensation: (recordKey, compensation) =>
       update((s) => applyCompensation(s, recordKey, compensation)),
+
+    setPain: (recordKey, pain) => update((s) => applyPain(s, recordKey, pain)),
 
     setNote: (note) => update((s) => ({ ...s, sessionNote: note || undefined })),
 

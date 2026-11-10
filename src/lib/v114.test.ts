@@ -1,0 +1,521 @@
+import { describe, expect, it } from 'vitest'
+import { exportMarkdown } from './exportMarkdown'
+import { hasCompensation } from './compensation'
+import { holdReasonText, judgeProgression, progressionVerdicts, type ProgressionVerdict } from './progression'
+import { buildPrefill, defaultSetFor } from './prefill'
+import { hasPain, lastPainChipText, painText, painTrail } from './pain'
+import { exerciseHistory } from './history'
+import { applyPain, applySubstitute } from './sessionOps'
+import { applyDayChange } from './dayChange'
+import { CARDIO_TYPES, cardioText, intensityHintFor } from './cardio'
+import { scaleFor } from './weightScale'
+import { ROUTINE, completedSession } from './testFixtures'
+import EXERCISES from '../data/exercises.json'
+import { makeRecordKey } from '../types'
+import type { Exercise, Phase, Session } from '../types'
+
+/**
+ * v1.14 LL — 통증은 통증 칸에, 유산소는 종류와 강도로.
+ * 이 파일의 describe는 작업별(LL0…)로 이어 붙는다.
+ * LL0 골든은 v1.13 코드의 출력을 고정한다. 이후 고치지 않는다.
+ */
+
+const catalog = new Map<string, Exercise>((EXERCISES as Exercise[]).map((e) => [e.id, e]))
+const PHASE: Phase = 1
+// v111.test.ts의 같은 이름을 import하지 않는다(테스트 파일 import는 그 describe를 다시 돌린다)
+const ASSIST_KEY = makeRecordKey('assisted-pullup', 'd2')
+const ASSIST_ORIGIN = ROUTINE.days.find((d) => d.id === 'd2')!.exercises.find((e) => e.exerciseId === 'lat-pulldown')!
+
+// ─── LL0 픽스처 (v113.test.ts를 import하지 않는다) ─────────────────
+function llSessions(): Session[] {
+  const s0803 = completedSession({ dayId: 'd1', date: '2026-08-03', weight: 40 })
+  for (const e of s0803.entries) for (const x of e.sets) x.done = false
+  s0803.cardio = { type: '마이마운틴', minutes: 30 }
+
+  const s0826 = completedSession({ dayId: 'd1', date: '2026-08-26', weight: 40 })
+  s0826.cardio = { type: '마이마운틴', minutes: 20, note: '25/3.8' }
+
+  const s0828 = completedSession({ dayId: 'd3', date: '2026-08-28', weight: 40 })
+  const curl = s0828.entries.find((e) => e.recordKey === makeRecordKey('leg-curl', 'd3'))!
+  curl.sets = [14, 10, 7].map((reps) => ({ weight: 40, reps, done: true, doneAt: s0828.startedAt }))
+  curl.compensation = '보상작용은 아니고 첫세트시 왼쪽 발목 굉장히 찌릿해서 횟수 못채움'
+
+  const s1104 = completedSession({ dayId: 'd1', date: '2026-11-04', weight: 40 })
+  s1104.cardio = { type: '기타', minutes: 16, note: '4' }
+
+  return [s0803, s0826, s0828, s1104]
+}
+
+function renderLl(): string {
+  return exportMarkdown({
+    sessions: llSessions(),
+    routine: ROUTINE,
+    catalog,
+    phase: PHASE,
+    range: { from: '2026-08-01', to: '2026-11-30' },
+  }).replace(/\[\d\d:\d\d–\d\d:\d\d, /g, '[시각, ')
+}
+
+function verdictsLl(): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const s of llSessions()) {
+    for (const [rk, v] of progressionVerdicts(s, ROUTINE, PHASE, undefined, catalog)) {
+      out[`${s.date}|${rk}`] = v
+    }
+  }
+  return out
+}
+
+/** v1.13 코드(394c7a8)로 뽑은 내보내기 전문. 시각은 `시각`으로 치환 */
+export const LL_EXPORT_BEFORE: string = "# 운동 기록 2026-08-01 ~ 2026-11-30\n\n> 간격 = 앞 세트 체크 ~ 이 세트 체크. **수행 시간이 포함되므로 순수 휴식이 아니다.**\n> 첫 세트는 앞이 없어 생략한다. (`—`는 그 세트에 타임스탬프가 없는 옛 기록)\n\n## 2026-08-03 (월) — 유산소만  [시각, 90분]\n유산소: 마이마운틴 30분\n\n\n## 2026-08-26 (수) — Day 1 Push  [시각, 90분]\n수행 순서: 인클라인 프레스 → 펙덱 플라이 → 체스트프레스 → 숄더프레스 → 레터럴 레이즈 → 리어델트 → 푸쉬다운\n\n### 인클라인 프레스 (D1/A) 40kg\n6 / 6 / 6 / 6\n간격: 0:00 / 0:00 / 0:00\n보상작용: 없음\n다음: 40kg 유지 (반복 상단(10회) 미달 — 4세트 중 0세트 도달)\n\n### 펙덱 플라이 (D1/B) 40kg\n12 / 12 / 12\n간격: 0:00 / 0:00\n보상작용: 없음\n\n### 체스트프레스 (D1/A) 40kg\n8 / 8 / 8\n간격: 0:00 / 0:00\n보상작용: 없음\n다음: 40kg 유지 (반복 상단(12회) 미달 — 3세트 중 0세트 도달)\n\n### 숄더프레스 (D1/A) 40kg\n8 / 8 / 8\n간격: 0:00 / 0:00\n보상작용: 없음\n다음: 40kg 유지 (반복 상단(12회) 미달 — 3세트 중 0세트 도달)\n\n### 레터럴 레이즈 (D1/B) 40kg\n12 / 12 / 12 / 12\n간격: 0:00 / 0:00 / 0:00\n보상작용: 없음\n\n### 리어델트 (D1/B) 40kg\n12 / 12\n간격: 0:00\n보상작용: 없음\n\n### 푸쉬다운 (D1/B) 40kg\n10 / 10 / 10\n간격: 0:00 / 0:00\n보상작용: 없음\n\n유산소: 마이마운틴 25/3.8 · 20분\n\n\n## 2026-08-28 (금) — Day 3 하체 + 코어  [시각, 90분]\n수행 순서: 레그 익스텐션 → 레그 컬 → 몬스터 글루트 → 힙 어덕션 → 크런치 → 데드버그\n\n### 레그 익스텐션 (D3/A) 40kg\n10 / 10 / 10\n간격: 0:00 / 0:00\n보상작용: 없음\n다음: 40kg 유지 (반복 상단(15회) 미달 — 3세트 중 0세트 도달)\n\n### 레그 컬 (D3/A) 40kg\n14 / 10 / 7\n간격: 0:00 / 0:00\n보상작용: 보상작용은 아니고 첫세트시 왼쪽 발목 굉장히 찌릿해서 횟수 못채움\n다음: 40kg 유지 (보상작용 있음)\n\n### 몬스터 글루트 (D3/B) 40kg\n15 / 15 / 15\n간격: 0:00 / 0:00\n보상작용: 없음\n\n### 힙 어덕션 (D3/B) 40kg\n15 / 15 / 15\n간격: 0:00 / 0:00\n보상작용: 없음\n\n### 크런치 (D3/core) 40kg\n10 / 10 / 10\n간격: 0:00 / 0:00\n보상작용: 없음\n\n### 데드버그 (D3/core) 40kg\n10 / 10\n간격: 0:00\n보상작용: 없음\n\n\n## 2026-11-04 (수) — Day 1 Push  [시각, 90분]\n수행 순서: 인클라인 프레스 → 펙덱 플라이 → 체스트프레스 → 숄더프레스 → 레터럴 레이즈 → 리어델트 → 푸쉬다운\n\n### 인클라인 프레스 (D1/A) 40kg\n6 / 6 / 6 / 6\n간격: 0:00 / 0:00 / 0:00\n보상작용: 없음\n다음: 40kg 유지 (반복 상단(10회) 미달 — 4세트 중 0세트 도달)\n\n### 펙덱 플라이 (D1/B) 40kg\n12 / 12 / 12\n간격: 0:00 / 0:00\n보상작용: 없음\n\n### 체스트프레스 (D1/A) 40kg\n8 / 8 / 8\n간격: 0:00 / 0:00\n보상작용: 없음\n다음: 40kg 유지 (반복 상단(12회) 미달 — 3세트 중 0세트 도달)\n\n### 숄더프레스 (D1/A) 40kg\n8 / 8 / 8\n간격: 0:00 / 0:00\n보상작용: 없음\n다음: 40kg 유지 (반복 상단(12회) 미달 — 3세트 중 0세트 도달)\n\n### 레터럴 레이즈 (D1/B) 40kg\n12 / 12 / 12 / 12\n간격: 0:00 / 0:00 / 0:00\n보상작용: 없음\n\n### 리어델트 (D1/B) 40kg\n12 / 12\n간격: 0:00\n보상작용: 없음\n\n### 푸쉬다운 (D1/B) 40kg\n10 / 10 / 10\n간격: 0:00 / 0:00\n보상작용: 없음\n\n유산소: 기타 4 · 16분\n"
+
+/** v1.13 코드로 뽑은 세션별 증량 판정 (날짜|recordKey → verdict) */
+export const LL_VERDICT_BEFORE: Record<string, unknown> = {"2026-08-26|incline-chest-press@d1":{"kind":"hold","from":40,"reason":{"kind":"reps","reached":0,"total":4,"repMax":10}},"2026-08-26|flat-chest-press@d1":{"kind":"hold","from":40,"reason":{"kind":"reps","reached":0,"total":3,"repMax":12}},"2026-08-26|shoulder-press@d1":{"kind":"hold","from":40,"reason":{"kind":"reps","reached":0,"total":3,"repMax":12}},"2026-08-28|leg-extension@d3":{"kind":"hold","from":40,"reason":{"kind":"reps","reached":0,"total":3,"repMax":15}},"2026-08-28|leg-curl@d3":{"kind":"hold","from":40,"reason":{"kind":"compensation"}},"2026-11-04|incline-chest-press@d1":{"kind":"hold","from":40,"reason":{"kind":"reps","reached":0,"total":4,"repMax":10}},"2026-11-04|flat-chest-press@d1":{"kind":"hold","from":40,"reason":{"kind":"reps","reached":0,"total":3,"repMax":12}},"2026-11-04|shoulder-press@d1":{"kind":"hold","from":40,"reason":{"kind":"reps","reached":0,"total":3,"repMax":12}}}
+
+/** LL4가 바꾼 유산소 두 줄만 v1.13 표기로 되돌린다 */
+const llCardioAsV113 = (md: string) =>
+  md
+    .replace('유산소: 마이마운틴 · 강도 25/3.8 · 20분', '유산소: 마이마운틴 25/3.8 · 20분')
+    .replace('유산소: 기타 · 강도 4 · 16분', '유산소: 기타 4 · 16분')
+
+describe('LL0 골든 — v1.13 출력', () => {
+  it('LL_SESSIONS는 네 세션', () => {
+    expect(llSessions().map((s) => s.date)).toEqual(['2026-08-03', '2026-08-26', '2026-08-28', '2026-11-04'])
+  })
+  it('LL_EXPORT_BEFORE: 지금 내보내기 = 골든', () => {
+    // LL4(PLAN-v1.14): 유산소 두 줄만 새 표기라 옛 표기로 되돌려 견준다(기계적 결과)
+    expect(llCardioAsV113(renderLl())).toBe(LL_EXPORT_BEFORE)
+  })
+  it('LL_VERDICT_BEFORE: 지금 증량 판정 = 골든', () => {
+    expect(verdictsLl()).toEqual(LL_VERDICT_BEFORE)
+  })
+})
+
+// ─── LL1 — "보상작용 있음" 판정 한 곳 ──────────────────────────────
+
+const LL1_RE = ROUTINE.days.find((d) => d.id === 'd1')!.exercises.find((e) => e.exerciseId === 'incline-chest-press')!
+const ll1Judge = (compensation: string | undefined) =>
+  judgeProgression({
+    routine: ROUTINE,
+    routineExercise: LL1_RE,
+    phase: PHASE,
+    sets: [10, 10, 10, 10].map((reps) => ({ weight: 30, reps })),
+    compensation,
+  })
+
+const ll1Sources = import.meta.glob('/src/**/*.{ts,tsx}', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>
+
+describe('LL1', () => {
+  it('hasCompensation: 없음·빈 문자열·공백·undefined는 false', () => {
+    for (const v of ['없음', '', '  ', ' 없음 ', undefined]) expect(hasCompensation(v), String(v)).toBe(false)
+  })
+  it('hasCompensation: 적힌 값은 true', () => {
+    for (const v of ['승모 개입', '없음, 반동']) expect(hasCompensation(v), v).toBe(true)
+  })
+  it("judgeProgression: 전 세트 상단 + compensation '' → up (전: hold compensation)", () => {
+    expect(ll1Judge('')?.kind).toBe('up')
+    expect(ll1Judge('없음')?.kind).toBe('up')
+  })
+  it("judgeProgression: '승모 개입' → hold compensation", () => {
+    expect(ll1Judge('승모 개입')).toMatchObject({ kind: 'hold', reason: { kind: 'compensation' } })
+  })
+  it('LL_VERDICT_BEFORE 일치 (08-28 레그 컬은 그대로 hold compensation)', () => {
+    expect(verdictsLl()).toEqual(LL_VERDICT_BEFORE)
+    expect(LL_VERDICT_BEFORE['2026-08-28|leg-curl@d3']).toMatchObject({ reason: { kind: 'compensation' } })
+  })
+  it('소스 스캔: compensation.ts 밖에 NO_COMPENSATION 직접 비교가 없다', () => {
+    const offenders = Object.entries(ll1Sources)
+      .filter(([p]) => !p.includes('.test.') && !p.endsWith('/src/lib/compensation.ts'))
+      .filter(([, src]) => {
+        const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+        return /[!=]==?\s*NO_COMPENSATION/.test(code)
+      })
+      .map(([p]) => p)
+    expect(offenders).toEqual([])
+  })
+})
+
+// ─── LL2 — 통증 칸: 저장·입력·증량 보류 ───────────────────────────
+
+const ICP = makeRecordKey('incline-chest-press', 'd1')
+const ICP_RE = LL1_RE // 4세트 · 상단 10
+const ll2Judge = (over: Partial<Parameters<typeof judgeProgression>[0]> = {}) =>
+  judgeProgression({
+    routine: ROUTINE,
+    routineExercise: ICP_RE,
+    phase: PHASE,
+    sets: [10, 10, 10, 10].map((reps) => ({ weight: 30, reps })),
+    ...over,
+  })
+
+/** d1 완료 세션. `pain`이면 incline-chest-press entry에 통증, `noSets`면 그 종목 세트를 모두 안 한 것으로 */
+function ll2Session(
+  date: string,
+  opts: { pain?: { note: string }; noSets?: boolean; weight?: number; mode?: Session['mode'] } = {},
+): Session {
+  const s = completedSession({
+    dayId: 'd1',
+    date,
+    fullReps: true,
+    weight: opts.weight ?? 40,
+    mode: opts.mode,
+  })
+  const e = s.entries.find((x) => x.recordKey === ICP)!
+  if (opts.noSets) for (const x of e.sets) x.done = false
+  if (opts.pain) e.pain = opts.pain
+  return s
+}
+const ll2Prefill = (sessions: Session[], key = ICP, re = ICP_RE) =>
+  buildPrefill({ sessions, routine: ROUTINE, recordKey: key, routineExercise: re, phase: PHASE })
+
+describe('LL2', () => {
+  it('judgeProgression: 전 세트 상단 + 통증 → hold pain', () => {
+    expect(ll2Judge({ pain: true })).toMatchObject({ kind: 'hold', from: 30, reason: { kind: 'pain' } })
+    expect(holdReasonText({ kind: 'pain' })).toBe('통증 있음')
+  })
+  it('judgeProgression: 통증 + 보상작용 → pain (통증이 먼저)', () => {
+    expect(ll2Judge({ pain: true, compensation: '승모 개입' })).toMatchObject({ reason: { kind: 'pain' } })
+  })
+  it('judgeProgression: 통증 + 반복 미달 → pain', () => {
+    const sets = [10, 10, 10, 6].map((reps) => ({ weight: 30, reps }))
+    expect(ll2Judge({ pain: true, sets })).toMatchObject({ reason: { kind: 'pain' } })
+  })
+  it('judgeProgression: Phase 0 + allowProgressionInPhase0 false + 통증 → phase0', () => {
+    const routine = { ...ROUTINE, rules: { ...ROUTINE.rules, allowProgressionInPhase0: false } }
+    expect(ll2Judge({ routine, phase: 0, pain: true })).toMatchObject({ reason: { kind: 'phase0' } })
+  })
+  it("progressionVerdicts: 통증 { note: '' }(메모 없음)도 hold pain", () => {
+    const s = ll2Session('2026-09-01', { pain: { note: '' } })
+    const v = progressionVerdicts(s, ROUTINE, PHASE, undefined, catalog).get(ICP)
+    expect(v).toMatchObject({ kind: 'hold', reason: { kind: 'pain' } })
+  })
+  it('judgeProgression({ sets: [], pain: true }) → undefined (A그룹이어도)', () => {
+    expect(ll2Judge({ sets: [], pain: true })).toBeUndefined()
+  })
+  it('B그룹 entry에 통증 → progressionVerdicts에 그 키가 없다', () => {
+    const bEx = ROUTINE.days.flatMap((d) => d.exercises.map((e) => ({ d, e }))).find((x) => x.e.group !== 'A')!
+    const s = completedSession({ dayId: bEx.d.id, date: '2026-09-01', fullReps: true })
+    const key = s.entries.find((e) => e.recordKey.startsWith(bEx.e.exerciseId + '@'))!.recordKey
+    const painted = applyPain(s, key, { note: '' })
+    expect(progressionVerdicts(painted, ROUTINE, PHASE, undefined, catalog).has(key)).toBe(false)
+  })
+
+  it('buildPrefill: 직전 세션 전 세트 상단 + 통증 → progression 없음 · 무게 유지 · lastVerdict pain · streak 1', () => {
+    const p = ll2Prefill([ll2Session('2026-09-01', { pain: { note: '발목' } })])
+    expect(p.progression).toBeUndefined()
+    expect(defaultSetFor(p, 0, ICP_RE).weight).toBe(40)
+    expect(p.lastVerdict).toMatchObject({ kind: 'hold', reason: { kind: 'pain' } })
+    expect(p.lastPain).toEqual({ date: '2026-09-01', note: '발목', streak: 1 })
+  })
+  it('세트 0 통증: S2 통증만 → hold pain, from은 S1 무게, progression 없음 · S2가 없으면 up', () => {
+    const s1 = ll2Session('2026-09-01', { weight: 40 })
+    const s2 = ll2Session('2026-09-03', { noSets: true, pain: { note: '' } })
+    const p = ll2Prefill([s1, s2])
+    expect(p.lastVerdict).toMatchObject({ kind: 'hold', from: 40, reason: { kind: 'pain' } })
+    expect(p.progression).toBeUndefined()
+    expect(ll2Prefill([s1]).lastVerdict?.kind).toBe('up')
+  })
+  it('기록 없는 종목의 세트 0 통증: lastVerdict undefined · streak 1 · hasHistory false · 둘 이어지면 streak 2', () => {
+    const a = ll2Session('2026-09-01', { noSets: true, pain: { note: '' } })
+    const p = ll2Prefill([a])
+    expect(p.lastVerdict).toBeUndefined()
+    expect(p.progression).toBeUndefined()
+    expect(p.lastPain?.streak).toBe(1)
+    expect(p.hasHistory).toBe(false)
+    expect(p.lastSets).toEqual([])
+    expect(p.bestBySet).toEqual([])
+    const clean = ll2Session('2026-09-01', { noSets: true })
+    expect(p.startEstimate).toBe(ll2Prefill([clean]).startEstimate)
+    const b = ll2Session('2026-09-03', { noSets: true, pain: { note: '' } })
+    const p2 = ll2Prefill([a, b])
+    expect(p2.lastPain?.streak).toBe(2)
+    expect(p2.lastVerdict).toBeUndefined()
+  })
+  it('progressionVerdicts: 세트 0 통증 entry의 키가 없다', () => {
+    const s = ll2Session('2026-09-01', { noSets: true, pain: { note: '' } })
+    expect(progressionVerdicts(s, ROUTINE, PHASE, undefined, catalog).has(ICP)).toBe(false)
+  })
+  it('통증 다음 세션에 통증 없이 수행 → 그다음 프리필은 통증과 무관 (lastPain 없음)', () => {
+    const p = ll2Prefill([ll2Session('2026-09-01', { pain: { note: '' } }), ll2Session('2026-09-03')])
+    expect(p.lastPain).toBeUndefined()
+    expect(p.lastVerdict?.kind).toBe('up')
+  })
+  it('디로드·복귀: 디로드 세션(세트 절반, 전 세트 상단) + 통증 → 다음 프리필 사유는 pain (sets 아님)', () => {
+    const s = ll2Session('2026-09-01', { pain: { note: '' }, mode: 'deload' })
+    const e = s.entries.find((x) => x.recordKey === ICP)!
+    e.sets = e.sets.slice(0, 2)
+    expect(ll2Prefill([s]).lastVerdict).toMatchObject({ reason: { kind: 'pain' } })
+  })
+  it('대체: 대체 entry 통증 → 대체 종목 라인만 보류, 원 종목 라인은 lastPain 없음 · applySubstitute 뒤 hasPain false', () => {
+    const subKey = makeRecordKey('flat-chest-press', 'd1')
+    const s = ll2Session('2026-09-01')
+    const e = s.entries.find((x) => x.recordKey === ICP)!
+    e.recordKey = subKey
+    e.substituteFor = ICP
+    e.pain = { note: '' }
+    const flatRe = ROUTINE.days.find((d) => d.id === 'd1')!.exercises.find((x) => x.exerciseId === 'flat-chest-press')!
+    expect(ll2Prefill([s], subKey, flatRe).lastPain?.streak).toBe(1)
+    expect(ll2Prefill([s], ICP).lastPain).toBeUndefined()
+
+    const fresh = completedSession({ dayId: 'd1', date: '2026-09-05' })
+    fresh.entries.find((x) => x.recordKey === ICP)!.sets.forEach((x) => (x.done = false))
+    const painted = applyPain(fresh, ICP, { note: '' })
+    const next = makeRecordKey('dumbbell-press', 'd1')
+    const after = applySubstitute(painted, ICP, { recordKey: next, setCount: 3, weight: 10, reps: 10 })
+    const row = after.entries.find((x) => x.recordKey === next)!
+    expect(row).toBeDefined()
+    expect(hasPain(row)).toBe(false)
+  })
+  it('어시스티드: inverse 종목 전 세트 상단 + 통증 → hold pain, from은 수행 무게', () => {
+    const v = judgeProgression({
+      routine: ROUTINE,
+      routineExercise: { ...ASSIST_ORIGIN, exerciseId: 'assisted-pullup' },
+      phase: PHASE,
+      sets: [12, 12, 12, 12].map((reps) => ({ weight: 30, reps })),
+      pain: true,
+      scale: { ...scaleFor(undefined, ASSIST_KEY, ROUTINE.rules.weightIncrementKg), inverse: true },
+    })
+    expect(v).toMatchObject({ kind: 'hold', from: 30, reason: { kind: 'pain' } })
+  })
+  it('얹은 종목: extra entry 통증 → 그 종목 본 라인의 다음 프리필이 보류', () => {
+    const s = ll2Session('2026-09-01', { pain: { note: '' } })
+    s.entries.find((x) => x.recordKey === ICP)!.extra = true
+    expect(ll2Prefill([s]).lastVerdict).toMatchObject({ kind: 'hold', reason: { kind: 'pain' } })
+  })
+  it('Day 변경: applyDayChange 뒤에도 pain이 그대로다', () => {
+    const s = ll2Session('2026-09-01', { pain: { note: '발목' } })
+    const moved = applyDayChange(s, ROUTINE, 'd2')
+    expect(moved.entries.filter((x) => hasPain(x)).map((x) => x.pain)).toEqual([{ note: '발목' }])
+  })
+  it('applyPain: 설정 → { note } · undefined → hasPain false, painText undefined · 없는 recordKey → 세션 그대로', () => {
+    const s = ll2Session('2026-09-01')
+    const set = applyPain(s, ICP, { note: '무릎' })
+    expect(set.entries.find((x) => x.recordKey === ICP)!.pain).toEqual({ note: '무릎' })
+    const e = applyPain(set, ICP, undefined).entries.find((x) => x.recordKey === ICP)!
+    expect(hasPain(e)).toBe(false)
+    expect(painText(e)).toBeUndefined()
+    expect(applyPain(s, makeRecordKey('nope', 'd1'), { note: 'x' })).toEqual(s)
+  })
+  it("hasPain: pain 키 없음·pain: undefined → false · { note: '' } → true · painText", () => {
+    expect(hasPain({})).toBe(false)
+    expect(hasPain({ pain: undefined })).toBe(false)
+    expect(hasPain({ pain: { note: '' } })).toBe(true)
+    expect(painText({ pain: { note: '' } })).toBe('있음')
+    expect(painText({ pain: { note: '  발목 ' } })).toBe('있음 — 발목')
+  })
+  it('painTrail: 통증·통증·정상 → streak 2 · 통증·(안 한 세션)·통증 → streak 2 · 정상·통증 → undefined · 진행 중은 세지 않는다', () => {
+    const P = { note: '' }
+    const a = ll2Session('2026-09-01')
+    const b = ll2Session('2026-09-03', { pain: P })
+    const c = ll2Session('2026-09-05', { pain: P })
+    expect(painTrail([a, b, c], ICP)?.streak).toBe(2)
+    const gap = completedSession({ dayId: 'd1', date: '2026-09-04', onlyExercises: ['flat-chest-press'] })
+    expect(painTrail([b, gap, c], ICP)?.streak).toBe(2)
+    expect(painTrail([c, ll2Session('2026-09-07')], ICP)).toBeUndefined()
+    const live = ll2Session('2026-09-09', { pain: P })
+    delete (live as { endedAt?: string }).endedAt
+    expect(painTrail([a, live], ICP)).toBeUndefined()
+  })
+  it('LL_VERDICT_BEFORE 일치 (통증 없는 기록의 판정 불변)', () => {
+    expect(verdictsLl()).toEqual(LL_VERDICT_BEFORE)
+  })
+  it('소스 스캔: pain.ts 밖의 테스트 아닌 파일에 .pain !== undefined · .pain === undefined · !entry.pain 이 없다', () => {
+    const offenders = Object.entries(ll1Sources)
+      .filter(([p]) => !p.includes('.test.') && !p.endsWith('/src/lib/pain.ts'))
+      .filter(([, src]) => {
+        const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+        return /\.pain\s*[!=]==?\s*undefined|!\s*entry\.pain\b/.test(code)
+      })
+      .map(([p]) => p)
+    expect(offenders).toEqual([])
+  })
+})
+
+// ─── LL3 ─────────────────────────────────────────────────
+const ll3Verdict = (reason: 'pain' | 'phase0'): ProgressionVerdict =>
+  reason === 'pain'
+    ? { kind: 'hold', from: 30, reason: { kind: 'pain' } }
+    : { kind: 'hold', from: 30, reason: { kind: 'phase0' } }
+const ll3Export = (sessions: Session[]) =>
+  exportMarkdown({
+    sessions,
+    routine: ROUTINE,
+    catalog,
+    phase: PHASE,
+    range: { from: '2026-09-01', to: '2026-09-30' },
+  }).replace(/\[\d\d:\d\d–\d\d:\d\d, /g, '[시각, ')
+const ll3Block = (md: string, name: string) => {
+  const i = md.indexOf(`### ${name}`)
+  const j = md.indexOf('\n\n', i)
+  return md.slice(i, j === -1 ? undefined : j)
+}
+const ll3Sources = import.meta.glob(
+  ['/src/lib/exportMarkdown.ts', '/src/screens/SummaryScreen.tsx', '/src/lib/history.ts'],
+  { query: '?raw', import: 'default', eager: true },
+) as Record<string, string>
+
+describe('LL3', () => {
+  const T = (streak: number, note = '') => ({ date: '2026-09-01', note, streak })
+  it('lastPainChipText: 표의 여섯 줄', () => {
+    const pain = ll3Verdict('pain')
+    expect(lastPainChipText(undefined, pain, 'normal')).toBeUndefined()
+    expect(lastPainChipText(T(1), undefined, 'normal')).toBe('지난번 통증')
+    expect(lastPainChipText(T(2), undefined, 'normal')).toBe('통증 2세션 연속')
+    expect(lastPainChipText(T(1, '발목'), undefined, 'normal')).toBe('지난번 통증 — 발목')
+    expect(lastPainChipText(T(1, '발목'), pain, 'normal')).toBe('지난번 통증 — 발목 · 증량 보류')
+    expect(lastPainChipText(T(2, '발목'), pain, 'normal')).toBe('통증 2세션 연속 — 발목 · 증량 보류')
+    expect(lastPainChipText(T(1), pain, 'normal')).toBe('지난번 통증 · 증량 보류')
+  })
+  it("lastPainChipText: mode 'deload'면 증량 보류 없음 · phase0 verdict면 없음 · verdict undefined면 없음", () => {
+    expect(lastPainChipText(T(1, '발목'), ll3Verdict('pain'), 'deload')).toBe('지난번 통증 — 발목')
+    expect(lastPainChipText(T(1, '발목'), ll3Verdict('phase0'), 'normal')).toBe('지난번 통증 — 발목')
+    expect(lastPainChipText(T(1, '발목'), undefined, 'normal')).toBe('지난번 통증 — 발목')
+  })
+  it('기록 없는 종목의 세트 0 통증 → 칩은 지난번 통증으로 시작하고 증량 보류가 없다', () => {
+    const p = ll2Prefill([ll2Session('2026-09-01', { pain: { note: '발목' }, noSets: true })])
+    const chip = lastPainChipText(p.lastPain, p.lastVerdict, 'normal')!
+    expect(chip.startsWith('지난번 통증')).toBe(true)
+    expect(chip).not.toContain('증량 보류')
+  })
+  it('내보내기: 통증 + 메모 → 보상작용 · 통증 · 다음 순서', () => {
+    const s = ll2Session('2026-09-01', { pain: { note: '첫 세트 왼쪽 발목 찌릿' } })
+    const b = ll3Block(ll3Export([s]), '인클라인 프레스')
+    expect(b).toContain('보상작용: 없음\n통증: 있음 — 첫 세트 왼쪽 발목 찌릿\n다음: 40kg 유지 (통증 있음)')
+  })
+  it('내보내기: 메모 없음 → `통증: 있음` · 통증 없는 entry → 통증 글자가 블록에 없다', () => {
+    const s = ll2Session('2026-09-01', { pain: { note: '' } })
+    const md = ll3Export([s])
+    expect(ll3Block(md, '인클라인 프레스')).toContain('\n통증: 있음\n')
+    expect(ll3Block(md, '체스트프레스')).not.toContain('통증')
+  })
+  it('내보내기: 보상작용 + 통증 → 두 줄이 각각 나오고 다음 사유는 통증 있음', () => {
+    const s = ll2Session('2026-09-01', { pain: { note: '' } })
+    s.entries.find((e) => e.recordKey === ICP)!.compensation = '승모 개입'
+    const b = ll3Block(ll3Export([s]), '인클라인 프레스')
+    expect(b).toContain('보상작용: 승모 개입\n통증: 있음\n다음: 40kg 유지 (통증 있음)')
+  })
+  it('내보내기: B그룹 통증 → 통증 줄은 있고 다음 줄은 없다', () => {
+    const s = completedSession({ dayId: 'd1', date: '2026-09-01', fullReps: true })
+    const pec = makeRecordKey('pec-deck-fly', 'd1')
+    const key = s.entries.find((e) => e.recordKey.startsWith('pec'))?.recordKey ?? pec
+    const painted = applyPain(s, key, { note: '손목' })
+    const b = ll3Block(ll3Export([painted]), '펙덱 플라이')
+    expect(b).toContain('통증: 있음 — 손목')
+    expect(b).not.toContain('다음:')
+  })
+  it('내보내기: 세트 0 통증(근력 세션) → 미수행 다음 줄 · 워밍업만 체크 + 통증도 같은 줄 · 유산소만 세션은 헤더 다음', () => {
+    const s = ll2Session('2026-09-01', { pain: { note: '첫 반복에서 왼쪽 발목' }, noSets: true })
+    const e = s.entries.find((x) => x.recordKey === ICP)!
+    e.performedOrder = null
+    const notDone = ll3Export([s]).split('\n')
+    const i = notDone.findIndex((l) => l.startsWith('미수행:'))
+    expect(notDone[i]).toContain('인클라인 프레스')
+    expect(notDone[i + 1]).toBe('통증(작업 세트 없음): 인클라인 프레스 — 첫 반복에서 왼쪽 발목')
+
+    const w = ll2Session('2026-09-02', { pain: { note: '' }, noSets: true })
+    const we = w.entries.find((x) => x.recordKey === ICP)!
+    we.sets = [{ weight: 20, reps: 10, done: true, warmup: true } as never, ...we.sets]
+    expect(ll3Export([w])).toContain('통증(작업 세트 없음): 인클라인 프레스')
+
+    const c = completedSession({ dayId: 'd1', date: '2026-09-03' })
+    for (const x of c.entries) for (const st of x.sets) st.done = false
+    c.cardio = { type: '마이마운틴', minutes: 20 }
+    c.entries.find((x) => x.recordKey === ICP)!.pain = { note: '' }
+    const lines = ll3Export([c]).split('\n')
+    const h = lines.findIndex((l) => l.includes('— 유산소만'))
+    expect(lines[h + 1]).toBe('통증(작업 세트 없음): 인클라인 프레스')
+    expect(lines[h + 2]).toContain('유산소: 마이마운틴')
+  })
+  it('내보내기: 대체 entry 통증 → 대체 블록 안에 통증 줄', () => {
+    const s = ll2Session('2026-09-01')
+    const e = s.entries.find((x) => x.recordKey === ICP)!
+    e.recordKey = makeRecordKey('flat-chest-press', 'd1')
+    e.substituteFor = ICP
+    e.pain = { note: '어깨' }
+    const md = ll3Export([s])
+    const i = md.indexOf('(대체: 인클라인 프레스 — 자리 없음)')
+    expect(i).toBeGreaterThan(0)
+    expect(md.slice(i, md.indexOf('\n\n', i))).toContain('통증: 있음 — 어깨')
+  })
+  it('새 출력이 LL_EXPORT_BEFORE와 같다(통증 줄 0개) · JJ_EXPORT_NORMAL_BEFORE 통과', () => {
+    // LL4(PLAN-v1.14): 유산소 두 줄만 새 표기라 옛 표기로 되돌려 견준다(기계적 결과)
+    expect(llCardioAsV113(renderLl())).toBe(LL_EXPORT_BEFORE)
+    expect(renderLl()).not.toContain('통증')
+  })
+  it('exerciseHistory: 통증 entry → pain true · 과거 entry → false', () => {
+    const h = exerciseHistory([ll2Session('2026-09-01'), ll2Session('2026-09-03', { pain: { note: '' } })], ICP)
+    expect(h.map((p) => p.pain)).toEqual([true, false])
+  })
+  it('소스 스캔: exportMarkdown · SummaryScreen · history가 hasPain 또는 painText를 import한다', () => {
+    expect(Object.keys(ll3Sources)).toHaveLength(3)
+    for (const [p, src] of Object.entries(ll3Sources)) {
+      expect(/import\s*\{[^}]*\b(hasPain|painText)\b[^}]*\}\s*from\s*'[^']*\/pain'/.test(src), p).toBe(true)
+    }
+  })
+})
+
+// ─── LL4 — 유산소 종류 한 곳 · 천국의 계단 · 강도 ───────────────────
+
+const ll4Sources = import.meta.glob('/src/**/*.{ts,tsx}', { query: '?raw', import: 'default', eager: true }) as Record<
+  string,
+  string
+>
+const ll4Src = (name: string) => {
+  const hit = Object.entries(ll4Sources).filter(([p]) => p.endsWith('/' + name))
+  expect(hit, name).toHaveLength(1)
+  return hit[0][1]
+}
+
+describe('LL4', () => {
+  it('cardioText: 천국의 계단 + 4단계 → 강도 4단계', () => {
+    expect(cardioText({ type: '천국의 계단', minutes: 16, note: '4단계' })).toBe('천국의 계단 · 강도 4단계 · 16분')
+  })
+  it('cardioText: 기타 + 4 → 기타 · 강도 4 · 16분', () => {
+    expect(cardioText({ type: '기타', minutes: 16, note: '4' })).toBe('기타 · 강도 4 · 16분')
+  })
+  it('cardioText: 강도 없음 → 지금과 같은 모양', () => {
+    expect(cardioText({ type: '마이마운틴', minutes: 30 })).toBe('마이마운틴 30분')
+  })
+  it("cardioText: note '' · '  ' → 강도 없는 모양", () => {
+    expect(cardioText({ type: '마이마운틴', minutes: 30, note: '' })).toBe('마이마운틴 30분')
+    expect(cardioText({ type: '마이마운틴', minutes: 30, note: '  ' })).toBe('마이마운틴 30분')
+  })
+  it('cardioText: 목록에 없는 종류 → 그대로', () => {
+    expect(cardioText({ type: '걷기', minutes: 30 })).toBe('걷기 30분')
+  })
+  it('intensityHintFor: 천국의 계단 → 4단계 · 목록에 없음 → 강도', () => {
+    expect(intensityHintFor('천국의 계단')).toBe('4단계')
+    expect(intensityHintFor('걷기')).toBe('강도')
+  })
+  it('CARDIO_TYPES 이름 순서', () => {
+    expect(CARDIO_TYPES.map((t) => t.name)).toEqual(['마이마운틴', '천국의 계단', '자전거', '트레드밀', '기타'])
+  })
+  it('내보내기: LL_EXPORT_BEFORE와 다른 줄이 정확히 둘 — 08-26·11-04 유산소', () => {
+    const before = LL_EXPORT_BEFORE.split('\n')
+    const after = renderLl().split('\n')
+    expect(after).toHaveLength(before.length)
+    const diff = after.map((l, i) => [before[i], l]).filter(([a, b]) => a !== b)
+    expect(diff).toEqual([
+      ['유산소: 마이마운틴 25/3.8 · 20분', '유산소: 마이마운틴 · 강도 25/3.8 · 20분'],
+      ['유산소: 기타 4 · 16분', '유산소: 기타 · 강도 4 · 16분'],
+    ])
+    expect(renderLl()).toContain('유산소: 마이마운틴 30분')
+  })
+  it("소스 스캔: cardio.ts만 '마이마운틴' 리터럴을 가진다(테스트 제외)", () => {
+    const hits = Object.entries(ll4Sources)
+      .filter(([p]) => !/\.test\.tsx?$/.test(p) && ll4Sources[p].includes('마이마운틴'))
+      .map(([p]) => p)
+    expect(hits).toEqual(['/src/lib/cardio.ts'])
+  })
+  it('소스 스캔: 내보내기·기록·요약은 cardio.minutes 대신 cardioText를 쓴다', () => {
+    for (const f of ['exportMarkdown.ts', 'HistoryScreen.tsx', 'SummaryScreen.tsx']) {
+      const src = ll4Src(f)
+      expect(src, f).not.toContain('cardio.minutes')
+      expect(src, f).toContain('cardioText(')
+    }
+  })
+})

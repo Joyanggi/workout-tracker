@@ -85,14 +85,16 @@ describe('X8 — 세트 행 버튼 라벨이 짧다', () => {
 describe('X9 — 비우기 버튼은 지울 것이 있을 때만 보인다', () => {
   it('현재 값이 없음/빈 값이면 렌더하지 않는다', () => {
     const src = file('/src/components/CompensationSheet.tsx')
-    expect(src).toMatch(/current\.trim\(\) !== ''/)
-    expect(src).toMatch(/current !== NO_COMPENSATION/)
+    // LL1(PLAN-v1.14): 판정은 hasCompensation 한 곳. 옛 식 단언 둘을 하나로 합쳤다
+    expect(src).toMatch(/\{hasCompensation\(current\) &&/)
   })
 
   it('편집 중 상태가 아니라 **저장된 값**으로 판단한다', () => {
     // selected/free로 판단하면 체크를 다 푼 순간 버튼이 사라져 되돌릴 수 없다
     const src = file('/src/components/CompensationSheet.tsx')
-    const cond = /\{(current[^}]*?) &&\s*\(\s*<button/.exec(src)?.[1] ?? ''
+    // LL1(PLAN-v1.14): 옛 정규식은 current로 시작하는 식만 잡아 새 식에서 헛돈다
+    const cond = /\{([^{}]*\bcurrent\b[^{}]*?) &&\s*\(\s*<button/.exec(src)?.[1] ?? ''
+    expect(cond).not.toBe('')
     expect(cond).not.toMatch(/\bselected\b|\bfree\b|\bpreview\b/)
   })
 

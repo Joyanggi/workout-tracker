@@ -138,7 +138,8 @@ describe('Markdown 형식 — §6 템플릿', () => {
       sessionNote: '컨디션 좋음',
     }
     const text = md(s)
-    expect(text).toContain('유산소: 마이마운틴 25/3.8 · 20분')
+    // LL4(PLAN-v1.14): 강도(note)에 `강도` 접두가 붙는다
+    expect(text).toContain('유산소: 마이마운틴 · 강도 25/3.8 · 20분')
     expect(text).toContain('메모: 컨디션 좋음')
   })
 

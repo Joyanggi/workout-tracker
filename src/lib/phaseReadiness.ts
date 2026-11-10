@@ -1,5 +1,6 @@
 import type { Phase, RecordKey, RoutineTemplate, Session } from '../types'
-import { NO_COMPENSATION, parseRecordKey } from '../types'
+import { parseRecordKey } from '../types'
+import { hasCompensation } from './compensation'
 import { keyARecordKeys, phase0Progress } from './dashboard'
 import { addDays, daysBetween, todayLocal } from './dates'
 import { doneSets, routineExerciseOfEntry, strengthSessions } from './derive'
@@ -205,7 +206,7 @@ export function phaseReadiness(
     // ③ 최근 4주 전 세션에서 보상작용 없음
     const recent = strengthSessions(sessions).filter((s) => s.date >= recentFrom)
     const withComp = recent.filter((s) =>
-      s.entries.some((e) => doneSets(e).length > 0 && e.compensation !== NO_COMPENSATION),
+      s.entries.some((e) => doneSets(e).length > 0 && hasCompensation(e.compensation)),
     )
     const compCheck: ReadinessCheck = {
       label: '최근 4주 보상작용 없음 유지',

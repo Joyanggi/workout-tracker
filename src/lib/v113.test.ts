@@ -957,13 +957,13 @@ describe('KK5', () => {
     it('08-03 (D1, 유산소 마이마운틴 30, 체크 0) → 헤더 + 유산소 줄뿐', () => {
       const out = md(cardioOnly())
       expect(out).toMatch(
-        /^## 2026-08-03 \(월\) — 유산소만  \[\d\d:\d\d–\d\d:\d\d, 0분\]\n유산소: 유산소 마이마운틴 · 30분$/,
+        /^## 2026-08-03 \(월\) — 유산소만  \[\d\d:\d\d–\d\d:\d\d, 0분\]\n유산소: 유산소 · 강도 마이마운틴 · 30분$/,
       )
       for (const w of ['미수행', 'Day 1', '수행 순서', '복귀']) expect(out).not.toContain(w)
     })
     it('내보내기 전문의 08-03 블록이 같은 모양이다', () => {
       expect(fieldMd()).toContain(
-        '## 2026-08-03 (월) — 유산소만  [시각, 0분]\n유산소: 유산소 마이마운틴 · 30분\n',
+        '## 2026-08-03 (월) — 유산소만  [시각, 0분]\n유산소: 유산소 · 강도 마이마운틴 · 30분\n',
       )
       expect(fieldMd()).not.toContain('미수행:')
     })
@@ -990,7 +990,7 @@ describe('KK5', () => {
     it('유산소 + 메모 → 두 줄 모두', () => {
       const s = structuredClone(cardioOnly())
       s.sessionNote = '비 와서 실내'
-      expect(md(s).split('\n').slice(1)).toEqual(['유산소: 유산소 마이마운틴 · 30분', '메모: 비 와서 실내'])
+      expect(md(s).split('\n').slice(1)).toEqual(['유산소: 유산소 · 강도 마이마운틴 · 30분', '메모: 비 와서 실내'])
     })
   })
 
@@ -1034,7 +1034,8 @@ describe('KK5', () => {
       const added = after.filter((l) => !bset.has(l))
       const allowed = (l: string) =>
         l.startsWith('## 2026-08-03') ||
-        l.startsWith('유산소: 유산소 마이마운틴') ||
+        // LL4(PLAN-v1.14): 픽스처 note가 강도 자리로 간다
+        l.startsWith('유산소: 유산소 · 강도 마이마운틴') ||
         l.startsWith('Day 공백 ') ||
         l.startsWith('복귀 조정:') ||
         l.startsWith('다음: ') ||

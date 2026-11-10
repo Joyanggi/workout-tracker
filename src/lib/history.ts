@@ -1,6 +1,7 @@
 import type { RecordKey, RoutineTemplate, Session, SetRecord } from '../types'
 import { parseRecordKey, recordDayIdOf } from '../types'
 import { isSameMonth, monthGrid } from './dates'
+import { hasPain } from './pain'
 import { completedSessions, doneSets, e1rm, findDay, totalDoneSets, totalVolume } from './derive'
 
 /** 기록 탭 조회 (DESIGN.md §5.3) */
@@ -79,6 +80,8 @@ export interface HistoryPoint {
   bestE1rm: number
   sensoryScore?: 0 | 1 | 2 | 3
   compensation: string
+  /** 통증 기록 여부 (LL3) */
+  pain: boolean
 }
 
 /** recordKey의 세션 히스토리, 최신순 (무게·반복수 추이) */
@@ -101,6 +104,7 @@ export function exerciseHistory(sessions: Session[], recordKey: RecordKey): Hist
       bestE1rm: Math.max(...sets.map((s) => e1rm(s.weight, s.reps))),
       sensoryScore: entry.sensoryScore,
       compensation: entry.compensation,
+      pain: hasPain(entry),
     })
   }
   return out

@@ -1,6 +1,8 @@
 import type { Exercise, Phase, RoutineTemplate, Session, SessionEntry } from '../types'
 import { parseRecordKey } from '../types'
 import { hasCompensation } from './compensation'
+import { cardioText } from './cardio'
+import { hasPain, painText } from './pain'
 import { formatClock, weekdayKo } from './dates'
 import { dayLabel, sessionDayGapLine } from './dayGap'
 import { withObjectParticle } from './korean'
@@ -189,6 +191,8 @@ function entryLine(
     )
   }
   lines.push(`보상작용: ${entry.compensation}`)
+  const pain = painText(entry)
+  if (pain !== undefined) lines.push(`통증: ${pain}`)
 
   // 증량 판단은 더블 프로그레션 규칙으로 자동 산출 (§6). A그룹만 판단 대상이다.
   // 증량 폭은 종목별 무게 단위(T9)를 따른다 — 5kg 머신에 +2.5를 적어 보내면
@@ -215,12 +219,27 @@ function entryLine(
   return lines
 }
 
-/** 유산소·메모 줄 — 근력 세션과 유산소만 세션이 같이 쓴다 (KK5) */
-function cardioNoteLines(session: Session): string[] {
+/**
+ * 세션 꼬리 줄 — 근력 세션과 유산소만 세션이 같이 쓴다 (KK5).
+ * 맨 앞에 세트 0 통증 줄(LL3): 통증만 적고 작업 세트를 못 한 종목은 종목 블록이 없어서 여기서 말한다.
+ */
+function sessionTailLines(session: Session, nameOf: (recordKey: string) => string): string[] {
   const out: string[] = []
+  const painOnly = session.entries
+    .filter((e) => hasPain(e) && doneSets(e).length === 0)
+    .sort((a, b) => a.plannedOrder - b.plannedOrder)
+  if (painOnly.length > 0) {
+    out.push(
+      `통증(작업 세트 없음): ${painOnly
+        .map((e) => {
+          const note = (e.pain?.note ?? '').trim()
+          return note === '' ? nameOf(e.recordKey) : `${nameOf(e.recordKey)} — ${note}`
+        })
+        .join(' · ')}`,
+    )
+  }
   if (session.cardio) {
-    const note = session.cardio.note ? `${session.cardio.note} · ` : ''
-    out.push(`유산소: ${session.cardio.type} ${note}${session.cardio.minutes}분`)
+    out.push(`유산소: ${cardioText(session.cardio)}`)
   }
   if (session.sessionNote) out.push(`메모: ${session.sessionNote}`)
   return out
@@ -259,7 +278,7 @@ export function sessionToMarkdown(
     const label = session.cardio ? '유산소만' : '근력 기록 없음'
     return [
       `## ${session.date} (${weekdayKo(session.date)}) — ${label}  ${time}`,
-      ...cardioNoteLines(session),
+      ...sessionTailLines(session, nameOf),
     ].join('\n')
   }
 
@@ -316,7 +335,7 @@ export function sessionToMarkdown(
     out.push(`미수행: ${notDone.map((e) => nameOf(e.recordKey)).join(', ')}`)
   }
 
-  out.push(...cardioNoteLines(session))
+  out.push(...sessionTailLines(session, nameOf))
 
   return out.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd()
 }

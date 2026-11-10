@@ -1,5 +1,4 @@
 import type { RecordKey, Session } from '../types'
-import { NO_COMPENSATION } from '../types'
 import { completedSessions } from './derive'
 import { hasCompensation } from './compensation'
 
@@ -74,7 +73,7 @@ export function lastNote(sessions: Session[], recordKey: RecordKey): NoteEntry |
 export function noteLineText(entry: NoteEntry): string {
   const parts: string[] = []
   if (entry.note) parts.push(entry.note)
-  if (entry.compensation && entry.compensation !== NO_COMPENSATION) {
+  if (hasCompensation(entry.compensation)) {
     parts.push(`보상작용: ${entry.compensation}`)
   }
   return parts.join(' · ')

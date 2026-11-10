@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { CARDIO_TYPES, intensityHintFor } from '../lib/cardio'
 import { useLiveQuery } from 'dexie-react-hooks'
 import DietDayEditor from '../components/DietDayEditor'
 import ExerciseCard from '../components/ExerciseCard'
@@ -13,8 +14,6 @@ import { isInverseKey } from '../lib/weightScale'
 import type { RoutineBundle } from '../lib/useRoutine'
 import { parseRecordKey, type RecordKey } from '../types'
 import { NO_AUTOFILL } from '../lib/inputProps'
-
-const CARDIO_TYPES = ['마이마운틴', '자전거', '트레드밀', '기타']
 
 /**
  * 세션 상세 + 편집 (DESIGN.md §5.3).
@@ -154,7 +153,7 @@ export default function SessionDetailScreen({
       <div className="card">
         <div className="card-label">유산소</div>
         <div className="pill-row">
-          {CARDIO_TYPES.map((t) => (
+          {CARDIO_TYPES.map((t) => t.name).map((t) => (
             <button
               key={t}
               className={`pill${session.cardio?.type === t ? ' pill-on' : ''}`}
@@ -197,8 +196,8 @@ export default function SessionDetailScreen({
               className="field"
               value={session.cardio.note ?? ''}
               onChange={(e) => editor.setCardio({ ...session.cardio!, note: e.target.value })}
-              aria-label="유산소 메모"
-              placeholder="25/3.8"
+              aria-label="유산소 강도"
+              placeholder={intensityHintFor(session.cardio.type)}
             />
           </div>
         )}

@@ -242,6 +242,8 @@ export interface SessionEntry {
   sensoryScore?: 0 | 1 | 2 | 3 // B그룹
   sensoryNote?: string // "가슴 바깥쪽 — 벌릴 때 느낌 옴"
   compensation: string // 기본값 "없음". 비우기 불가(루틴 문서 규칙)
+  /** 통증 (LL2). **있으면 통증 있음**이다 — note가 비어도. 없으면(v1.14 이전 기록 전부) 통증 기록 없음 */
+  pain?: { note: string }
   skipped: boolean
   /**
    * 대체 수행 (T8). **원 종목의 recordKey.**
@@ -289,7 +291,7 @@ export interface SessionEntry {
 export interface CardioRecord {
   type: string
   minutes: number
-  note?: string // "마이마운틴 25/3.8"
+  note?: string // 강도(단계·속도·경사). 저장 키는 note 그대로 (LL4)
 }
 
 /** 세션 생성 때 앱이 적용한 조정 (JJ1). 단위 %, 음수가 감량 */
