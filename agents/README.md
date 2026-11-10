@@ -18,11 +18,14 @@
                          여러 작업 구현: 작업마다 구현자 → 리뷰어 (반려 1회까지)
                                     │                                   │
                                     ▼                                   ▼
-                     PR (CI: test·build 필수) ──[사람: 화면 확인 → 머지]──▶ main
+                     PR (CI: 흔적 검사·test·build 필수) ──[사람: 화면 확인 → 머지]──▶ main
                                     │                                   │
                        PR 본문 "규칙 메모"                     GitHub Pages 배포 → 폰 앱
                                     ▼                                   │
                      규칙 정비(가끔) → 규칙 PR ─[사람 머지]        실사용 → 다음 실사용 보고
+
+PLAN 구현 PR이 머지되면 (같은 지휘자 세션에서 이어서)
+  품질 정리 ── 품질 관리자(Sonnet) → 리뷰어(Opus) → 정리 PR(동작 변경 없음) ─[사람 머지]
 ```
 
 ## 2. 역할과 모델
@@ -35,6 +38,7 @@
 | 구현자 | `IMPLEMENTER.md` | Claude Sonnet · medium | 토큰을 가장 많이 쓰는 단계 |
 | 리뷰어 | `REVIEWER.md` | Claude Opus · high (작은 수정은 medium) | 구현자와 다른 모델이어야 한다. 읽는 양은 적다 |
 | 규칙 정비자 | `RULES-KEEPER.md` | Claude (사람이 직접 띄움) | 규칙 메모를 모아 규칙·안전장치를 고친다 |
+| 품질 관리자 | `QUALITY-KEEPER.md` (+ `coordinator/QUALITY.md`) | Claude Sonnet · high, 리뷰는 Opus | PLAN 구현 PR이 머지되면 지휘자가 이어서 띄운다. 복사본·안 쓰는 코드·테스트만 살린 코드를 동작 변경 없이 치운다 |
 
 ## 3. 사람이 하는 말
 
@@ -53,6 +57,7 @@
 | PLAN 남은 작업 전부 | `docs/PLAN-v1.14.md의 미구현 작업을 전부 진행해` |
 | 멈춘 일 이어서 | 새 세션에서 같은 문장 + `이어서 진행해` (진행 파일 `.reports/run-*.md`를 읽고 이어간다) |
 | 규칙 정비 | (지휘자 말고 그냥 Claude 세션에서) `agents/RULES-KEEPER.md를 읽고 규칙 정비해` |
+| 품질 정리 (따로) | `품질 정리해` (PLAN이 끝나면 지휘자가 알아서 하므로 보통은 필요 없다) |
 
 ## 4. 사람이 하는 일 (관문)
 
@@ -62,7 +67,8 @@
    지휘자가 접수한 일이면 PR 맨 위 `흐름: … — 이유` 줄도 본다. 작은 수정으로 갔는데 판정 규칙이 바뀌었으면 머지하지 말고 말한다.
    **머지 전에 PR의 Commits 탭을 본다.** 마지막 커밋이 PR 화면에 올라온 뒤 머지한다(#16·#18에서 머지 뒤에 올라온 커밋이 main에 빠졌다).
 4. **멈췄을 때.** 지휘자가 gate를 걸면 이유가 온다(한도, 권한 창, 사람 판단 필요). 해결하고 "이어서"라고 한다.
-5. **가끔 규칙 정비.** PLAN 하나가 끝났거나 모델이 바뀌었을 때.
+5. **품질 정리 PR 머지.** PLAN이 끝나면 하나 올라온다. 동작이 그대로라 화면 확인은 없다. 지운 줄이 더한 줄보다 많은지만 본다.
+6. **가끔 규칙 정비.** PLAN 하나가 끝났거나 모델이 바뀌었을 때.
 
 ## 5. 무엇이 무엇을 강제하나
 
@@ -72,6 +78,7 @@
 |---|---|---|
 | GitHub ruleset `mainRuleset` | main 직접 push, 강제 push, 삭제, CI 실패한 PR 머지 | 레포 Settings → Rules |
 | CI (`ci`) | 테스트·빌드 깨진 PR | `.github/workflows/ci.yml` |
+| 흔적 검사 (`quality-scan --ci`, CI에서) | 새로 생긴 같은 이름 함수·상수 복사본, `.skip`·`.only`·`.todo` 테스트, `@ts-ignore`·`@ts-nocheck`, 무력화(`if (false)` 같은 늘 같은 조건, `any`, 이유 없이 빈 `catch`) | `scripts/quality-scan.mjs` (알고 있는 중복: `scripts/quality-allow.json`) |
 | 배포 전 테스트 | 깨진 코드 배포 | `.github/workflows/deploy.yml` |
 | 에이전트 안전장치 훅 | Claude 일꾼의 `gh pr merge`, main push, 강제 push, `reset --hard`, `clean -f`, `checkout --`, `branch -D`, 그리고 위 ruleset을 끄는 명령(`gh repo edit/delete`, API로 ruleset·브랜치 보호·main 삭제) | `.claude/settings.json` → `scripts/agent-guard.mjs` (테스트: `scripts/agent-guard.test.mjs`) |
 | Codex 규칙 | Codex가 orca를 샌드박스 밖에서 실행(허용), 머지 금지(선택, 7절) | `~/.codex/rules/default.rules` (PC마다) |
