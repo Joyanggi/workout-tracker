@@ -7,7 +7,7 @@
 
 지정받은 역할 파일을 먼저 읽고 따른다.
 설계자 `agents/DESIGNER.md` · 설계 검토자 `agents/PLAN-REVIEWER.md` · 구현자 `agents/IMPLEMENTER.md` ·
-리뷰어 `agents/REVIEWER.md` · 지휘자 `agents/COORDINATOR.md` · 규칙 정비자 `agents/RULES-KEEPER.md` (사람용 지도: `agents/README.md`)
+리뷰어 `agents/REVIEWER.md` · 지휘자 `agents/COORDINATOR.md` · 규칙 정비자 `agents/RULES-KEEPER.md` · 품질 관리자 `agents/QUALITY-KEEPER.md` (사람용 지도: `agents/README.md`)
 
 역할이 없으면 일반 대화다. 코드를 고치기 전에 무엇을 바꿀지 먼저 말한다.
 
@@ -18,7 +18,7 @@
 
 ## 명령
 
-- 테스트 `npm test`, 타입 확인과 빌드 `npm run build`
+- 테스트 `npm test`, 타입 확인과 빌드 `npm run build`, 흔적 검사 `node scripts/quality-scan.mjs --ci` (CI에서도 돈다)
 - `tsc`를 직접 호출하지 않는다. `npx tsc --noEmit`은 `src`를 검사하지 않는다.
 
 ## 토큰 절약 (모든 역할 공통)

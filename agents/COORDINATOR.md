@@ -16,6 +16,7 @@
 | 설계 | "설계 작업. 주제: 이슈 #24 (또는 `docs/FIELD-REPORT-….md` 2·5절)" (PLAN 파일·작업 ID는 적으면 따르고, 없으면 DESIGN.md가 정한다) | `agents/coordinator/DESIGN.md` |
 | 구현 | "`docs/PLAN-v1.13.md`의 KK1을 진행해" | 없음 |
 | 여러 작업 연속 구현 | "`docs/PLAN-v1.13.md`의 미구현 작업을 전부 진행해" | `agents/coordinator/BATCH.md` |
+| 품질 정리 | (PLAN 구현 PR 머지 뒤 자동) 또는 "품질 정리해" | `agents/coordinator/QUALITY.md` |
 
 PR을 만드는 일이면 마무리 때 `agents/coordinator/PR.md`도 읽는다. 해당하는 파일만 읽고 나머지는 읽지 않는다.
 
@@ -125,7 +126,7 @@ agents/REVIEWER.md 4절대로 재리뷰해. 지난 "고칠 것":
 
 리뷰 승인 뒤 붙이는 기록·버전 커밋은 `docs/`, `README.md`, `package.json`만 바꾼다. 리뷰어의 경미한 점을 고치느라 `src/`를 바꿔야 하면(테스트 파일과 주석 포함) 그 커밋도 리뷰어에게 다시 맡겨 승인받은 뒤 PR에 넣는다.
 
-한 세션에는 Run 하나만 맡는다. 다음 일은 새 세션에서 시작한다. 예외: 설계 Run이 PLAN 머지(또는 자동 승인) 뒤 같은 PLAN의 구현으로 이어지는 것은 같은 세션에서 한다(`coordinator/DESIGN.md`). 대화가 길어질수록 매번 다시 읽는 양이 늘기 때문이다.
+한 세션에는 Run 하나만 맡는다. 다음 일은 새 세션에서 시작한다. 예외: 설계 Run이 PLAN 머지(또는 자동 승인) 뒤 같은 PLAN의 구현으로 이어지는 것, 그리고 구현 PR 머지 뒤의 품질 정리(`coordinator/QUALITY.md`)는 같은 세션에서 한다(`coordinator/DESIGN.md`). 대화가 길어질수록 매번 다시 읽는 양이 늘기 때문이다.
 
 ## 7. 진행 파일
 
