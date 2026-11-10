@@ -360,6 +360,8 @@ export interface Settings {
    * **과거에 소급하지 않는다** — 기록된 `SlotRecord.variantChoices`가 항상 우선한다.
    */
   variantDefaults?: Record<string, number>
+  /** 직접 등록한 음식 (MM1). 새 테이블 대신 settings 행 하나 — 스키마 버전을 올리지 않는다 */
+  userFoods?: Food[]
 }
 
 /**
@@ -529,6 +531,32 @@ export interface DietDay {
   /** slotId → 기록. **손 안 댄 슬롯은 키가 없다** (미기록과 0점을 구분하기 위해) */
   slots: Record<string, SlotRecord>
   note?: string
+  /** 시간별로 적은 먹은 것 (MM2). 비면 키를 지운다 — 빈 배열을 저장하지 않는다 */
+  log?: FoodLogEntry[]
+}
+
+/** 직접 등록한 음식 (MM1). `settings` 테이블의 `userFoods` 행 하나에 배열로 둔다 */
+export interface Food {
+  id: string // crypto.randomUUID()
+  name: string // 필수, trim 후 1자 이상
+  qty: string // "1개" | "100g" | "" (선택)
+  kcal?: number // 비우면 "영양 미입력" — 0과 다르다
+  proteinG?: number
+  createdAt: string // ISO
+}
+
+/**
+ * 하루에 적은 먹은 것 한 줄 (MM2). 이름·영양값은 적는 순간 목록에서 **복사한 값**이다 —
+ * 이후 목록을 고치거나 지워도 과거 날의 합계가 바뀌지 않는다 (`foodId`를 두지 않는 이유).
+ */
+export interface FoodLogEntry {
+  id: string // crypto.randomUUID()
+  time: string // "13:20" (24시간, 로컬)
+  name: string
+  qty: string
+  kcal?: number // 1개 분량 기준. 없으면 영양 미입력
+  proteinG?: number
+  count: number // 0.5 단위, 최소 0.5, 기본 1
 }
 
 /** settings 테이블은 key-value (§3) */

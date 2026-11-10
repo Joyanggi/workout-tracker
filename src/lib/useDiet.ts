@@ -4,7 +4,7 @@ import { requestSync } from './gistSync'
 import { resolveTrainingDays, splitPlanIds, variantDefaultKey } from './diet'
 import { emptyDietDay } from './dietOps'
 import { strengthDates } from './derive'
-import type { DietDay, DietPlan } from '../types'
+import type { DietDay, DietPlan, Food } from '../types'
 
 /**
  * 식단 데이터 접근 (D2).
@@ -32,18 +32,22 @@ export interface DietData {
    * settings를 읽으면 "오늘 화면과 과거 편집기가 다른 기본값을 보여주는" 상태가 만들어진다.
    */
   variantDefaults: Record<string, number>
+  /** 직접 등록한 음식 (MM1) */
+  userFoods: Food[]
   loading: boolean
 }
 
 const EMPTY_DEFAULTS: Record<string, number> = {}
+const EMPTY_FOODS: Food[] = []
 
 export function useDiet(): DietData {
   const data = useLiveQuery(async () => {
-    const [plans, rawDays, defaultRow, variantRow, sessions] = await Promise.all([
+    const [plans, rawDays, defaultRow, variantRow, foodsRow, sessions] = await Promise.all([
       db.dietPlans.toArray(),
       db.dietDays.toArray(),
       db.settings.get('defaultDietPlanId'),
       db.settings.get('variantDefaults'),
+      db.settings.get('userFoods'),
       db.sessions.toArray(),
     ])
     /*
@@ -60,6 +64,7 @@ export function useDiet(): DietData {
       days: resolveTrainingDays(rawDays, trained, splitPlanIds(plans)),
       defaultPlanId: (defaultRow?.value as string | undefined) ?? null,
       variantDefaults: (variantRow?.value as Record<string, number> | undefined) ?? EMPTY_DEFAULTS,
+      userFoods: (foodsRow?.value as Food[] | undefined) ?? EMPTY_FOODS,
     }
   }, [])
 
@@ -68,6 +73,7 @@ export function useDiet(): DietData {
     days: data?.days ?? [],
     defaultPlanId: data?.defaultPlanId ?? null,
     variantDefaults: data?.variantDefaults ?? EMPTY_DEFAULTS,
+    userFoods: data?.userFoods ?? EMPTY_FOODS,
     loading: data === undefined,
   }
 }
@@ -90,6 +96,25 @@ export function rememberVariantDefault(slotId: string, itemId: string, index: nu
     .then(scheduleBackup)
     .catch((err) => {
       console.error('[diet] 변형 기본값 저장 실패', err)
+    })
+}
+
+/**
+ * 직접 등록한 음식 목록을 고친다 (MM1). `rememberVariantDefault`와 같은 꼴 —
+ * 읽고-고쳐-쓰기를 트랜잭션으로 해서 연달아 고쳐도 앞선 쓰기를 덮지 않는다.
+ * 결과가 빈 배열이면 행을 지운다 (빈 값을 저장하지 않는다 — `deleteSettings`와 같은 이유).
+ */
+export function mutateUserFoods(fn: (foods: Food[]) => Food[]): void {
+  void db
+    .transaction('rw', db.settings, async () => {
+      const row = await db.settings.get('userFoods')
+      const next = fn((row?.value as Food[] | undefined) ?? [])
+      if (next.length === 0) await db.settings.delete('userFoods')
+      else await db.settings.put({ key: 'userFoods', value: next })
+    })
+    .then(scheduleBackup)
+    .catch((err) => {
+      console.error('[diet] 내 음식 저장 실패', err)
     })
 }
 
