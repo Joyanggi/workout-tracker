@@ -87,6 +87,21 @@ function isGh(tokens, ...words) {
   return words.every((w, k) => tokens[k + 1] === w);
 }
 
+/** `gh api` 호출이 쓰기인가. 메서드를 GET 말고 다른 것으로 주거나, 필드·입력을 주면(기본이 POST가 된다) 쓰기다. */
+function ghApiWrites(tokens) {
+  for (let k = 2; k < tokens.length; k++) {
+    const t = tokens[k];
+    if (t === '-X' || t === '--method') {
+      if ((tokens[k + 1] ?? '').toUpperCase() !== 'GET') return true;
+    } else if (/^(-X|--method=)/.test(t)) {
+      if (t.replace(/^(-X|--method=)/, '').toUpperCase() !== 'GET') return true;
+    } else if (/^(-f|-F|--field|--raw-field|--input)(=|$)/.test(t)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /** 브랜치 이름 하나가 main/master를 가리키는가 (refs/heads/main, origin/main 포함) */
 function namesProtected(ref) {
   const r = ref.replace(/^\+/, '').replace(/^refs\/heads\//, '').replace(/^origin\//, '');
@@ -103,6 +118,12 @@ export function checkTokens(tokens, currentBranch = () => null) {
   }
   if (isGh(tokens, 'api') && tokens.some((t) => /\/pulls\/\d+\/merge\b|\/merges\b/.test(t))) {
     return 'GitHub API로 머지하는 것도 막는다. 머지는 사람이 한다.';
+  }
+  if (['delete', 'edit', 'rename', 'archive', 'unarchive'].some((w) => isGh(tokens, 'repo', w))) {
+    return '레포 설정·삭제는 사람이 한다. main 보호(ruleset)와 배포가 레포 설정에 걸려 있다.';
+  }
+  if (isGh(tokens, 'api') && ghApiWrites(tokens) && tokens.some((t) => /\/rulesets\b|\/branches\/[^/\s]+\/protection\b|\/git\/refs\/heads\/(main|master)\b/.test(t))) {
+    return 'main 보호 규칙(ruleset·브랜치 보호)과 main 브랜치를 바꾸거나 지우는 API 호출은 막는다. 서버 쪽 마지막 방어선이다.';
   }
 
   const git = parseGit(tokens);

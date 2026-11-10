@@ -6,7 +6,8 @@
 ## 1. 흐름
 
 ```
-요청 ─ GitHub 이슈(개선·새 기능·구조 변경 양식) 또는 docs/FIELD-REPORT-*.md
+요청 ─ 지휘자에게 보낸 기획(지휘자가 이슈로 만든다), GitHub 이슈, 또는 docs/FIELD-REPORT-*.md
+  │  지휘자가 흐름을 고른다. 모르면 설계다 (coordinator/INTAKE.md)
   │
   ├─ 작은 수정 ── 구현자(Sonnet) → 리뷰어(Opus) ──────────────────────┐
   │                                                                    │
@@ -29,7 +30,7 @@
 | 역할 | 파일 | 에이전트·모델 | 왜 |
 |---|---|---|---|
 | 지휘자 | `COORDINATOR.md` (+ `coordinator/`) | Claude Sonnet · low | 코드를 안 읽고 보고 첫 줄만 보고 판단한다. 싸게 오래 돈다 |
-| 설계자 | `DESIGNER.md` | Claude Opus · high | 품질 차이가 가장 큰 단계. 호출은 적다 |
+| 설계자 | `DESIGNER.md` | Claude Opus · high (첫 메시지에 `설계자 모델: fable`처럼 지정하면 그 Run만 바뀜) | 품질 차이가 가장 큰 단계. 호출은 적다 |
 | 설계 검토자 | `PLAN-REVIEWER.md` | Codex, Antigravity (한도 시 Claude Sonnet·high 하나) | 다른 회사 모델이 놓치는 곳이 다르다. 무료 한도로 돈다 |
 | 구현자 | `IMPLEMENTER.md` | Claude Sonnet · medium | 토큰을 가장 많이 쓰는 단계 |
 | 리뷰어 | `REVIEWER.md` | Claude Opus · high (작은 수정은 medium) | 구현자와 다른 모델이어야 한다. 읽는 양은 적다 |
@@ -42,9 +43,12 @@
 
 | 하고 싶은 것 | 말 |
 |---|---|
-| 작은 수정 | `이슈 #23을 작은 수정으로 진행해` |
-| 설계부터 | `설계 작업. 주제: 이슈 #24 / PLAN 파일: docs/PLAN-v1.14.md / 작업 ID: LL` |
+| **기획 던지기 (기본)** | `진행해.` 다음 줄부터 하고 싶은 것을 그냥 쓴다. 지휘자가 이슈를 만들고 흐름·PLAN 버전·작업 ID를 정한다 |
+| 이미 있는 이슈 | `이슈 #24 진행해` (흐름은 지휘자가 고른다) |
+| 작은 수정으로 정해서 | `이슈 #23을 작은 수정으로 진행해` |
+| 설계로 정해서 | `설계 작업. 주제: 이슈 #24` (PLAN 파일·작업 ID는 적으면 그대로 쓴다) |
 | 설계 검토자 지정 | 위 문장 끝에 `검토자: codex` (Antigravity 한도가 없을 때 등) |
+| 모델 지정 (그 Run만) | 위 문장 끝에 `설계자 모델: fable`. 구현자와 리뷰어를 같은 모델로 만드는 지정은 거절된다 |
 | PLAN 작업 하나 | `docs/PLAN-v1.14.md의 LL1을 진행해` |
 | PLAN 남은 작업 전부 | `docs/PLAN-v1.14.md의 미구현 작업을 전부 진행해` |
 | 멈춘 일 이어서 | 새 세션에서 같은 문장 + `이어서 진행해` (진행 파일 `.reports/run-*.md`를 읽고 이어간다) |
@@ -52,9 +56,11 @@
 
 ## 4. 사람이 하는 일 (관문)
 
-1. **요청 쓰기.** 이슈 양식을 채운다. "성공 기준"이 비면 설계·리뷰의 기준이 없다.
+1. **요청 쓰기.** 지휘자에게 기획을 보내거나 이슈 양식을 채운다. "무엇이 되면 끝인지"(성공 기준)를 한 줄이라도 쓰면 설계·리뷰가 그걸 기준으로 삼는다.
 2. **PLAN PR 판단** (자동 승인 안 됐을 때만). 기각된 지적과 설계자가 정한 문구를 읽고 이견을 말하거나 머지한다.
 3. **구현 PR 머지.** PR 본문의 "배포 영향"과 "사람이 화면에서 확인할 것"을 보고 머지한다. 머지 = 폰 앱 배포다.
+   지휘자가 접수한 일이면 PR 맨 위 `흐름: … — 이유` 줄도 본다. 작은 수정으로 갔는데 판정 규칙이 바뀌었으면 머지하지 말고 말한다.
+   **머지 전에 PR의 Commits 탭을 본다.** 마지막 커밋이 PR 화면에 올라온 뒤 머지한다(#16·#18에서 머지 뒤에 올라온 커밋이 main에 빠졌다).
 4. **멈췄을 때.** 지휘자가 gate를 걸면 이유가 온다(한도, 권한 창, 사람 판단 필요). 해결하고 "이어서"라고 한다.
 5. **가끔 규칙 정비.** PLAN 하나가 끝났거나 모델이 바뀌었을 때.
 
@@ -67,7 +73,7 @@
 | GitHub ruleset `mainRuleset` | main 직접 push, 강제 push, 삭제, CI 실패한 PR 머지 | 레포 Settings → Rules |
 | CI (`ci`) | 테스트·빌드 깨진 PR | `.github/workflows/ci.yml` |
 | 배포 전 테스트 | 깨진 코드 배포 | `.github/workflows/deploy.yml` |
-| 에이전트 안전장치 훅 | Claude 일꾼의 `gh pr merge`, main push, 강제 push, `reset --hard`, `clean -f`, `checkout --`, `branch -D` | `.claude/settings.json` → `scripts/agent-guard.mjs` (테스트: `scripts/agent-guard.test.mjs`) |
+| 에이전트 안전장치 훅 | Claude 일꾼의 `gh pr merge`, main push, 강제 push, `reset --hard`, `clean -f`, `checkout --`, `branch -D`, 그리고 위 ruleset을 끄는 명령(`gh repo edit/delete`, API로 ruleset·브랜치 보호·main 삭제) | `.claude/settings.json` → `scripts/agent-guard.mjs` (테스트: `scripts/agent-guard.test.mjs`) |
 | Codex 규칙 | Codex가 orca를 샌드박스 밖에서 실행(허용), 머지 금지(선택, 7절) | `~/.codex/rules/default.rules` (PC마다) |
 | `.gitattributes` | CRLF 섞임 | 레포 |
 | `.gitignore`의 `.reports/` | 검토 보고·진행 파일이 커밋되는 것 | 레포 |
@@ -87,6 +93,12 @@ ruleset은 승인 리뷰 0개로 되어 있다(혼자 쓰는 레포라 자기 PR
 | 규칙과 실제가 어긋난 일 | PR 본문 `## 규칙 메모`, 댓글 `## 규칙 메모 (추가)` |
 
 ## 7. 새 PC 설정 (Windows)
+
+레포 설정 (한 번만, GitHub 웹):
+- Settings → General → Pull Requests → **Automatically delete head branches** 켜기 (지휘자는 로컬 브랜치만 지운다. 원격 브랜치는 이 설정이 지운다)
+- Issues → Labels에 `개선`, `새 기능`, `구조 변경` 라벨이 있어야 이슈 양식의 라벨이 붙는다
+
+PC마다:
 
 - Orca 에이전트 설정: Claude 인자 `--permission-mode auto`, Codex 인자 비움(자체 설정 사용), Antigravity 인자 없음
 - Orca 설정: 하위 에이전트 깊이 1, 끝난 일꾼 자동 닫기, 캐시 타이머 1시간, 잠자기 방지
@@ -121,6 +133,8 @@ ruleset은 승인 리뷰 0개로 되어 있다(혼자 쓰는 레포라 자기 PR
 | 지휘자가 작업 트리 파일을 못 읽음 | `--add-dir` 없이 띄움 | 3절 명령으로 다시 띄우기 |
 | `[agent-guard] 막음` | 안전장치 | 정상이다. 정말 필요한 명령이면 사람이 직접 터미널에서 한다 |
 | Antigravity·Claude 한도 초과 | 주간·5시간 한도 | 지휘자가 시각을 알려주고 멈춘다. 풀리면 "이어서" |
+| 지휘자가 "이슈 #N"이 뭐냐고 물음 | 예시 문장의 `#N`을 그대로 보냄 | 이슈가 없으면 번호 대신 요청 본문을 보낸다(기획 던지기) |
+| 같은 요청 이슈가 두 개 | 이슈 만들기를 두 번 시킴 | 지휘자는 만들기 전에 같은 제목의 열린 이슈를 찾는다(INTAKE.md 1절). 남은 하나는 사람이 닫는다 |
 
 ## 9. 규칙을 바꾸는 법
 

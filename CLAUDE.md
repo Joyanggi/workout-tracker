@@ -43,7 +43,7 @@
 ## 문서
 
 - `README.md` "핵심 설계 결정": 지금 동작의 명세. `docs/DESIGN.md`는 v1.0 당시 설계라 지금과 다를 수 있다.
-- 요청: GitHub 이슈(개선·새 기능·구조 변경 양식)나 `docs/FIELD-REPORT-*.md`.
+- 요청: GitHub 이슈(개선·새 기능·구조 변경 양식)나 `docs/FIELD-REPORT-*.md`. 지휘자가 기획을 받으면 이슈로 만든다(`agents/coordinator/INTAKE.md`).
 - `docs/PLAN-*.md`: 설계서. 설계자만 쓴다.
 - `docs/DEV-RECORD-*.md`: 구현 기록. 맨 위에 "이 환경에서 확인된 제약" 목록이 있다. 구현자가 쓴다.
 
