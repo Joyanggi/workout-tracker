@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { exportMarkdown } from './exportMarkdown'
-import { progressionVerdicts } from './progression'
+import { hasCompensation } from './compensation'
+import { judgeProgression, progressionVerdicts } from './progression'
 import { ROUTINE, completedSession } from './testFixtures'
 import EXERCISES from '../data/exercises.json'
 import { makeRecordKey } from '../types'
@@ -70,5 +71,53 @@ describe('LL0 골든 — v1.13 출력', () => {
   })
   it('LL_VERDICT_BEFORE: 지금 증량 판정 = 골든', () => {
     expect(verdictsLl()).toEqual(LL_VERDICT_BEFORE)
+  })
+})
+
+// ─── LL1 — "보상작용 있음" 판정 한 곳 ──────────────────────────────
+
+const LL1_RE = ROUTINE.days.find((d) => d.id === 'd1')!.exercises.find((e) => e.exerciseId === 'incline-chest-press')!
+const ll1Judge = (compensation: string | undefined) =>
+  judgeProgression({
+    routine: ROUTINE,
+    routineExercise: LL1_RE,
+    phase: PHASE,
+    sets: [10, 10, 10, 10].map((reps) => ({ weight: 30, reps })),
+    compensation,
+  })
+
+const ll1Sources = import.meta.glob('/src/**/*.{ts,tsx}', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>
+
+describe('LL1', () => {
+  it('hasCompensation: 없음·빈 문자열·공백·undefined는 false', () => {
+    for (const v of ['없음', '', '  ', ' 없음 ', undefined]) expect(hasCompensation(v), String(v)).toBe(false)
+  })
+  it('hasCompensation: 적힌 값은 true', () => {
+    for (const v of ['승모 개입', '없음, 반동']) expect(hasCompensation(v), v).toBe(true)
+  })
+  it("judgeProgression: 전 세트 상단 + compensation '' → up (전: hold compensation)", () => {
+    expect(ll1Judge('')?.kind).toBe('up')
+    expect(ll1Judge('없음')?.kind).toBe('up')
+  })
+  it("judgeProgression: '승모 개입' → hold compensation", () => {
+    expect(ll1Judge('승모 개입')).toMatchObject({ kind: 'hold', reason: { kind: 'compensation' } })
+  })
+  it('LL_VERDICT_BEFORE 일치 (08-28 레그 컬은 그대로 hold compensation)', () => {
+    expect(verdictsLl()).toEqual(LL_VERDICT_BEFORE)
+    expect(LL_VERDICT_BEFORE['2026-08-28|leg-curl@d3']).toMatchObject({ reason: { kind: 'compensation' } })
+  })
+  it('소스 스캔: compensation.ts 밖에 NO_COMPENSATION 직접 비교가 없다', () => {
+    const offenders = Object.entries(ll1Sources)
+      .filter(([p]) => !p.includes('.test.') && !p.endsWith('/src/lib/compensation.ts'))
+      .filter(([, src]) => {
+        const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+        return /[!=]==?\s*NO_COMPENSATION/.test(code)
+      })
+      .map(([p]) => p)
+    expect(offenders).toEqual([])
   })
 })

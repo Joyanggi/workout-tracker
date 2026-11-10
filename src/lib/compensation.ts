@@ -38,8 +38,10 @@ export function parseCompensation(stored: string, knownSigns: string[]): Compens
   return { signs, free: rest.join(SEPARATOR) }
 }
 
-export function hasCompensation(stored: string): boolean {
-  return Boolean(stored) && stored !== NO_COMPENSATION
+/** "보상작용 있음" 판정의 단일 출처. 빈 문자열·공백·'없음'은 없음. (LL1) */
+export function hasCompensation(stored: string | undefined): boolean {
+  const v = (stored ?? '').trim()
+  return v !== '' && v !== NO_COMPENSATION
 }
 
 /** 접힌 카드에 넣을 짧은 표기 */

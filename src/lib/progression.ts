@@ -1,4 +1,5 @@
-import { NO_COMPENSATION, parseRecordKey } from '../types'
+import { parseRecordKey } from '../types'
+import { hasCompensation } from './compensation'
 import type {
   Exercise,
   Phase,
@@ -81,7 +82,7 @@ export function judgeProgression(args: {
   if (phase === 0 && !routine.rules.allowProgressionInPhase0) {
     return { kind: 'hold', from, reason: { kind: 'phase0' } }
   }
-  if ((args.compensation ?? NO_COMPENSATION) !== NO_COMPENSATION) {
+  if (hasCompensation(args.compensation)) {
     return { kind: 'hold', from, reason: { kind: 'compensation' } }
   }
   const reached = sets.filter((s) => s.reps >= routineExercise.repMax).length

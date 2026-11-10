@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { parseCompensation, serializeCompensation } from '../lib/compensation'
-import { NO_COMPENSATION } from '../types'
+import { hasCompensation, parseCompensation, serializeCompensation } from '../lib/compensation'
 import { NO_AUTOFILL } from '../lib/inputProps'
 
 /**
@@ -76,7 +75,7 @@ export default function CompensationSheet({
         />
 
         <p className="row-sub" style={{ marginTop: 12 }}>
-          저장될 값: <strong style={{ color: preview === NO_COMPENSATION ? 'var(--text-dim)' : 'var(--warn)' }}>{preview}</strong>
+          저장될 값: <strong style={{ color: hasCompensation(preview) ? 'var(--warn)' : 'var(--text-dim)' }}>{preview}</strong>
         </p>
 
         <button
@@ -97,7 +96,7 @@ export default function CompensationSheet({
             기준은 저장된 현재 값이다 (편집 중인 선택이 아니다) — 편집 중 값으로 판단하면
             체크를 다 풀자마자 버튼이 사라져서 "되돌리기"를 못 한다.
           */}
-          {current.trim() !== '' && current !== NO_COMPENSATION && (
+          {hasCompensation(current) && (
             <button
               className="btn"
               onClick={() => {
