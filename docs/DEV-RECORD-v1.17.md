@@ -106,3 +106,73 @@
 | 손으로 한 번씩(세션·분석·저장, 콘솔 경고) | **사람 확인 필요** — 이 구현자는 실기기·수동 흐름을 못 돌렸다 |
 
 실행 결과: `Test Files 60 passed (60)` · `Tests 1538 passed (1538)` · 빌드 성공 · `quality-scan` 통과.
+
+---
+
+## OO2. Astryx 바탕
+
+| 항목 | 내용 |
+|---|---|
+| 바뀐 파일 | `package.json`, `package-lock.json`, `src/main.tsx`, `src/lib/inputProps.ts`, `README.md`, 새 `src/styles/index.css`, `src/ax/index.tsx`, `src/ax/ax.css`, `src/ax/clampStep.ts`, `src/lib/v117.test.ts`, 이 문서 |
+| 버전 | `@astryxdesign/core`·`@astryxdesign/theme-neutral` `0.7.13`, `@stylexjs/stylex` `0.19.1` (모두 정확한 버전). `astryx init`·`@astryxdesign/cli` 안 씀 |
+| 화면 | 쓰는 화면이 없다 → 번들에 안 실린다. `home`·`settings`·`editor-full`(다크) `after`를 `before`와 `cmp`: 3/3 바이트 동일. `after` 파일은 지웠다 |
+
+### PLAN 검증 ↔ 테스트 (`src/lib/v117.test.ts`, describe `OO2`, 11개)
+
+| PLAN 검증 | 테스트 |
+|---|---|
+| 버전 고정·같음·stylex | `package.json: Astryx 두 패키지는 0.7.13 …` |
+| `clampStep` 다섯 값 | `clampStep: 경계와 스텝` |
+| `clampStep.ts` 무Astryx, 테스트가 ax 진입점을 안 읽음 | `clampStep.ts는 Astryx도 ./index도 …` |
+| `AX_NO_AUTOFILL`이 `NO_AUTOFILL`을 따름 | `AX_NO_AUTOFILL은 NO_AUTOFILL을 따른다` · `… 정의는 NO_AUTOFILL.을 네 번 …` |
+| `TextInput`·`NumberInput` 재내보내기 없음 | `src/ax/index.tsx는 TextInput·NumberInput을 다시 내보내지 않는다` |
+| `isIconOnly`에 `icon=`, 감소·증가 이름 | `isIconOnly 버튼마다 같은 태그 안에 icon=이 있고 …` |
+| Astryx import는 `src/ax/`만 | `@astryxdesign/을 import하는 파일은 src/ax/ 밖에 없다` |
+| `main.tsx`·`App.tsx` 정적 import 없음, `index.css` | `main.tsx·App.tsx는 Astryx를 정적으로 읽지 않고 …` |
+| `mode="system"`, reset/fonts 없음 | `AxRoot는 mode=system만 쓰고 …` |
+| `TextField`·`Stepper` 억제 | `TextField·Stepper 정의에 자동완성 억제가 있다` |
+| 빌드 출력의 `@layer` | 아래 |
+| dev 서버 `legacy` 레이어 | 아래 |
+
+### 빌드 출력 (`npm run build` 뒤 `dist/assets/index-*.css`)
+
+```
+@layer reset,legacy,astryx-base,astryx-theme;@layer legacy{:root{--bg: #0b0b0d;...
+처음 나오는 @layer = "reset,legacy,astryx-base,astryx-theme"
+legacy 블록 안: .btn{ True / .screen{ True  ·  블록 밖: .btn{ False / .screen{ False
+```
+
+dev 서버(Playwright, `vite createServer`)의 `document.styleSheets`: `[{"name":"legacy","hasBtn":true}]`.
+
+### PLAN과 다르게 한 것
+
+| PLAN | 실제 | 이유 |
+|---|---|---|
+| `<SizeProvider size="lg">` | `<SizeProvider value="lg">` | `SizeContext.d.ts`: `Provider<ElementSize \| null>`. 타입 선언이 맞다 |
+| `Theme` import 경로 `…/core/Theme` 가정 | `@astryxdesign/core/theme` | `package.json` exports·README가 소문자 `theme` |
+| `Stepper`의 `NumberInput`에 `autoComplete="off"` | `{...NUMBER_AUTOFILL}` (`AX_NO_AUTOFILL.autoComplete`에서 파생) | 기존 `inputProps.test.ts`의 X5·Y2 스캔이 소스의 `autoComplete=`를 전부 막는다. 값은 여전히 `NO_AUTOFILL` 한 곳에서 온다. 스캔 테스트는 안 고쳤다 |
+| "빌드 확인"(`light-dark(`·`@scope` 남음) | **OO3에서 확인** | PLAN이 지연 청크가 생긴 뒤라고 했다. 지금은 `src/ax/`를 읽는 화면이 없어 Astryx CSS가 번들에 없다(`npm run build`의 `index-*.css`는 `global.css`뿐) |
+| "legacy 누수 막기" 대조 | 대조하지 못함 | 쓰는 화면이 없어 계산된 스타일을 못 잰다. OO3 `--check`의 `버튼 높이`와 스크린샷으로 본다. 새는 속성이 보이면 `ax.css`의 같은 블록에 더한다 |
+
+### 결함 복원
+
+| # | 되살린 결함 | 실패한 테스트 | 원상복구 |
+|---|---|---|---|
+| ① | `@astryxdesign/core`를 `^0.7.13`으로 | `package.json: Astryx 두 패키지는 …` | `cmp` 같음 |
+| ② | `main.tsx`에 `import '@astryxdesign/core/astryx.css'` | `@astryxdesign/을 import하는 파일은 …` · `main.tsx·App.tsx는 …` | 같음 |
+| ③ | `SettingsScreen.tsx`에 Astryx `Button` import | `@astryxdesign/을 import하는 파일은 …` | 같음 |
+| ④ | `mode="system"` → `mode="dark"` | `AxRoot는 mode=system만 …` | 같음 |
+| ⑤ | `clampStep`에서 `Math.min(max, …)` 삭제 | `clampStep: 경계와 스텝` | 같음 |
+| ⑬ | `hasSpellCheck`를 `false` 리터럴로 | `AX_NO_AUTOFILL 정의는 NO_AUTOFILL.을 네 번 …` | 같음 |
+
+(⑤는 처음에 sed가 문법을 깨서 파일 로드 실패였다 → 유효한 결함으로 다시 만들어 위 결과를 얻었다.) ⑥~⑫·⑭는 OO3 몫이다. ⑩(레이어 순서)은 화면이 없어 여기서는 빌드 출력 확인만 한다.
+
+### 과거 판정 불변
+
+`git diff --stat main..HEAD -- src/lib src/db`는 이 커밋 전까지 아무것도 없다(OO0·OO1은 `src/lib`을 안 건드림). 이 커밋에서 `src/lib`은 `inputProps.ts`(추가만)·`v117.test.ts`(새)만 바뀐다. 기존 테스트는 수정하지 않았다.
+
+### 실행 결과
+
+- `npm test`: Test Files 61 passed (61), Tests 1549 passed (1549)
+- `npm run build` 통과, `node scripts/quality-scan.mjs --ci` 통과
+- `package-lock.json`에 `lucide-react`가 들어왔다(theme-neutral의 의존성). 번들에 실리는지는 OO3 청크 표로 본다.

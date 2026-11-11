@@ -1,0 +1,227 @@
+/*
+ * Astryx 화면이 떠 있는 동안만 걸리는 CSS. 루틴 편집 화면을 처음 열 때 지연 청크로 읽힌다.
+ * 레이어 순서는 `src/styles/index.css`가 정한다.
+ */
+
+/*
+ * 범위 한정 리셋 — `@astryxdesign/core@0.7.13` `src/reset.css`에서 옮김. 버전을 올리면 다시 대조한다.
+ * 전역 reset.css는 안 바꾼 화면을 흔들어서 쓰지 않고, `[data-astryx-theme]` 안에만 건다.
+ * 명시도는 원본처럼 `:where()`로 0을 지킨다. `html`의 line-height·text-size-adjust·color-scheme 등
+ * 문서 단위 규칙은 옮기지 않는다(`global.css`와 아래 "문서 바탕"이 맡는다).
+ */
+@layer reset {
+  :where([data-astryx-theme]) *,
+  :where([data-astryx-theme]) *::before,
+  :where([data-astryx-theme]) *::after {
+    box-sizing: border-box;
+    border-width: 0;
+    border-style: solid;
+    border-color: currentColor;
+  }
+
+  :where([data-astryx-theme]) h1,
+  :where([data-astryx-theme]) h2,
+  :where([data-astryx-theme]) h3,
+  :where([data-astryx-theme]) h4,
+  :where([data-astryx-theme]) h5,
+  :where([data-astryx-theme]) h6 {
+    font-size: inherit;
+    font-weight: inherit;
+  }
+
+  :where([data-astryx-theme]) h1,
+  :where([data-astryx-theme]) h2,
+  :where([data-astryx-theme]) h3,
+  :where([data-astryx-theme]) h4,
+  :where([data-astryx-theme]) h5,
+  :where([data-astryx-theme]) h6,
+  :where([data-astryx-theme]) p,
+  :where([data-astryx-theme]) blockquote,
+  :where([data-astryx-theme]) figure,
+  :where([data-astryx-theme]) pre,
+  :where([data-astryx-theme]) dl,
+  :where([data-astryx-theme]) dd {
+    margin: 0;
+  }
+
+  :where([data-astryx-theme]) a {
+    color: inherit;
+    text-decoration: inherit;
+  }
+
+  :where([data-astryx-theme]) b,
+  :where([data-astryx-theme]) strong {
+    font-weight: bolder;
+  }
+
+  :where([data-astryx-theme]) code,
+  :where([data-astryx-theme]) kbd,
+  :where([data-astryx-theme]) samp,
+  :where([data-astryx-theme]) pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 1em;
+  }
+
+  :where([data-astryx-theme]) small {
+    font-size: 80%;
+  }
+
+  :where([data-astryx-theme]) sub,
+  :where([data-astryx-theme]) sup {
+    font-size: 75%;
+    line-height: 0;
+    position: relative;
+    vertical-align: baseline;
+  }
+
+  :where([data-astryx-theme]) ol,
+  :where([data-astryx-theme]) ul,
+  :where([data-astryx-theme]) menu {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  :where([data-astryx-theme]) img,
+  :where([data-astryx-theme]) svg,
+  :where([data-astryx-theme]) video,
+  :where([data-astryx-theme]) canvas,
+  :where([data-astryx-theme]) audio,
+  :where([data-astryx-theme]) iframe,
+  :where([data-astryx-theme]) embed,
+  :where([data-astryx-theme]) object {
+    display: block;
+  }
+
+  :where([data-astryx-theme]) img,
+  :where([data-astryx-theme]) video {
+    max-width: 100%;
+    height: auto;
+  }
+
+  :where([data-astryx-theme]) button,
+  :where([data-astryx-theme]) input,
+  :where([data-astryx-theme]) optgroup,
+  :where([data-astryx-theme]) select,
+  :where([data-astryx-theme]) textarea {
+    font: inherit;
+    font-feature-settings: inherit;
+    font-variation-settings: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    margin: 0;
+    padding: 0;
+  }
+
+  :where([data-astryx-theme]) button,
+  :where([data-astryx-theme]) [type='button'],
+  :where([data-astryx-theme]) [type='reset'],
+  :where([data-astryx-theme]) [type='submit'] {
+    background-color: transparent;
+    background-image: none;
+    appearance: button;
+    cursor: pointer;
+  }
+
+  :where([data-astryx-theme]) :disabled {
+    cursor: default;
+  }
+
+  :where([data-astryx-theme]) textarea {
+    resize: vertical;
+  }
+
+  :where([data-astryx-theme]) ::placeholder {
+    color: inherit;
+    opacity: 0.5;
+  }
+
+  :where([data-astryx-theme]) [list]::-webkit-calendar-picker-indicator {
+    display: none !important;
+  }
+
+  :where([data-astryx-theme]) [type='search'] {
+    appearance: textfield;
+    outline-offset: -2px;
+  }
+
+  :where([data-astryx-theme]) fieldset {
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+    border: 0;
+  }
+
+  :where([data-astryx-theme]) legend {
+    padding: 0;
+  }
+
+  :where([data-astryx-theme]) table {
+    border-collapse: collapse;
+    border-spacing: 0;
+    text-indent: 0;
+  }
+
+  :where([data-astryx-theme]) hr {
+    height: 0;
+    color: inherit;
+    border-top-width: 1px;
+    margin: 0;
+  }
+
+  :where([data-astryx-theme]) summary {
+    display: list-item;
+  }
+
+  :where([data-astryx-theme]) dialog {
+    margin: 0;
+    padding: 0;
+    outline: 0;
+  }
+
+  :where([data-astryx-theme]) [hidden]:where(:not([hidden='until-found'])) {
+    display: none !important;
+  }
+}
+
+/*
+ * legacy 누수 막기 — `global.css`의 `button { min-height: 44px }`가 Astryx 버튼에 새서
+ * 보이는 높이가 44px가 되는 것을 막는다. `legacy` 레이어 안에 둬야 Astryx가 터치에서 스스로 거는
+ * `min-height: 44px`(목록 줄 등)는 지우지 않는다. 명시도 (0,1,1)이 (0,0,1)을 이긴다.
+ */
+@layer legacy {
+  [data-astryx-theme] button {
+    min-height: 0;
+  }
+}
+
+/* 문서 바탕 */
+@layer astryx-theme {
+  html[data-astryx-theme],
+  html[data-astryx-theme] body {
+    color-scheme: light dark;
+    background: var(--color-background-body);
+  }
+
+  .ax-screen {
+    min-height: 100dvh;
+    max-width: 640px;
+    margin: 0 auto;
+    padding: calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 24px);
+  }
+
+  /* 홈 화면 앱의 상태바 글자는 항상 흰색이라, 라이트에서만 상태바 자리를 어둡게 받친다 */
+  @media (prefers-color-scheme: light) {
+    .ax-screen::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: env(safe-area-inset-top);
+      background: #0b0b0d;
+      pointer-events: none;
+      z-index: 1;
+    }
+  }
+}

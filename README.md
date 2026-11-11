@@ -239,6 +239,15 @@
   분석 탭 청크가 메인 번들과 비슷한 크기입니다 (recharts). 정확한 값은
   `npm run build` 출력이 말해줍니다 — 여기 적어두면 코드가 커질 때마다 낡습니다.
 
+- **Astryx는 화면 단위로 들이고, 안 바꾼 화면과 CSS 레이어로 나눈다**
+  Astryx CSS는 캐스케이드 레이어 안에 있어서 레이어 밖 CSS에 항상 집니다. 기존 `global.css`를
+  `legacy` 레이어에 넣어(`src/styles/index.css`) Astryx 부품이 이기게 하고, Astryx의 전역
+  리셋은 쓰지 않고 `[data-astryx-theme]` 안에만 거는 사본을 둡니다(`src/ax/ax.css`).
+  레이어는 같은 속성끼리만 승부가 나서, Astryx가 정하지 않는 속성(`button`의 `min-height`)은
+  같은 파일이 `legacy` 레이어 안에서 따로 끕니다.
+  화면은 `src/ax/`의 부품만 가져다 쓰고, Astryx 버전은 정확한 값으로 고정합니다(베타).
+  Astryx 화면은 지연 로딩해서 헬스장 경로(홈 → 세션)가 Astryx 코드를 읽지 않습니다.
+
 ### 백업 · 비밀값
 
 - **Gist 토큰은 세 겹으로 백업에서 차단한다** (§11)
@@ -352,6 +361,7 @@ flowchart TB
 - UI: React 19 (라우터 없음 — 탭 4개라 상태로 충분)
 - 상태: zustand (설정 · 진행 중 세션 · 휘발성 UI 상태만. 나머지는 `dexie-react-hooks` live query로 직접 읽음)
 - 저장: Dexie (IndexedDB, 스키마 v3) + localStorage (비밀값·휴식 타이머·백업 대기 플래그)
+- UI 부품: Astryx 0.7.13 (@astryxdesign/core, 베타 — 버전 고정. 지금은 루틴 편집 화면만)
 - 차트: recharts (분석 탭만 `React.lazy`로 지연 로딩)
 - PWA: vite-plugin-pwa (manifest + Workbox SW), iOS 스플래시 8종
 - 테스트: Vitest (알고리즘·파생 계산 단위 테스트, CI에서 배포 전 실행). 개수는 `npm test`가 말해줍니다

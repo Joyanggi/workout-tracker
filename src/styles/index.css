@@ -1,0 +1,7 @@
+/*
+ * 앱 CSS 진입점. 레이어 순서를 여기서 먼저 굳힌다(처음 선언된 순서가 이긴다).
+ * `global.css`는 `legacy` 레이어에 넣어, 같은 속성을 정한 Astryx 부품(`astryx-base`)이 이기게 한다.
+ * Astryx가 정하지 않는 속성이 새는 것은 `src/ax/ax.css`가 막는다.
+ */
+@layer reset, legacy, astryx-base, astryx-theme;
+@import './global.css' layer(legacy);
