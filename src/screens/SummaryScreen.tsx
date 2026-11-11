@@ -11,23 +11,11 @@ import { buildScaleMap, formatProgression, isInverseKey } from '../lib/weightSca
 import { useExerciseSettings } from '../lib/useExerciseSettings'
 import { PR_LABEL, detectPrs, topPrPerRecord } from '../lib/pr'
 import { formatClock, formatElapsed } from '../lib/dates'
-import { doneSets, e1rm, findDay, totalDoneSets, totalVolume } from '../lib/derive'
+import { doneSets, e1rm, findDay, orderDeviations, totalDoneSets, totalVolume } from '../lib/derive'
 import type { RoutineBundle } from '../lib/useRoutine'
 import { useSessionStore } from '../store/session'
 import { useSettings } from '../store/settings'
-import { parseRecordKey, type Session } from '../types'
-
-/** 계획 순서 대비 수행 순서가 얼마나 어긋났는지 (§5.2 수행 순서 타임라인) */
-function orderDeviations(session: Session) {
-  const performed = session.entries
-    .filter((e) => e.performedOrder !== null)
-    .sort((a, b) => a.performedOrder! - b.performedOrder!)
-  const byPlan = [...performed].sort((a, b) => a.plannedOrder - b.plannedOrder)
-  return performed.map((entry) => {
-    const expected = byPlan.indexOf(entry) + 1
-    return { entry, shift: entry.performedOrder! - expected }
-  })
-}
+import { parseRecordKey } from '../types'
 
 export default function SummaryScreen({
   bundle,
