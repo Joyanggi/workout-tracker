@@ -155,23 +155,52 @@ const inPageLastRow = () => {
   return { ok, detail: `"${last.textContent.trim().slice(0, 16)}" 가운데 (${Math.round(x)},${Math.round(y)}) → ${hit ? hit.tagName.toLowerCase() + ' "' + hit.textContent.trim().slice(0, 16) + '"' : '화면 밖'}` }
 }
 
-/** 탭 영역: 컨트롤 가운데에서 위·아래·좌·우 21px 점이 그 컨트롤(이나 그 안)을 가리킨다. 예외 없음 */
-const inPageTapArea = async () => {
+/**
+ * 탭 영역. 화면 본체는 컨트롤 가운데에서 위·아래·좌·우 21px 점이 그 컨트롤(이나 그 안)을 가리키는지 본다(예외 없음).
+ * 시트(useHit=true)는 눈에 보이는 박스가 아니라 Astryx가 터치에서 넓혀 주는 누를 수 있는 영역을 잰다:
+ * 보이는 박스를 `--astryx-hit-inset-*`(위·오른쪽·아래·왼쪽)만큼 키운 상자가 가로·세로 44px 이상이다(사람 결정 A).
+ * Astryx는 이 값을 프레임당 4ms씩 나눠 비동기로 잡아서, 값이 바뀌지 않고 가만해질 때까지 기다린 뒤 잰다(실행마다 달라지지 않게).
+ */
+const inPageTapArea = async (useHit) => {
   const sheet = [...document.querySelectorAll('dialog[open], [role="dialog"]')].find(window.__vis)
   const scope = sheet ?? document.body
   const sel = 'button, [role="switch"], [role="button"], [role="checkbox"], [role="radio"], input[type="checkbox"], input[type="radio"], summary'
   const bad = []
   let n = 0
+  const wait = (ms) => new Promise((done) => setTimeout(done, ms))
+  const readInsets = (box) => {
+    const cs = getComputedStyle(box)
+    return ['top', 'right', 'bottom', 'left'].map((s) => Number.parseFloat(cs.getPropertyValue(`--astryx-hit-inset-${s}`)) || 0)
+  }
   for (const el of scope.querySelectorAll(sel)) {
     if (el.disabled || el.getAttribute('aria-disabled') === 'true') continue
     if (!window.__vis(el)) continue
     el.scrollIntoView({ block: 'center', inline: 'center' })
-    // Astryx의 탭 영역은 화면 가운데로 온 뒤 비동기로 잡힌다. 바로 재면 옛 값을 잰다. 시트 안은 더 늦게 잡힌다
-    // 시트 안은 탭 영역이 프레임마다 조금씩(프레임당 4ms) 잡혀서 한참 뒤에야 자리 잡는다. 800ms 기다린다
-    await new Promise((done) => setTimeout(done, sheet ? 800 : 80))
     // Switch는 보이는 컨트롤이 트랙이고, 늘어나는 탭 영역도 입력(input)이 아니라 입력과 트랙을 함께 감싼 부모에 걸린다
-    // (input은 트랙보다 크고 가운데가 1px쯤 어긋난다). 그래서 가운데도 그 부모의 것을 쓴다
     const box = el.getAttribute('role') === 'switch' ? el.parentElement : el
+    let name = el.getAttribute('aria-label') ?? el.textContent.trim().slice(0, 14)
+    if (useHit) {
+      // 값이 400ms(80ms×5) 동안 그대로면 자리 잡은 것. 최대 6초
+      let prev = ''
+      let same = 0
+      for (let t = 0; t < 75 && same < 5; t += 1) {
+        await wait(80)
+        const cur = JSON.stringify(readInsets(box)) + JSON.stringify(box.getBoundingClientRect().toJSON())
+        same = cur === prev ? same + 1 : 0
+        prev = cur
+      }
+      const r = box.getBoundingClientRect()
+      const [top, right, bottom, left] = readInsets(box)
+      const w = r.width + left + right
+      const h = r.height + top + bottom
+      n += 1
+      if (w < 43.5 || h < 43.5) {
+        bad.push(`"${name}" 보이는 ${Math.round(r.width)}×${Math.round(r.height)} → 탭 영역 ${w.toFixed(1)}×${h.toFixed(1)} (inset ${top}/${right}/${bottom}/${left})`)
+      }
+      continue
+    }
+    // 화면 본체: Astryx의 탭 영역이 화면 가운데로 온 뒤 비동기로 잡힌다. 바로 재면 옛 값을 잰다
+    await wait(80)
     const r = box.getBoundingClientRect()
     const cx = r.left + r.width / 2
     const cy = r.top + r.height / 2
@@ -180,11 +209,10 @@ const inPageTapArea = async () => {
     const failed = sides.filter(([dx, dy]) => !own(document.elementFromPoint(cx + dx, cy + dy))).map((s) => s[2])
     n += 1
     if (failed.length > 0) {
-      const name = el.getAttribute('aria-label') ?? el.textContent.trim().slice(0, 14)
       bad.push(`"${name}" ${Math.round(r.width)}×${Math.round(r.height)} ${failed.join('·')}`)
     }
   }
-  return { ok: bad.length === 0, detail: `${n}개 중 ${bad.length}개 실패: ` + bad.slice(0, 5).join(' · ') + (bad.length > 5 ? ` 외 ${bad.length - 5}` : '') }
+  return { ok: bad.length === 0, detail: `${n}개 중 ${bad.length}개 실패: ` + bad.join(' · ') }
 }
 
 /** 버튼 높이 (after만) */
@@ -231,7 +259,7 @@ async function runChecks(page, scene, vp, scheme, kind) {
     cells['글자 잘림'] = await page.evaluate(inPageClip)
     cells['입력 글자'] = await page.evaluate(inPageInputFont)
     if (kind === 'sheet') cells['마지막 줄'] = await page.evaluate(inPageLastRow)
-    cells['탭 영역'] = await page.evaluate(inPageTapArea)
+    cells['탭 영역'] = await page.evaluate(inPageTapArea, kind === 'sheet')
     if (phase === 'after') cells['버튼 높이'] = await page.evaluate(inPageButtonHeight)
     await page.evaluate(inPageResetScroll)
   }
