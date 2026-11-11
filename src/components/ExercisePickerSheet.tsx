@@ -1,5 +1,5 @@
-import { NO_AUTOFILL } from '../lib/inputProps'
 import { useMemo, useState } from 'react'
+import { Badge, Banner, Button, Heading, Item, Sheet, Switch, Text, TextField, VStack } from '../ax'
 import type { Exercise } from '../types'
 
 export interface ExerciseForm {
@@ -48,60 +48,42 @@ export default function ExercisePickerSheet({
   const editing = form && form !== 'new' ? catalog.find((e) => e.id === form) : undefined
 
   return (
-    <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="종목 고르기">
-        <div className="sheet-grip" />
-        {form === null ? (
-          <>
-            <div className="card-label">종목 추가</div>
-            <input
-              {...NO_AUTOFILL}
-              className="field"
-              aria-label="종목 검색"
-              placeholder="이름으로 찾기"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
+    // 폼이 열려 있을 때만 바깥 탭으로 안 닫힌다(적던 이름을 한 번 탭으로 잃지 않게). 목록일 때는 닫혀도 잃는 것이 없다
+    <Sheet label="종목 고르기" purpose={form === null ? 'info' : 'form'} height="tall" onClose={onClose}>
+      {form === null ? (
+        <VStack gap={4}>
+          <Heading level={2}>종목 추가</Heading>
+          <TextField label="종목 검색" isLabelHidden placeholder="이름으로 찾기" value={query} onChange={setQuery} />
+          {rows.length === 0 && <Text color="secondary">맞는 종목이 없습니다.</Text>}
+          {rows.map((e) => (
+            <Item
+              key={e.id}
+              label={
+                <>
+                  {e.shortName} {e.custom === true && <Badge label="내 종목" />}
+                </>
+              }
+              description={<>{e.name}</>}
+              onClick={() => onPick(e.id)}
+              endContent={
+                e.custom === true ? <Button variant="secondary" label="편집" onClick={() => setForm(e.id)} /> : undefined
+              }
             />
-            {rows.length === 0 && <p className="row-sub" style={{ marginTop: 12 }}>맞는 종목이 없습니다.</p>}
-            {rows.map((e) => (
-              <div className="row sheet-row" key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <button
-                  className="row-main"
-                  style={{ flex: 1, textAlign: 'left', background: 'none', border: 0, color: 'inherit', padding: 0 }}
-                  onClick={() => onPick(e.id)}
-                >
-                  <div className="row-title">
-                    {e.shortName}
-                    {e.custom === true && <span className="chip" style={{ marginLeft: 6 }}>내 종목</span>}
-                  </div>
-                  <div className="row-sub">{e.name}</div>
-                </button>
-                {e.custom === true && (
-                  <button className="btn" onClick={() => setForm(e.id)}>
-                    편집
-                  </button>
-                )}
-              </div>
-            ))}
-            <button className="btn" style={{ marginTop: 12 }} onClick={() => setForm('new')}>
-              ＋ 새 종목 만들기
-            </button>
-            <button className="btn" style={{ marginTop: 16 }} onClick={onClose}>
-              닫기
-            </button>
-          </>
-        ) : (
-          <ExerciseFormView
-            key={form}
-            editing={editing}
-            deletable={editing ? !inUse(editing.id) : false}
-            onSubmit={(f) => (editing ? onUpdate(editing.id, f) : onCreate(f))}
-            onDelete={editing ? () => onDelete(editing.id) : undefined}
-            onBack={() => setForm(null)}
-          />
-        )}
-      </div>
-    </div>
+          ))}
+          <Button variant="secondary" width="100%" label="＋ 새 종목 만들기" onClick={() => setForm('new')} />
+          <Button variant="secondary" width="100%" label="닫기" onClick={onClose} />
+        </VStack>
+      ) : (
+        <ExerciseFormView
+          key={form}
+          editing={editing}
+          deletable={editing ? !inUse(editing.id) : false}
+          onSubmit={(f) => (editing ? onUpdate(editing.id, f) : onCreate(f))}
+          onDelete={editing ? () => onDelete(editing.id) : undefined}
+          onBack={() => setForm(null)}
+        />
+      )}
+    </Sheet>
   )
 }
 
@@ -140,46 +122,42 @@ function ExerciseFormView({
     })
 
   return (
-    <>
-      <div className="card-label">{editing ? '내 종목 편집' : '새 종목 만들기'}</div>
-      <label className="row-sub" htmlFor="ex-name">이름</label>
-      <input {...NO_AUTOFILL} id="ex-name" className="field" value={name} onChange={(e) => setName(e.target.value)} />
-      <label className="row-sub" htmlFor="ex-short" style={{ marginTop: 8, display: 'block' }}>짧은 이름 (선택)</label>
-      <input {...NO_AUTOFILL} id="ex-short" className="field" value={shortName} onChange={(e) => setShortName(e.target.value)} />
-      <label className="row-sub" htmlFor="ex-cue" style={{ marginTop: 8, display: 'block' }}>자극 팁 (선택)</label>
-      <input {...NO_AUTOFILL} id="ex-cue" className="field" value={cueTip} onChange={(e) => setCueTip(e.target.value)} />
-      <label className="row-sub" style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center' }}>
-        <input {...NO_AUTOFILL} type="checkbox" checked={bodyweight} onChange={(e) => setBodyweight(e.target.checked)} />
-        맨몸 운동 (무게 0kg으로 기록)
-      </label>
-      {problems.map((p) => (
-        <p key={p} className="row-sub" role="alert" style={{ color: 'var(--danger, #e5484d)', marginTop: 8 }}>
-          {p}
-        </p>
-      ))}
-      <button
-        className="btn btn-primary"
-        style={{ marginTop: 12 }}
-        disabled={busy}
-        onClick={() => run(async () => {
-          const found = await onSubmit({ name, shortName, cueTip, bodyweight })
-          if (found.length === 0) onBack()
-          return found
-        })}
-      >
-        {editing ? '저장' : '만들고 추가'}
-      </button>
+    <VStack gap={3}>
+      <Heading level={2}>{editing ? '내 종목 편집' : '새 종목 만들기'}</Heading>
+      <TextField label="이름" value={name} onChange={setName} />
+      <TextField label="짧은 이름 (선택)" value={shortName} onChange={setShortName} />
+      <TextField label="자극 팁 (선택)" value={cueTip} onChange={setCueTip} />
+      {/* Switch의 탭 영역은 이웃과의 간격 절반까지만 넓어진다 → 위·아래로 간격을 더 둔다 */}
+      <VStack paddingBlock={2}>
+        <Switch label="맨몸 운동 (무게 0kg으로 기록)" value={bodyweight} onChange={setBodyweight} />
+      </VStack>
+      {problems.length > 0 && (
+        <Banner status="error" title="저장할 수 없습니다" collapsible={false}>
+          <VStack gap={1}>
+            {problems.map((p) => (
+              <Text key={p}>{p}</Text>
+            ))}
+          </VStack>
+        </Banner>
+      )}
+      <Button
+        variant="primary"
+        width="100%"
+        label={editing ? '저장' : '만들고 추가'}
+        isDisabled={busy}
+        onClick={() =>
+          run(async () => {
+            const found = await onSubmit({ name, shortName, cueTip, bodyweight })
+            if (found.length === 0) onBack()
+            return found
+          })
+        }
+      />
       {editing && onDelete && deletable && (
-        <button className="btn btn-danger" style={{ marginTop: 12 }} disabled={busy} onClick={remove}>
-          종목 삭제
-        </button>
+        <Button variant="destructive" width="100%" label="종목 삭제" isDisabled={busy} onClick={remove} />
       )}
-      {editing && !deletable && (
-        <p className="row-sub" style={{ marginTop: 12 }}>루틴이나 기록에서 쓰는 종목은 지울 수 없습니다</p>
-      )}
-      <button className="btn" style={{ marginTop: 12 }} onClick={onBack}>
-        뒤로
-      </button>
-    </>
+      {editing && !deletable && <Text color="secondary">루틴이나 기록에서 쓰는 종목은 지울 수 없습니다</Text>}
+      <Button variant="secondary" width="100%" label="뒤로" onClick={onBack} />
+    </VStack>
   )
 }

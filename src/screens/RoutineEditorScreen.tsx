@@ -1,7 +1,5 @@
-import { NO_AUTOFILL } from '../lib/inputProps'
 import { useMemo, useState } from 'react'
 import ExercisePickerSheet, { type ExerciseForm } from '../components/ExercisePickerSheet'
-import NumberStepper from '../components/NumberStepper'
 import RoutineLineSheet from '../components/RoutineLineSheet'
 import { BUNDLED_ROUTINE } from '../db/seed'
 import {
@@ -25,6 +23,22 @@ import {
 import { deleteCustomExercise, saveCustomExercise, saveRoutineDraft } from '../lib/routineStore'
 import { useRoutineEditContext, type RoutineEditContext } from '../lib/useRoutineEditContext'
 import { exerciseLabel, type RoutineBundle } from '../lib/useRoutine'
+import {
+  AxRoot,
+  Badge,
+  Banner,
+  Button,
+  Card,
+  Heading,
+  HStack,
+  Item,
+  SegmentedControl,
+  SegmentedControlItem,
+  Stepper,
+  Text,
+  TextField,
+  VStack,
+} from '../ax'
 import type { Exercise, RoutineDay, RoutineExercise, RoutineTemplate } from '../types'
 
 /** 처음 초안과 저장 전 id (NN2 표). 저장된 루틴은 toDraft를 거쳐야만 초안이 된다 */
@@ -46,6 +60,9 @@ function startDraft(
   return { draft: toDraft(active), savedId: active.id, forked: false }
 }
 
+/** 나란한 버튼이 남는 폭을 나눠 갖는다(글자 폭이 먼저라 이름이 잘리지 않는다) */
+const GROW = { flex: '1 1 auto' } as const
+
 function move<T>(list: T[], i: number, dir: -1 | 1): T[] {
   const j = i + dir
   if (j < 0 || j >= list.length) return list
@@ -64,8 +81,11 @@ export default function RoutineEditorScreen({
   onDone: () => void
 }) {
   const ctx = useRoutineEditContext()
-  if (!ctx) return <div className="center-note">불러오는 중…</div>
-  return <Editor bundle={bundle} target={target} ctx={ctx} onDone={onDone} />
+  return (
+    <AxRoot>
+      {ctx ? <Editor bundle={bundle} target={target} ctx={ctx} onDone={onDone} /> : <Text>불러오는 중…</Text>}
+    </AxRoot>
+  )
 }
 
 function Editor({
@@ -191,211 +211,181 @@ function Editor({
   ].filter((m) => m !== '')
 
   return (
-    <div className="screen">
-      <div className="btn-row" style={{ alignItems: 'center' }}>
+    <VStack gap={3}>
+      <HStack gap={2} align="center">
         {confirmLeave ? (
           <>
-            <button className="btn btn-danger" onClick={onDone}>
-              저장하지 않고 나가기
-            </button>
-            <button className="btn" onClick={() => setConfirmLeave(false)}>
-              계속 편집
-            </button>
+            <Button variant="destructive" label="저장하지 않고 나가기" style={GROW} onClick={onDone} />
+            <Button variant="secondary" label="계속 편집" style={GROW} onClick={() => setConfirmLeave(false)} />
           </>
         ) : (
           <>
-            <button className="btn" onClick={() => (dirty ? setConfirmLeave(true) : onDone())}>
-              ‹ 취소
-            </button>
-            <h1 className="screen-title" style={{ margin: 0, flex: 1, textAlign: 'center' }}>
+            <Button variant="ghost" label="‹ 취소" onClick={() => (dirty ? setConfirmLeave(true) : onDone())} />
+            <Heading level={1} justify="center" maxLines={1} style={{ flex: 1, minWidth: 0 }}>
               루틴 편집
-            </h1>
-            <button className="btn btn-primary" disabled={!dirty || saving} onClick={() => void save()}>
-              저장
-            </button>
+            </Heading>
+            <Button variant="primary" label="저장" isDisabled={!dirty || saving} onClick={() => void save()} />
           </>
         )}
-      </div>
+      </HStack>
 
       {start.forked && (
-        <p className="row-sub" style={{ whiteSpace: 'normal' }}>
-          기본 루틴은 그대로 두고 복사본을 만들어 고칩니다. 지금까지의 기록은 이어집니다.
-        </p>
+        <Text color="secondary">기본 루틴은 그대로 두고 복사본을 만들어 고칩니다. 지금까지의 기록은 이어집니다.</Text>
       )}
 
       {problems.length > 0 && (
-        <div className="banner banner-danger" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-          {problems.map((p) => (
-            <span key={p}>{p}</span>
-          ))}
-        </div>
+        <Banner status="error" title="저장할 수 없습니다" collapsible={false}>
+          <VStack gap={1}>
+            {problems.map((p) => (
+              <Text key={p}>{p}</Text>
+            ))}
+          </VStack>
+        </Banner>
       )}
 
-      <div className="card">
-        <div className="card-label">루틴 이름</div>
-        <input
-            {...NO_AUTOFILL}
-          className="field"
-          aria-label="루틴 이름"
-          value={draft.name}
-          onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-        />
-      </div>
+      <Card>
+        <TextField label="루틴 이름" value={draft.name} onChange={(v) => setDraft({ ...draft, name: v })} />
+      </Card>
 
       {draft.days.map((day, di) => (
-        <div className="card" key={day.id}>
-          <div className="btn-row" style={{ alignItems: 'center' }}>
-            <input
-            {...NO_AUTOFILL}
-              className="field"
-              aria-label="Day 이름"
-              value={day.name}
-              onChange={(e) => editDay(day.id, (x) => ({ ...x, name: e.target.value }))}
+        <Card key={day.id}>
+          <VStack gap={3}>
+            <HStack gap={2} align="center">
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <TextField
+                  label="Day 이름"
+                  isLabelHidden
+                  value={day.name}
+                  onChange={(v) => editDay(day.id, (x) => ({ ...x, name: v }))}
+                />
+              </div>
+              <Button
+                variant="ghost"
+                isIconOnly
+                icon={<span aria-hidden="true">▲</span>}
+                label="Day 위로"
+                isDisabled={di === 0}
+                onClick={() => setDraft((d) => ({ ...d, days: move(d.days, di, -1) }))}
+              />
+              <Button
+                variant="ghost"
+                isIconOnly
+                icon={<span aria-hidden="true">▼</span>}
+                label="Day 아래로"
+                isDisabled={di === draft.days.length - 1}
+                onClick={() => setDraft((d) => ({ ...d, days: move(d.days, di, 1) }))}
+              />
+            </HStack>
+            <TextField
+              label="Day 설명"
+              isLabelHidden
+              placeholder="설명 (예: 상부가슴 / 측면어깨)"
+              value={day.subtitle}
+              onChange={(v) => editDay(day.id, (x) => ({ ...x, subtitle: v }))}
             />
-            <button
-              className="btn"
-              aria-label="Day 위로"
-              disabled={di === 0}
-              onClick={() => setDraft((d) => ({ ...d, days: move(d.days, di, -1) }))}
-            >
-              ▲
-            </button>
-            <button
-              className="btn"
-              aria-label="Day 아래로"
-              disabled={di === draft.days.length - 1}
-              onClick={() => setDraft((d) => ({ ...d, days: move(d.days, di, 1) }))}
-            >
-              ▼
-            </button>
-          </div>
-          <input
-            {...NO_AUTOFILL}
-            className="field"
-            style={{ marginTop: 8 }}
-            aria-label="Day 설명"
-            placeholder="설명 (예: 상부가슴 / 측면어깨)"
-            value={day.subtitle}
-            onChange={(e) => editDay(day.id, (x) => ({ ...x, subtitle: e.target.value }))}
-          />
 
-          {day.exercises.map((ex, i) => (
-            <div className="row" key={ex.exerciseId} style={{ borderBottom: 'none', padding: '6px 0' }}>
-              <button
-                className="row-main"
-                style={{ textAlign: 'left' }}
-                onClick={() => setLineAt({ dayId: day.id, index: i })}
-              >
-                <div className="row-title" style={{ fontSize: 14 }}>
-                  {i + 1}. {label(ex.exerciseId)} <span className="chip">{ex.group === 'core' ? '코어' : ex.group}</span>
+            {day.exercises.map((ex, i) => (
+              <HStack key={ex.exerciseId} gap={2} align="center">
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <Item
+                    label={
+                      <>
+                        {i + 1}. {label(ex.exerciseId)} <Badge label={ex.group === 'core' ? '코어' : ex.group} />
+                      </>
+                    }
+                    description={<>{`${ex.muscle || '부위 없음'} · ${ex.sets}×${ex.repMin}~${ex.repMax} · ${ex.restSec}초`}</>}
+                    onClick={() => setLineAt({ dayId: day.id, index: i })}
+                  />
                 </div>
-                <div className="row-sub">
-                  {ex.muscle || '부위 없음'} · {ex.sets}×{ex.repMin}~{ex.repMax} · {ex.restSec}초
-                </div>
-              </button>
-              <button
-                className="btn"
-                aria-label="종목 위로"
-                disabled={i === 0}
-                onClick={() => editDay(day.id, (x) => ({ ...x, exercises: move(x.exercises, i, -1) }))}
-              >
-                ▲
-              </button>
-              <button
-                className="btn"
-                aria-label="종목 아래로"
-                disabled={i === day.exercises.length - 1}
-                onClick={() => editDay(day.id, (x) => ({ ...x, exercises: move(x.exercises, i, 1) }))}
-              >
-                ▼
-              </button>
-            </div>
-          ))}
+                <Button
+                  variant="ghost"
+                  isIconOnly
+                  icon={<span aria-hidden="true">▲</span>}
+                  label="종목 위로"
+                  isDisabled={i === 0}
+                  onClick={() => editDay(day.id, (x) => ({ ...x, exercises: move(x.exercises, i, -1) }))}
+                />
+                <Button
+                  variant="ghost"
+                  isIconOnly
+                  icon={<span aria-hidden="true">▼</span>}
+                  label="종목 아래로"
+                  isDisabled={i === day.exercises.length - 1}
+                  onClick={() => editDay(day.id, (x) => ({ ...x, exercises: move(x.exercises, i, 1) }))}
+                />
+              </HStack>
+            ))}
 
-          <div className="btn-row" style={{ marginTop: 8 }}>
-            <button className="btn" onClick={() => setPickDay(day.id)}>
-              ＋ 종목 추가
-            </button>
-            {confirmDay === day.id ? (
-              <>
-                <button className="btn btn-danger" onClick={() => removeDay(day.id)}>
-                  정말 삭제
-                </button>
-                <button className="btn" onClick={() => setConfirmDay(null)}>
-                  취소
-                </button>
-              </>
-            ) : (
-              <button className="btn btn-danger" onClick={() => setConfirmDay(day.id)}>
-                Day 삭제
-              </button>
-            )}
-          </div>
-        </div>
+            <HStack gap={2}>
+              <Button variant="secondary" label="＋ 종목 추가" onClick={() => setPickDay(day.id)} />
+              {confirmDay === day.id ? (
+                <>
+                  <Button variant="destructive" label="정말 삭제" onClick={() => removeDay(day.id)} />
+                  <Button variant="secondary" label="취소" onClick={() => setConfirmDay(null)} />
+                </>
+              ) : (
+                <Button variant="destructive" label="Day 삭제" onClick={() => setConfirmDay(day.id)} />
+              )}
+            </HStack>
+          </VStack>
+        </Card>
       ))}
 
-      <button className="btn" onClick={addDay}>
-        ＋ Day 추가
-      </button>
+      <Button variant="secondary" width="100%" label="＋ Day 추가" onClick={addDay} />
 
       {draft.fallbackDays.length > 0 && (
-        <div className="card">
-          <div className="card-label">하한 모드</div>
-          <p className="row-sub" style={{ whiteSpace: 'normal' }}>
-            정규 Day에서 뺀 종목은 여기서도 빠지고, 반복수는 정규 Day를 따라갑니다.
-          </p>
-          {draft.fallbackDays.map((day) => (
-            <div className="row" key={day.id}>
-              <div className="row-main">
-                <div className="row-title">{day.name}</div>
-                <div className="row-sub">{day.exercises.map((e) => label(e.exerciseId)).join(' · ')}</div>
-              </div>
-              <button
-                className="btn"
-                onClick={() => setDraft((d) => ({ ...d, fallbackDays: d.fallbackDays.filter((x) => x.id !== day.id) }))}
-              >
-                삭제
-              </button>
-            </div>
-          ))}
-        </div>
+        <Card>
+          <VStack gap={3}>
+            <Heading level={2}>하한 모드</Heading>
+            <Text color="secondary">정규 Day에서 뺀 종목은 여기서도 빠지고, 반복수는 정규 Day를 따라갑니다.</Text>
+            {draft.fallbackDays.map((day) => (
+              <Item
+                key={day.id}
+                label={day.name}
+                description={<>{day.exercises.map((e) => label(e.exerciseId)).join(' · ')}</>}
+                endContent={
+                  <Button
+                    variant="secondary"
+                    label="삭제"
+                    onClick={() => setDraft((d) => ({ ...d, fallbackDays: d.fallbackDays.filter((x) => x.id !== day.id) }))}
+                  />
+                }
+              />
+            ))}
+          </VStack>
+        </Card>
       )}
 
-      <div className="card">
-        <div className="card-label">주간 목표</div>
-        {Object.entries(targets).map(([muscle, t]) => (
-          <div key={muscle} style={{ padding: '8px 0' }}>
-            <div className="row" style={{ borderBottom: 'none', padding: 0 }}>
-              <div className="row-main">
-                <div className="row-title">{muscle}</div>
-                <div className="row-sub">플랜 합계 {planSum[muscle] ?? 0}세트</div>
-              </div>
-              <div className="row-meta">{t.target}세트</div>
-            </div>
-            <div className="segment" style={{ marginTop: 6 }}>
-              <button aria-pressed={t.auto === true} onClick={() => setTarget(muscle, { mode: 'plan' })}>
-                플랜 합계
-              </button>
-              <button aria-pressed={t.auto !== true} onClick={() => setTarget(muscle, { mode: 'manual' })}>
-                직접
-              </button>
-            </div>
-            {t.auto !== true && (
-              <div style={{ marginTop: 6 }}>
-                <NumberStepper
+      <Card>
+        <VStack gap={3}>
+          <Heading level={2}>주간 목표</Heading>
+          {Object.entries(targets).map(([muscle, t]) => (
+            <VStack key={muscle} gap={3}>
+              <Item label={muscle} description={<>{`플랜 합계 ${planSum[muscle] ?? 0}세트`}</>} endContent={`${t.target}세트`} />
+              <SegmentedControl
+                label={`${muscle} 목표 방식`}
+                size="lg"
+                value={t.auto === true ? 'plan' : 'manual'}
+                onChange={(v) => setTarget(muscle, { mode: v === 'plan' ? 'plan' : 'manual' })}
+              >
+                <SegmentedControlItem value="plan" label="플랜 합계" />
+                <SegmentedControlItem value="manual" label="직접" />
+              </SegmentedControl>
+              {t.auto !== true && (
+                <Stepper
                   value={t.target}
                   step={1}
                   min={1}
                   max={60}
-                  ariaLabel={`${muscle} 주간 목표`}
+                  label={`${muscle} 주간 목표`}
                   onChange={(v) => setTarget(muscle, { target: v })}
                 />
-              </div>
-            )}
-          </div>
-        ))}
-        {Object.keys(targets).length === 0 && <p className="row-sub">종목을 넣으면 부위가 나타납니다.</p>}
-      </div>
+              )}
+            </VStack>
+          ))}
+          {Object.keys(targets).length === 0 && <Text color="secondary">종목을 넣으면 부위가 나타납니다.</Text>}
+        </VStack>
+      </Card>
 
       {pickDay && (
         <ExercisePickerSheet
@@ -424,6 +414,6 @@ function Editor({
           onClose={() => setLineAt(null)}
         />
       )}
-    </div>
+    </VStack>
   )
 }

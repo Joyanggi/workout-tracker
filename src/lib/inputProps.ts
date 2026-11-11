@@ -30,3 +30,14 @@ export const NO_AUTOFILL = {
   autoCapitalize: 'off',
   spellCheck: false,
 } as const
+
+/**
+ * Astryx `TextInput`용 같은 억제. props 이름만 HTML 속성과 달라서 옮긴다.
+ * 값을 다시 적지 않고 `NO_AUTOFILL`에서 만든다 — 한쪽만 고쳐서 갈라지지 않게.
+ */
+export const AX_NO_AUTOFILL = {
+  autoComplete: NO_AUTOFILL.autoComplete,
+  autoCapitalize: NO_AUTOFILL.autoCapitalize,
+  hasAutoCorrect: NO_AUTOFILL.autoCorrect !== 'off',
+  hasSpellCheck: NO_AUTOFILL.spellCheck,
+} as const

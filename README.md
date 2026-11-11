@@ -2,7 +2,7 @@
 
 > 16개월간 기록이 없었던 것이 문제였다. 그래서 "기록하는 마찰"을 최소화하는 것만을 목표로 만든 1인용 운동 기록 PWA.
 
-`React 18` · `TypeScript` · `Vite` · `Dexie (IndexedDB)` · `zustand` · `recharts` · `vite-plugin-pwa` · `GitHub Pages`
+`React 19` · `TypeScript` · `Vite` · `Dexie (IndexedDB)` · `zustand` · `recharts` · `vite-plugin-pwa` · `GitHub Pages`
 
 **[https://joyanggi.github.io/workout-tracker/](https://joyanggi.github.io/workout-tracker/)**
 
@@ -239,6 +239,15 @@
   분석 탭 청크가 메인 번들과 비슷한 크기입니다 (recharts). 정확한 값은
   `npm run build` 출력이 말해줍니다 — 여기 적어두면 코드가 커질 때마다 낡습니다.
 
+- **Astryx는 화면 단위로 들이고, 안 바꾼 화면과 CSS 레이어로 나눈다**
+  Astryx CSS는 캐스케이드 레이어 안에 있어서 레이어 밖 CSS에 항상 집니다. 기존 `global.css`를
+  `legacy` 레이어에 넣어(`src/styles/index.css`) Astryx 부품이 이기게 하고, Astryx의 전역
+  리셋은 쓰지 않고 `[data-astryx-theme]` 안에만 거는 사본을 둡니다(`src/ax/ax.css`).
+  레이어는 같은 속성끼리만 승부가 나서, Astryx가 정하지 않는 속성(`button`의 `min-height`)은
+  같은 파일이 `legacy` 레이어 안에서 따로 끕니다.
+  화면은 `src/ax/`의 부품만 가져다 쓰고, Astryx 버전은 정확한 값으로 고정합니다(베타).
+  Astryx 화면은 지연 로딩해서 헬스장 경로(홈 → 세션)가 Astryx 코드를 읽지 않습니다.
+
 ### 백업 · 비밀값
 
 - **Gist 토큰은 세 겹으로 백업에서 차단한다** (§11)
@@ -349,9 +358,10 @@ flowchart TB
 ## Tech Stack
 
 - 빌드: Vite, TypeScript
-- UI: React 18 (라우터 없음 — 탭 4개라 상태로 충분)
+- UI: React 19 (라우터 없음 — 탭 4개라 상태로 충분)
 - 상태: zustand (설정 · 진행 중 세션 · 휘발성 UI 상태만. 나머지는 `dexie-react-hooks` live query로 직접 읽음)
 - 저장: Dexie (IndexedDB, 스키마 v3) + localStorage (비밀값·휴식 타이머·백업 대기 플래그)
+- UI 부품: Astryx 0.7.13 (@astryxdesign/core, 베타 — 버전 고정. 지금은 루틴 편집 화면만)
 - 차트: recharts (분석 탭만 `React.lazy`로 지연 로딩)
 - PWA: vite-plugin-pwa (manifest + Workbox SW), iOS 스플래시 8종
 - 테스트: Vitest (알고리즘·파생 계산 단위 테스트, CI에서 배포 전 실행). 개수는 `npm test`가 말해줍니다
@@ -494,3 +504,4 @@ JSON 백업은 파일 앱에 보관하는 것이 목적이므로 `navigator.shar
 - Gist는 secret gist입니다 — **URL을 아는 사람은 볼 수 있습니다.** GitHub에 완전 비공개 gist는 없습니다.
 - 대체운동의 **첫 세트 시작 무게는 추정값**입니다. 종목 간 하중 전이에 검증된 공식은 없습니다(머신 표시 무게가 브랜드·지렛대 구조에 따라 다름). 그래서 첫 세트를 RIR 3~4로 수행하고 그 실측으로 2세트부터 무게를 다시 계산합니다.
 - 홈·기록·분석 화면이 세션 테이블을 전체 조회합니다. 세션 수백 건까지는 문제없지만, 더 쌓이면 `date` 인덱스 범위 쿼리로 좁혀야 합니다.
+- 루틴 편집 화면은 Astryx 부품으로 그리며 폰의 라이트/다크 설정을 따릅니다. 나머지 화면은 아직 다크 고정입니다. Astryx 화면은 iOS 17.5 이상이 필요합니다.

@@ -1061,7 +1061,7 @@ describe("NN2 루틴 편집 화면", () => {
         const text = src(p)
         const at = text.indexOf(label)
         expect(at, `${p} ${label}`).toBeGreaterThan(0)
-        expect(text.slice(Math.max(0, at - 260), at), `${p} ${label}`).toMatch(/btn-danger/)
+        expect(text.slice(Math.max(0, at - 260), at), `${p} ${label}`).toMatch(/btn-danger|variant="destructive"/)
       }
     })
   })
@@ -1166,7 +1166,7 @@ describe("NN3 내 종목", () => {
       const sheet = nn1Src("src/components/ExercisePickerSheet.tsx")
       const at = sheet.indexOf("종목 삭제")
       expect(at).toBeGreaterThan(0)
-      expect(sheet.slice(Math.max(0, at - 260), at)).toMatch(/btn-danger/)
+      expect(sheet.slice(Math.max(0, at - 260), at)).toMatch(/btn-danger|variant="destructive"/)
       expect(sheet).not.toMatch(/(^|\W)db\./)
       expect(sheet).toContain("＋ 새 종목 만들기")
     })

@@ -12,7 +12,6 @@ import HistoryScreen from './screens/HistoryScreen'
 import HomeScreen from './screens/HomeScreen'
 import Onboarding from './screens/Onboarding'
 import SessionScreen from './screens/SessionScreen'
-import RoutineEditorScreen from './screens/RoutineEditorScreen'
 import SettingsScreen from './screens/SettingsScreen'
 import SummaryScreen from './screens/SummaryScreen'
 import { findDay } from './lib/derive'
@@ -28,6 +27,7 @@ import { useSettings } from './store/settings'
  * SW는 이 청크도 precache하므로 오프라인에서 분석 탭도 그대로 열린다.
  */
 const AnalyzeScreen = lazy(() => import('./screens/AnalyzeScreen'))
+const RoutineEditorScreen = lazy(() => import('./screens/RoutineEditorScreen'))
 
 type View = 'tabs' | 'session' | 'summary' | 'routineEdit'
 
@@ -149,7 +149,11 @@ export default function App() {
   }
 
   if (view === 'routineEdit' && bundle) {
-    return <RoutineEditorScreen bundle={bundle} target={editTarget} onDone={() => setView('tabs')} />
+    return (
+      <Suspense fallback={<div className="center-note">불러오는 중…</div>}>
+        <RoutineEditorScreen bundle={bundle} target={editTarget} onDone={() => setView('tabs')} />
+      </Suspense>
+    )
   }
 
   return (
