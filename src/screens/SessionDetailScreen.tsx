@@ -65,7 +65,7 @@ export default function SessionDetailScreen({
   })
 
   const plan = pendingDayId ? planDayChange(session, bundle.routine, pendingDayId) : null
-  const allDays = [...bundle.routine.days, ...bundle.routine.fallbackDays]
+  const { allDays } = bundle
 
   return (
     <div className="screen">

@@ -182,7 +182,7 @@ export default function SettingsScreen({
               </button>
             </div>
             {openSession !== null && <p className="row-sub">{OPEN_SESSION_BLOCK.edit}</p>}
-            {[...bundle.routine.days, ...bundle.routine.fallbackDays].map((day) => (
+            {bundle.allDays.map((day) => (
               <div key={day.id} style={{ borderBottom: '1px solid var(--line)' }}>
                 <button
                   className="row"

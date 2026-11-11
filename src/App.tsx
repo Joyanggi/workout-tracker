@@ -15,6 +15,7 @@ import SessionScreen from './screens/SessionScreen'
 import RoutineEditorScreen from './screens/RoutineEditorScreen'
 import SettingsScreen from './screens/SettingsScreen'
 import SummaryScreen from './screens/SummaryScreen'
+import { findDay } from './lib/derive'
 import { useRestTimer } from './lib/useRestTimer'
 import { useSessionStore } from './store/session'
 import { useSettings } from './store/settings'
@@ -183,11 +184,7 @@ export default function App() {
       */}
       {openSession && bundle && (
         <SessionResumeStrip
-          dayName={
-            [...bundle.routine.days, ...bundle.routine.fallbackDays].find(
-              (d) => d.id === openSession.dayId,
-            )?.name ?? openSession.dayId
-          }
+          dayName={findDay(bundle.routine, openSession.dayId)?.name ?? openSession.dayId}
           startedAt={openSession.startedAt}
           timer={timer}
           onResume={() => setView('session')}
