@@ -6,181 +6,156 @@
 /*
  * 범위 한정 리셋 — `@astryxdesign/core@0.7.13` `src/reset.css`에서 옮김. 버전을 올리면 다시 대조한다.
  * 전역 reset.css는 안 바꾼 화면을 흔들어서 쓰지 않고, `[data-astryx-theme]` 안에만 건다.
- * 명시도는 원본처럼 `:where()`로 0을 지킨다. `html`의 line-height·text-size-adjust·color-scheme 등
- * 문서 단위 규칙은 옮기지 않는다(`global.css`와 아래 "문서 바탕"이 맡는다).
+ * 선택자·속성·값은 원본 그대로이고 `:where([data-astryx-theme])` 범위만 앞에 붙였다. 명시도는 원본처럼 0이다.
+ * 옮기지 않은 것: `html`·`body` 규칙, `html[data-theme=…]`, 탭 하이라이트, `[data-astryx-media]`의 color-scheme
+ * (문서 단위는 `global.css`와 아래 "문서 바탕"이 맡는다. 이유는 DEV-RECORD OO2 "PLAN과 다르게 한 것").
  */
 @layer reset {
-  :where([data-astryx-theme]) *,
-  :where([data-astryx-theme]) *::before,
-  :where([data-astryx-theme]) *::after {
+  :where([data-astryx-theme]) :where(*),
+  :where([data-astryx-theme]) :where(*)::before,
+  :where([data-astryx-theme]) :where(*)::after {
     box-sizing: border-box;
+  }
+
+  :where([data-astryx-theme]) :where(*),
+  :where([data-astryx-theme]) :where(*)::before,
+  :where([data-astryx-theme]) :where(*)::after {
     border-width: 0;
     border-style: solid;
     border-color: currentColor;
   }
 
-  :where([data-astryx-theme]) h1,
-  :where([data-astryx-theme]) h2,
-  :where([data-astryx-theme]) h3,
-  :where([data-astryx-theme]) h4,
-  :where([data-astryx-theme]) h5,
-  :where([data-astryx-theme]) h6 {
+  :where([data-astryx-theme]) :where(h1, h2, h3, h4, h5, h6) {
     font-size: inherit;
     font-weight: inherit;
   }
 
-  :where([data-astryx-theme]) h1,
-  :where([data-astryx-theme]) h2,
-  :where([data-astryx-theme]) h3,
-  :where([data-astryx-theme]) h4,
-  :where([data-astryx-theme]) h5,
-  :where([data-astryx-theme]) h6,
-  :where([data-astryx-theme]) p,
-  :where([data-astryx-theme]) blockquote,
-  :where([data-astryx-theme]) figure,
-  :where([data-astryx-theme]) pre,
-  :where([data-astryx-theme]) dl,
-  :where([data-astryx-theme]) dd {
+  :where([data-astryx-theme]) :where(h1, h2, h3, h4, h5, h6, p, blockquote, figure, pre, dl, dd) {
     margin: 0;
   }
 
-  :where([data-astryx-theme]) a {
+  :where([data-astryx-theme]) :where(a) {
     color: inherit;
     text-decoration: inherit;
   }
 
-  :where([data-astryx-theme]) b,
-  :where([data-astryx-theme]) strong {
+  :where([data-astryx-theme]) :where(b, strong) {
     font-weight: bolder;
   }
 
-  :where([data-astryx-theme]) code,
-  :where([data-astryx-theme]) kbd,
-  :where([data-astryx-theme]) samp,
-  :where([data-astryx-theme]) pre {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  :where([data-astryx-theme]) :where(code, kbd, samp, pre) {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+      'Liberation Mono', 'Courier New', monospace;
     font-size: 1em;
   }
 
-  :where([data-astryx-theme]) small {
+  :where([data-astryx-theme]) :where(small) {
     font-size: 80%;
   }
 
-  :where([data-astryx-theme]) sub,
-  :where([data-astryx-theme]) sup {
+  :where([data-astryx-theme]) :where(sub, sup) {
     font-size: 75%;
     line-height: 0;
     position: relative;
     vertical-align: baseline;
   }
 
-  :where([data-astryx-theme]) ol,
-  :where([data-astryx-theme]) ul,
-  :where([data-astryx-theme]) menu {
+  :where([data-astryx-theme]) :where(sub) {
+    bottom: -0.25em;
+  }
+
+  :where([data-astryx-theme]) :where(sup) {
+    top: -0.5em;
+  }
+
+  :where([data-astryx-theme]) :where(ol, ul, menu) {
     list-style: none;
     margin: 0;
     padding: 0;
   }
 
-  :where([data-astryx-theme]) img,
-  :where([data-astryx-theme]) svg,
-  :where([data-astryx-theme]) video,
-  :where([data-astryx-theme]) canvas,
-  :where([data-astryx-theme]) audio,
-  :where([data-astryx-theme]) iframe,
-  :where([data-astryx-theme]) embed,
-  :where([data-astryx-theme]) object {
+  :where([data-astryx-theme]) :where(img, svg, video, canvas, audio, iframe, embed, object) {
     display: block;
+    vertical-align: middle;
   }
 
-  :where([data-astryx-theme]) img,
-  :where([data-astryx-theme]) video {
+  :where([data-astryx-theme]) :where(img, video) {
     max-width: 100%;
     height: auto;
   }
 
-  :where([data-astryx-theme]) button,
-  :where([data-astryx-theme]) input,
-  :where([data-astryx-theme]) optgroup,
-  :where([data-astryx-theme]) select,
-  :where([data-astryx-theme]) textarea {
+  :where([data-astryx-theme]) :where(button, input, optgroup, select, textarea) {
     font: inherit;
-    font-feature-settings: inherit;
-    font-variation-settings: inherit;
-    letter-spacing: inherit;
     color: inherit;
     margin: 0;
     padding: 0;
   }
 
-  :where([data-astryx-theme]) button,
-  :where([data-astryx-theme]) [type='button'],
-  :where([data-astryx-theme]) [type='reset'],
-  :where([data-astryx-theme]) [type='submit'] {
+  :where([data-astryx-theme]) :where(button, [type='button'], [type='reset'], [type='submit']) {
+    -webkit-appearance: button;
+    appearance: button;
     background-color: transparent;
     background-image: none;
-    appearance: button;
+  }
+
+  :where([data-astryx-theme]) :where(button, [role='button']) {
     cursor: pointer;
   }
 
-  :where([data-astryx-theme]) :disabled {
+  :where([data-astryx-theme]) :where(:disabled, [aria-disabled='true']) {
     cursor: default;
   }
 
-  :where([data-astryx-theme]) textarea {
+  :where([data-astryx-theme]) :where(textarea) {
     resize: vertical;
   }
 
-  :where([data-astryx-theme]) ::placeholder {
-    color: inherit;
-    opacity: 0.5;
+  :where([data-astryx-theme]) :where(input, textarea)::placeholder {
+    opacity: 1;
+    color: var(--color-text-secondary, light-dark(#4E606F, #AAAFB5));
   }
 
-  :where([data-astryx-theme]) [list]::-webkit-calendar-picker-indicator {
-    display: none !important;
+  :where([data-astryx-theme]) :where([list])::-webkit-calendar-picker-indicator {
+    line-height: 1;
   }
 
-  :where([data-astryx-theme]) [type='search'] {
-    appearance: textfield;
-    outline-offset: -2px;
+  :where([data-astryx-theme]) :where([type='search'])::-webkit-search-decoration,
+  :where([data-astryx-theme]) :where([type='search'])::-webkit-search-cancel-button {
+    -webkit-appearance: none;
   }
 
-  :where([data-astryx-theme]) fieldset {
+  :where([data-astryx-theme]) :where(fieldset) {
     margin: 0;
     padding: 0;
-    min-width: 0;
-    border: 0;
   }
 
-  :where([data-astryx-theme]) legend {
+  :where([data-astryx-theme]) :where(legend) {
     padding: 0;
   }
 
-  :where([data-astryx-theme]) table {
-    border-collapse: collapse;
-    border-spacing: 0;
+  :where([data-astryx-theme]) :where(table) {
     text-indent: 0;
+    border-color: inherit;
+    border-collapse: collapse;
   }
 
-  :where([data-astryx-theme]) hr {
+  :where([data-astryx-theme]) :where(hr) {
     height: 0;
     color: inherit;
     border-top-width: 1px;
-    margin: 0;
   }
 
-  :where([data-astryx-theme]) summary {
+  :where([data-astryx-theme]) :where(summary) {
     display: list-item;
   }
 
-  :where([data-astryx-theme]) dialog {
-    margin: 0;
+  :where([data-astryx-theme]) :where(dialog) {
     padding: 0;
-    outline: 0;
+    outline: none;
   }
 
-  :where([data-astryx-theme]) [hidden]:where(:not([hidden='until-found'])) {
-    display: none !important;
+  :where([data-astryx-theme]) :where([hidden]:not([hidden='until-found' i])) {
+    display: none;
   }
 }
 

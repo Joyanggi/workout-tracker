@@ -152,6 +152,8 @@ dev 서버(Playwright, `vite createServer`)의 `document.styleSheets`: `[{"name"
 | `Theme` import 경로 `…/core/Theme` 가정 | `@astryxdesign/core/theme` | `package.json` exports·README가 소문자 `theme` |
 | `Stepper`의 `NumberInput`에 `autoComplete="off"` | `{...NUMBER_AUTOFILL}` (`AX_NO_AUTOFILL.autoComplete`에서 파생) | 기존 `inputProps.test.ts`의 X5·Y2 스캔이 소스의 `autoComplete=`를 전부 막는다. 값은 여전히 `NO_AUTOFILL` 한 곳에서 온다. 스캔 테스트는 안 고쳤다 |
 | "빌드 확인"(`light-dark(`·`@scope` 남음) | **OO3에서 확인** | PLAN이 지연 청크가 생긴 뒤라고 했다. 지금은 `src/ax/`를 읽는 화면이 없어 Astryx CSS가 번들에 없다(`npm run build`의 `index-*.css`는 `global.css`뿐) |
+| 원본의 `[data-astryx-media="dark"\|"light"]` color-scheme 두 규칙 | 옮기지 않음 | PLAN 표에 없고 이 앱은 `data-astryx-media`를 쓰지 않는다. `color-scheme`은 "문서 바탕"이 맡는다 |
+| 범위 한정 리셋 | 원본 선택자·값 그대로, `:where([data-astryx-theme])` 범위만 앞에 붙임 (`:where(x)` → `:where([data-astryx-theme]) :where(x)`로 명시도 0 유지) | 리뷰 반려 1: 앞선 사본은 placeholder·`[type=search]`·`[list]` 값이 달랐고 원본에 없는 속성을 더했다. 다시 옮김 |
 | "legacy 누수 막기" 대조 | 대조하지 못함 | 쓰는 화면이 없어 계산된 스타일을 못 잰다. OO3 `--check`의 `버튼 높이`와 스크린샷으로 본다. 새는 속성이 보이면 `ax.css`의 같은 블록에 더한다 |
 
 ### 결함 복원
@@ -167,6 +169,34 @@ dev 서버(Playwright, `vite createServer`)의 `document.styleSheets`: `[{"name"
 
 (⑤는 처음에 sed가 문법을 깨서 파일 로드 실패였다 → 유효한 결함으로 다시 만들어 위 결과를 얻었다.) ⑥~⑫·⑭는 OO3 몫이다. ⑩(레이어 순서)은 화면이 없어 여기서는 빌드 출력 확인만 한다.
 
+### 리셋 대조 (리뷰 반려 1) — 선언 `속성: 값`을 뽑아 정렬한 `diff 원본 사본` (`<` = 원본에만 있음)
+
+```
+16,21d15
+< color-scheme: dark;
+< color-scheme: dark;
+< color-scheme: light dark;
+< color-scheme: light dark;
+< color-scheme: light;
+< color-scheme: light;
+38d31
+< line-height: 1.5;
+40d32
+< line-height: inherit;
+46d37
+< margin: 0;
+48d38
+< -moz-osx-font-smoothing: grayscale;
+58d47
+< tab-size: 4;
+66,68d54
+< -webkit-font-smoothing: antialiased;
+< -webkit-tap-highlight-color: transparent;
+< -webkit-text-size-adjust: 100%;
+```
+
+빠진 것은 전부 "안 옮긴다" 행이다: `html`(`color-scheme`·`line-height: 1.5`·`tab-size`·`-webkit-text-size-adjust`·탭 하이라이트), `body`(`margin: 0`·`line-height: inherit`·글자 다듬기 둘), `html[data-theme=…]`·`[data-astryx-media]`의 `color-scheme`. 사본에만 있는 선언은 없다.
+
 ### 과거 판정 불변
 
 `git diff --stat main..HEAD -- src/lib src/db`는 이 커밋 전까지 아무것도 없다(OO0·OO1은 `src/lib`을 안 건드림). 이 커밋에서 `src/lib`은 `inputProps.ts`(추가만)·`v117.test.ts`(새)만 바뀐다. 기존 테스트는 수정하지 않았다.
@@ -176,3 +206,4 @@ dev 서버(Playwright, `vite createServer`)의 `document.styleSheets`: `[{"name"
 - `npm test`: Test Files 61 passed (61), Tests 1549 passed (1549)
 - `npm run build` 통과, `node scripts/quality-scan.mjs --ci` 통과
 - `package-lock.json`에 `lucide-react`가 들어왔다(theme-neutral의 의존성). 번들에 실리는지는 OO3 청크 표로 본다.
+- 리뷰 반영: 반려 1 `ax.css` 리셋을 원본 `reset.css`와 대조해 다시 옮김(위 "리셋 대조"). 반려 6의 `git diff --stat` 출력은 최종 기록 커밋에서 붙인다.
