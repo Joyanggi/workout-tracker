@@ -128,6 +128,19 @@ export function findDay(routine: RoutineTemplate, dayId: string): RoutineDay | u
   return routine.days.find((d) => d.id === dayId) ?? routine.fallbackDays.find((d) => d.id === dayId)
 }
 
+/** 과거 기록을 되짚는 조회: 지금 쓰는 Day가 없으면 뺀 Day(NN1 retiredDays)까지 본다. 진행 중 세션·"지금 고를 Day"는 findDay를 쓴다 */
+export function findDayForRecord(routine: RoutineTemplate, dayId: string): RoutineDay | undefined {
+  return findDay(routine, dayId) ?? routine.retiredDays?.find((d) => d.id === dayId)
+}
+
+/** Day의 계획 종목. 뺀 종목(NN1 retiredExercises)도 되짚는다 */
+export function plannedInDay(day: RoutineDay, exerciseId: string): RoutineExercise | undefined {
+  return (
+    day.exercises.find((e) => e.exerciseId === exerciseId) ??
+    day.retiredExercises?.find((e) => e.exerciseId === exerciseId)
+  )
+}
+
 /**
  * **derive 내부 전용.** entry를 다루는 코드는 반드시 `routineExerciseOfEntry`를 쓴다 —
  * 이 함수를 recordKey로 직접 부르면 대체 수행(T8)이 조용히 누락된다.
@@ -139,7 +152,8 @@ function findRoutineExercise(
   dayId: string,
   exerciseId: string,
 ): RoutineExercise | undefined {
-  return findDay(routine, dayId)?.exercises.find((e) => e.exerciseId === exerciseId)
+  const day = findDayForRecord(routine, dayId)
+  return day ? plannedInDay(day, exerciseId) : undefined
 }
 
 /**

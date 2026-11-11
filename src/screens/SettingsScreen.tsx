@@ -15,6 +15,7 @@ import {
 import ImportPanel from '../components/ImportPanel'
 import DietIoPanel from '../components/DietIoPanel'
 import RoutineIoPanel from '../components/RoutineIoPanel'
+import RoutineListPanel from '../components/RoutineListPanel'
 import { useDiet } from '../lib/useDiet'
 import { db } from '../db'
 import type { SeedResult } from '../db/seed'
@@ -24,6 +25,8 @@ import { dayTotalSets, exerciseLabel, useRoutine } from '../lib/useRoutine'
 import { isStandalone } from '../lib/platform'
 import { A_ECCENTRIC_OPTIONS, COUNT_IN_OPTIONS, phaseTone } from '../lib/tempo'
 import { useSettings } from '../store/settings'
+import { useSessionStore } from '../store/session'
+import { OPEN_SESSION_BLOCK } from '../lib/routineEdit'
 import type { Phase } from '../types'
 
 const PHASES: { value: Phase; label: string; desc: string }[] = [
@@ -40,7 +43,14 @@ const VOLUME_LABEL: Record<SoundVolume, string> = {
   max: '가장 크게',
 }
 
-export default function SettingsScreen({ seed }: { seed: SeedResult }) {
+export default function SettingsScreen({
+  seed,
+  onEditRoutine,
+}: {
+  seed: SeedResult
+  onEditRoutine: (target: 'active' | 'blank') => void
+}) {
+  const openSession = useSessionStore((s) => s.session)
   const diet = useDiet()
   const bundle = useRoutine()
   const {
@@ -162,7 +172,16 @@ export default function SettingsScreen({ seed }: { seed: SeedResult }) {
                 <div className="row-sub">{bundle.routine.id}</div>
               </div>
               <div className="row-meta">v{bundle.routine.version}</div>
+              <button
+                className="btn"
+                style={{ marginLeft: 8 }}
+                disabled={openSession !== null}
+                onClick={() => onEditRoutine('active')}
+              >
+                편집
+              </button>
             </div>
+            {openSession !== null && <p className="row-sub">{OPEN_SESSION_BLOCK.edit}</p>}
             {[...bundle.routine.days, ...bundle.routine.fallbackDays].map((day) => (
               <div key={day.id} style={{ borderBottom: '1px solid var(--line)' }}>
                 <button
@@ -216,6 +235,8 @@ export default function SettingsScreen({ seed }: { seed: SeedResult }) {
           <p className="row-sub">루틴 없음</p>
         )}
       </div>
+
+      {bundle && <RoutineListPanel activeId={bundle.routine.id} onNew={() => onEditRoutine('blank')} />}
 
       {bundle && (
         <ExportPanel bundle={bundle} sessions={sessions} phase={currentPhase} />

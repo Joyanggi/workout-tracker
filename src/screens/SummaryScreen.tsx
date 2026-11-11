@@ -11,7 +11,7 @@ import { buildScaleMap, formatProgression, isInverseKey } from '../lib/weightSca
 import { useExerciseSettings } from '../lib/useExerciseSettings'
 import { PR_LABEL, detectPrs, topPrPerRecord } from '../lib/pr'
 import { formatClock, formatElapsed } from '../lib/dates'
-import { doneSets, e1rm, findDay, orderDeviations, totalDoneSets, totalVolume } from '../lib/derive'
+import { doneSets, e1rm, findDayForRecord, orderDeviations, totalDoneSets, totalVolume } from '../lib/derive'
 import type { RoutineBundle } from '../lib/useRoutine'
 import { useSessionStore } from '../store/session'
 import { useSettings } from '../store/settings'
@@ -40,7 +40,7 @@ export default function SummaryScreen({
     )
   }
 
-  const day = findDay(bundle.routine, session.dayId)
+  const day = findDayForRecord(bundle.routine, session.dayId)
   const elapsed =
     session.endedAt ? new Date(session.endedAt).getTime() - new Date(session.startedAt).getTime() : 0
   /*

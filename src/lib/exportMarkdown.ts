@@ -9,6 +9,7 @@ import { withObjectParticle } from './korean'
 import {
   completedSessions,
   doneSets,
+  findDayForRecord,
   hasStrengthWork,
   routineExerciseOfEntry,
   orderDeviations,
@@ -272,7 +273,7 @@ export function sessionToMarkdown(
   scales?: WeightScaleMap,
   sessions?: Session[],
 ): string {
-  const day = [...routine.days, ...routine.fallbackDays].find((d) => d.id === session.dayId)
+  const day = findDayForRecord(routine, session.dayId)
   const nameOf = (recordKey: string) =>
     catalog.get(parseRecordKey(recordKey).exerciseId)?.shortName ??
     parseRecordKey(recordKey).exerciseId

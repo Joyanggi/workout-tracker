@@ -6,7 +6,7 @@ import ExerciseCard from '../components/ExerciseCard'
 import { db } from '../db'
 import { planDayChange } from '../lib/dayChange'
 import { formatClock, weekdayKo } from '../lib/dates'
-import { doneSets, findDay, strengthDates, totalDoneSets, totalVolume } from '../lib/derive'
+import { doneSets, findDayForRecord, plannedInDay, strengthDates, totalDoneSets, totalVolume } from '../lib/derive'
 import { todayLocal } from '../lib/dates'
 import { useDiet } from '../lib/useDiet'
 import { useSessionEditor } from '../lib/useSessionEditor'
@@ -50,7 +50,7 @@ export default function SessionDetailScreen({
   }
 
   const { session } = editor
-  const day = findDay(bundle.routine, session.dayId)
+  const day = findDayForRecord(bundle.routine, session.dayId)
   const nameOf = (recordKey: string) =>
     bundle.catalog.get(parseRecordKey(recordKey).exerciseId)?.shortName ??
     parseRecordKey(recordKey).exerciseId
@@ -109,7 +109,7 @@ export default function SessionDetailScreen({
 
       {ordered.map((entry) => {
         const { exerciseId } = parseRecordKey(entry.recordKey)
-        const routineExercise = day?.exercises.find((e) => e.exerciseId === exerciseId)
+        const routineExercise = day ? plannedInDay(day, exerciseId) : undefined
         const exercise = bundle.catalog.get(exerciseId)
         if (!routineExercise) {
           // Day를 변경해서 이 Day에 없는 종목이 남은 경우 (§11 재매핑). 읽기만 제공한다

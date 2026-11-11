@@ -88,9 +88,10 @@ describe('인바리언트 — 백업 예약 지점', () => {
     .map(([p]) => p)
     .sort()
 
-  it('requestSync를 부르는 곳이 정의·세션 종료·식단 쓰기뿐이다', () => {
+  it('requestSync를 부르는 곳이 정의·세션 종료·식단 쓰기·루틴 쓰기(v1.16 NN1)뿐이다', () => {
     expect(callers).toEqual([
       '/src/lib/gistSync.ts', // 정의
+      '/src/lib/routineStore.ts', // v1.16 NN1 — 루틴 쓰기 chokepoint
       '/src/lib/useDiet.ts', // X7 — 식단 쓰기 chokepoint
       '/src/screens/SessionScreen.tsx', // 세션 종료
     ])

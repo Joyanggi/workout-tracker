@@ -11,6 +11,8 @@ export interface MuscleTarget {
   target: number
   /** 부족분 충족 점수 가중치 (§4) */
   weight: number
+  /** NN1: true면 target이 플랜 합계를 따라간다 (편집으로 새로 생긴 부위) */
+  auto?: true
 }
 
 export interface RoutineTemplate {
@@ -36,6 +38,8 @@ export interface RoutineTemplate {
   days: RoutineDay[]
   fallbackDays: RoutineDay[] // 하한 모드 (Push 축소 / Pull 축소)
   rules: RoutineRules
+  /** NN1: 루틴에서 뺀 Day (기록이 있는 것만). 되짚을 때만 읽힌다 — findDayForRecord */
+  retiredDays?: RoutineDay[]
 }
 
 export interface RoutineDay {
@@ -49,6 +53,8 @@ export interface RoutineDay {
    * exercises[].muscle × sets의 합과 일치해야 한다 (validateRoutine이 검사).
    */
   muscleSets: Record<MuscleKey, number>
+  /** NN1: 이 Day에서 뺀 종목 (기록이 있는 것만). 되짚을 때만 읽힌다 — plannedInDay */
+  retiredExercises?: RoutineExercise[]
   /**
    * 하한 모드(fallback) 전용. 이 Day의 기록을 어느 정규 Day의 라인으로 남길지.
    *
@@ -158,6 +164,8 @@ export interface Exercise {
    * `setRowState.zeroWeightHint`가 inverse와 함께 이 플래그를 제외한다.
    */
   allowZeroWeight?: true
+  /** 사용자가 만든 종목 (v1.16 NN3). 번들 종목에는 없다. 부팅 시 번들 시드가 덮지 않는다 */
+  custom?: true
   /**
    * 첫 기록 시작 무게 추정 — **체중 대비 비율** (CC13).
    *

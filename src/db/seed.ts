@@ -7,6 +7,15 @@ import { validateDietPlan } from './validateDietPlan'
 import { db, deleteSettings, getSetting, setSettings } from './index'
 import { validateRoutine } from './validateRoutine'
 
+/** 시드를 다시 넣을 때 활성 루틴을 번들로 돌릴 것인가 (NN1). 사용자가 고른 다른 루틴이 있으면 건드리지 않는다 */
+export function shouldResetActiveRoutine(
+  activeId: string | null,
+  bundledId: string,
+  activeExists: boolean,
+): boolean {
+  return activeId === null || activeId === bundledId || !activeExists
+}
+
 export const BUNDLED_EXERCISES = exercisesJson as Exercise[]
 export const BUNDLED_ROUTINE = routineJson as unknown as RoutineTemplate
 
@@ -89,10 +98,12 @@ export async function ensureSeed(): Promise<SeedResult> {
   if (needsSeed) {
     await db.transaction('rw', db.routines, db.settings, async () => {
       await db.routines.put(BUNDLED_ROUTINE)
-      await setSettings({
-        seededRoutineRevision: BUNDLED_ROUTINE.seedRevision,
-        activeRoutineId: BUNDLED_ROUTINE.id,
-      })
+      const activeId = await getSetting<string | null>('activeRoutineId', null)
+      const activeExists = activeId !== null && (await db.routines.get(activeId)) !== undefined
+      await setSettings({ seededRoutineRevision: BUNDLED_ROUTINE.seedRevision })
+      if (shouldResetActiveRoutine(activeId, BUNDLED_ROUTINE.id, activeExists)) {
+        await setSettings({ activeRoutineId: BUNDLED_ROUTINE.id })
+      }
       // version 기반 판단은 폐기했다 — 낡은 키를 남기면 백업에 실려 혼란만 준다
       await deleteSettings(['seededRoutineVersion'])
     })

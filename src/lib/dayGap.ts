@@ -1,7 +1,7 @@
 import type { RoutineDay, RoutineTemplate, Session } from '../types'
 import { recordDayIdOf } from '../types'
 import { daysBetween } from './dates'
-import { daysSinceDay, findDay, hasStrengthWork, strengthSessions } from './derive'
+import { daysSinceDay, findDayForRecord, hasStrengthWork, strengthSessions } from './derive'
 import { RETURN_GAP_DAYS } from './suggestNextDay'
 
 /**
@@ -104,7 +104,7 @@ export function sessionDayGapLine(
 ): string | undefined {
   if (!sessions || session.mode !== 'normal' || !hasStrengthWork(session)) return undefined
   const before = sessions.filter((s) => s.date < session.date)
-  const found = findDay(routine, session.dayId)
+  const found = findDayForRecord(routine, session.dayId)
   const recordDay = found ? recordDayIdOf(found) : session.dayId
   const own = daysSinceDay(before, recordDay, session.date)
   if (own === null || own < RETURN_GAP_DAYS) return undefined

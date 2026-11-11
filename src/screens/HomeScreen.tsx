@@ -17,7 +17,7 @@ import { todayLocal } from '../lib/dates'
 import { phaseReadiness } from '../lib/phaseReadiness'
 import { returnStepText } from '../lib/setPlan'
 import { backupReminder, isGistConfigured } from '../lib/gistSync'
-import { completedSessions, doneSetsAll, findDay } from '../lib/derive'
+import { completedSessions, doneSetsAll, findDayForRecord } from '../lib/derive'
 import { ADHERENCE_MARK, nextUnloggedSlot, summarizeDietDay } from '../lib/diet'
 import { findPlan, useDiet } from '../lib/useDiet'
 import { storageAtRisk } from '../lib/platform'
@@ -591,7 +591,7 @@ export default function HomeScreen({
               <div className="row" key={s.dayId}>
                 <div className="row-main">
                   <div className="row-title">
-                    {findDay(routine, s.dayId)?.name ?? s.dayId}
+                    {findDayForRecord(routine, s.dayId)?.name ?? s.dayId}
                     {s.penalized && (
                       <span className="chip chip-warn" style={{ marginLeft: 6 }}>
                         회복 감쇠
