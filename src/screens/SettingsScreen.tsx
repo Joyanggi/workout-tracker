@@ -15,6 +15,7 @@ import {
 import ImportPanel from '../components/ImportPanel'
 import DietIoPanel from '../components/DietIoPanel'
 import RoutineIoPanel from '../components/RoutineIoPanel'
+import RoutineListPanel from '../components/RoutineListPanel'
 import { useDiet } from '../lib/useDiet'
 import { db } from '../db'
 import type { SeedResult } from '../db/seed'
@@ -234,6 +235,8 @@ export default function SettingsScreen({
           <p className="row-sub">루틴 없음</p>
         )}
       </div>
+
+      {bundle && <RoutineListPanel activeId={bundle.routine.id} onNew={() => onEditRoutine('blank')} />}
 
       {bundle && (
         <ExportPanel bundle={bundle} sessions={sessions} phase={currentPhase} />

@@ -73,13 +73,17 @@ export default function DayPickerSheet({
         </p>
         {routine.days.map(renderDay)}
 
-        <div className="card-label" style={{ marginTop: 20 }}>
-          하한 모드 · 30분
-        </div>
-        <p className="row-sub" style={{ marginTop: -4, marginBottom: 4 }}>
-          시간이 없거나 컨디션이 나쁜 날. 기록은 정규 Day 라인에 이어서 남습니다.
-        </p>
-        {routine.fallbackDays.map(renderDay)}
+        {routine.fallbackDays.length > 0 && (
+          <>
+            <div className="card-label" style={{ marginTop: 20 }}>
+              하한 모드 · 30분
+            </div>
+            <p className="row-sub" style={{ marginTop: -4, marginBottom: 4 }}>
+              시간이 없거나 컨디션이 나쁜 날. 기록은 정규 Day 라인에 이어서 남습니다.
+            </p>
+            {routine.fallbackDays.map(renderDay)}
+          </>
+        )}
 
         <button className="btn" style={{ marginTop: 16 }} onClick={onClose}>
           닫기

@@ -1172,3 +1172,76 @@ describe("NN3 내 종목", () => {
     })
   })
 })
+
+describe("NN4 루틴 목록", () => {
+  const newRoutine = (): RoutineTemplate => ({
+    ...blankRoutine("user-new", NN_NOW.toISOString(), NN_ROUTINE.rules),
+    days: [{ ...nnDay("d1"), id: "d5" }],
+  })
+  // 복사본 + d1에 새 종목 줄(curl, 팔). 그 종목을 기록한 세션을 NN_SESSIONS에 더해 비교한다
+  const curlLine = { ...nnDay("d1").exercises[0], exerciseId: "curl", muscle: "팔" as const, group: "B" as const, plannedOrder: 90 }
+  const copy = (): RoutineTemplate => ({
+    ...NN_ROUTINE,
+    id: "user-copy",
+    days: NN_ROUTINE.days.map((d) => (d.id === "d1" ? { ...d, exercises: [...d.exercises, curlLine] } : d)),
+  })
+  const curlSession = nnSession("nn-5", "2026-11-04", "d1", nnEntries({ ...nnD1, exercises: [curlLine] }, "2026-11-04T18:00:00.000Z"))
+  const curlInfo = (routine: RoutineTemplate) =>
+    allRecordKeys([...NN_SESSIONS, curlSession], routine).find((k) => k.recordKey === "curl@d1")
+
+  it("NN4 blankRoutine의 rules는 번들 rules와 같은 값이고 다른 객체다 (복사)", () => {
+    const blank = blankRoutine("user-new", NN_NOW.toISOString(), NN_ROUTINE.rules)
+    expect(blank.rules).toEqual(NN_ROUTINE.rules)
+    expect(blank.rules).not.toBe(NN_ROUTINE.rules)
+  })
+
+  it("NN4 새 루틴(Day d5)으로 weeklyVolume을 구하면 sets가 비고, 번들로 다시 구하면 NN_WEEK_BEFORE와 같다 (전환은 기록을 바꾸지 않는다)", () => {
+    expect(nnOutputs(newRoutine()).week.sets).toEqual({})
+    expect(nnOutputs(NN_ROUTINE).week).toEqual(NN_WEEK_BEFORE)
+  })
+
+  it("NN4 복사본에서 새로 넣은 종목은 복사본으로는 known·B이고 번들로는 known:false·group null이며, 다시 복사본으로 구하면 처음과 같다", () => {
+    const first = curlInfo(copy())
+    expect(first?.known).toBe(true)
+    expect(first?.group).toBe("B")
+    const bundled = curlInfo(NN_ROUTINE)
+    expect(bundled?.known).toBe(false)
+    expect(bundled?.group).toBeNull()
+    expect(curlInfo(copy())).toEqual(first)
+  })
+
+  describe("스캔", () => {
+    const panel = () => nn1Src("src/components/RoutineListPanel.tsx")
+
+    it("NN4 RoutineListPanel.tsx에 '이름과 그룹을 다시 볼 수 없게 됩니다'가 있다", () => {
+      expect(panel()).toContain("이름과 그룹을 다시 볼 수 없게 됩니다")
+    })
+
+    it("NN4 routineStore.ts deleteRoutine 본문에 bundledId와 activeRoutineId 비교가 둘 다 있다", () => {
+      const store = nn1Src("src/lib/routineStore.ts")
+      const at = store.indexOf("export async function deleteRoutine")
+      const body = store.slice(at, store.indexOf("export async function", at + 10))
+      expect(body).toMatch(/id === bundledId/)
+      expect(body).toContain("activeRoutineId")
+    })
+
+    it("NN4 RoutineListPanel.tsx에 db.routines.put·db.settings·setSettings가 없다 (읽기만)", () => {
+      expect(panel()).not.toMatch(/db\.routines\.put|db\.settings|setSettings/)
+    })
+
+    it("NN4 DayPickerSheet.tsx의 '하한 모드 · 30분'은 fallbackDays.length > 0 조건 안에 있다", () => {
+      const sheet = nn1Src("src/components/DayPickerSheet.tsx")
+      const cond = sheet.indexOf("fallbackDays.length > 0")
+      const head = sheet.indexOf("하한 모드 · 30분")
+      expect(cond).toBeGreaterThan(0)
+      expect(head).toBeGreaterThan(cond)
+    })
+
+    it("NN4 RoutineListPanel.tsx의 삭제 진입 버튼 앞에 btn-danger가 있다", () => {
+      const src = panel()
+      const at = src.indexOf("kind: 'delete' })")
+      expect(at).toBeGreaterThan(0)
+      expect(src.slice(Math.max(0, at - 200), at)).toMatch(/btn-danger/)
+    })
+  })
+})
