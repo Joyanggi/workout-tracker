@@ -1,13 +1,15 @@
 import { NO_AUTOFILL } from '../lib/inputProps'
 import { useMemo, useState } from 'react'
-import ExercisePickerSheet from '../components/ExercisePickerSheet'
+import ExercisePickerSheet, { type ExerciseForm } from '../components/ExercisePickerSheet'
 import NumberStepper from '../components/NumberStepper'
 import RoutineLineSheet from '../components/RoutineLineSheet'
 import { BUNDLED_ROUTINE } from '../db/seed'
 import {
   blankRoutine,
   defaultLineFor,
+  CUSTOM_EXERCISE_PREFIX,
   deriveMuscleSets,
+  exerciseInUse,
   forkRoutine,
   nextDayId,
   resolveMuscleTargets,
@@ -16,12 +18,14 @@ import {
   uniqueId,
   USER_ROUTINE_PREFIX,
   takenDayIds,
+  usedKeys,
   validateDraft,
+  validateExercise,
 } from '../lib/routineEdit'
-import { saveRoutineDraft } from '../lib/routineStore'
+import { deleteCustomExercise, saveCustomExercise, saveRoutineDraft } from '../lib/routineStore'
 import { useRoutineEditContext, type RoutineEditContext } from '../lib/useRoutineEditContext'
 import { exerciseLabel, type RoutineBundle } from '../lib/useRoutine'
-import type { RoutineDay, RoutineExercise, RoutineTemplate } from '../types'
+import type { Exercise, RoutineDay, RoutineExercise, RoutineTemplate } from '../types'
 
 /** 처음 초안과 저장 전 id (NN2 표). 저장된 루틴은 toDraft를 거쳐야만 초안이 된다 */
 function startDraft(
@@ -119,6 +123,39 @@ function Editor({
     setPickDay(null)
     setLineAt({ dayId, index })
   }
+
+  /** 내 종목: 폼 → Exercise. id는 만들 때 한 번만 정하고 고쳐도 바뀌지 않는다 */
+  const toExercise = (form: ExerciseForm, id: string): Exercise => {
+    const name = form.name.trim()
+    const ex: Exercise = {
+      id,
+      name,
+      shortName: form.shortName.trim() === '' ? name : form.shortName.trim(),
+      cueTip: form.cueTip.trim(),
+      compensationSigns: [],
+      custom: true,
+    }
+    if (form.bodyweight) ex.allowZeroWeight = true
+    return ex
+  }
+
+  const createExercise = async (dayId: string, form: ExerciseForm): Promise<string[]> => {
+    const found = validateExercise(form, ctx.catalog)
+    if (found.length > 0) return found
+    const id = uniqueId(CUSTOM_EXERCISE_PREFIX, new Set(ctx.catalog.map((e) => e.id)))
+    const saved = await saveCustomExercise(toExercise(form, id))
+    if (saved.length > 0) return saved
+    addExercise(dayId, id)
+    return []
+  }
+
+  const updateExercise = async (id: string, form: ExerciseForm): Promise<string[]> => {
+    const found = validateExercise(form, ctx.catalog, id)
+    if (found.length > 0) return found
+    return saveCustomExercise(toExercise(form, id))
+  }
+
+  const exerciseUsed = (id: string) => exerciseInUse(id, [...ctx.routines, draft], usedKeys(ctx.sessions))
 
   const setTarget = (muscle: string, patch: { mode?: 'plan' | 'manual'; target?: number }) =>
     setDraft((d) => {
@@ -364,7 +401,11 @@ function Editor({
         <ExercisePickerSheet
           catalog={ctx.catalog}
           inDay={new Set(draft.days.find((d) => d.id === pickDay)?.exercises.map((e) => e.exerciseId))}
+          inUse={exerciseUsed}
           onPick={(id) => addExercise(pickDay, id)}
+          onCreate={(f) => createExercise(pickDay, f)}
+          onUpdate={updateExercise}
+          onDelete={deleteCustomExercise}
           onClose={() => setPickDay(null)}
         />
       )}

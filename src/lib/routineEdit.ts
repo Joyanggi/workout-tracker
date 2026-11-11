@@ -282,3 +282,28 @@ export function takenDayIds(routines: RoutineTemplate[], sessions: Session[], dr
   }
   return taken
 }
+
+export interface ExerciseInput {
+  name: string
+  shortName: string
+}
+
+/** 내 종목 폼 검사. 이름이나 짧은 이름(비웠으면 이름)이 다른 종목의 name·shortName과 같으면 거절한다 — 내보내기·세션 화면이 짧은 이름으로 종목을 가리킨다 */
+export function validateExercise(input: ExerciseInput, catalog: Exercise[], editingId?: string): string[] {
+  const name = input.name.trim()
+  if (name === '') return ['종목 이름을 적어 주세요']
+  const short = input.shortName.trim() === '' ? name : input.shortName.trim()
+  const clash = catalog.some((e) => e.id !== editingId && [e.name, e.shortName].some((n) => n === name || n === short))
+  return clash ? ['같은 이름의 종목이 이미 있습니다'] : []
+}
+
+/** 어느 루틴(보관 포함)이나 기록(대체 원 종목 포함)이 쓰는 종목이면 true. 지우면 그 줄이 이름 없이 남는다 */
+export function exerciseInUse(exerciseId: string, routines: RoutineTemplate[], used: UsedKeys): boolean {
+  for (const r of routines) {
+    for (const day of [...r.days, ...r.fallbackDays, ...(r.retiredDays ?? [])]) {
+      for (const ex of [...day.exercises, ...(day.retiredExercises ?? [])]) if (ex.exerciseId === exerciseId) return true
+    }
+  }
+  for (const key of used.recordKeys) if (parseRecordKey(key).exerciseId === exerciseId) return true
+  return false
+}

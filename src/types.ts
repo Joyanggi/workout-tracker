@@ -164,6 +164,8 @@ export interface Exercise {
    * `setRowState.zeroWeightHint`가 inverse와 함께 이 플래그를 제외한다.
    */
   allowZeroWeight?: true
+  /** 사용자가 만든 종목 (v1.16 NN3). 번들 종목에는 없다. 부팅 시 번들 시드가 덮지 않는다 */
+  custom?: true
   /**
    * 첫 기록 시작 무게 추정 — **체중 대비 비율** (CC13).
    *

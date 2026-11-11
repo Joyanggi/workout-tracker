@@ -181,3 +181,62 @@
 - 하한 모드 Day 편집(자동 맞춤·삭제만), `＋ 새 루틴`(NN4)과 `onEditRoutine('blank')` 진입점은 화면 쪽만 준비하고 설정에는 연결하지 않았다.
 - `Day 삭제`는 두 단계 버튼(`Day 삭제` → `정말 삭제`)이다. 기존 시트 규약대로 `btn-danger`를 단다.
 - 실기기 확인 필요: iOS 홈 화면 앱에서 편집 화면의 safe-area, 시트 입력에 키보드가 올라올 때 `저장` 버튼 가림, `▲▼`·스테퍼 터치 크기. 이 환경에서는 못 했다.
+
+---
+
+## NN3. 내 종목
+
+### 범위
+
+| 항목 | 내용 |
+|---|---|
+| 커밋 | 이 기록과 같은 커밋 (`feat(NN3): …`) — 해시는 최종 보고에 적는다 |
+| 바뀐 소스 | `types.ts`(`Exercise.custom`) · `routineEdit.ts`(`validateExercise`·`exerciseInUse`) · `routineStore.ts`(`saveCustomExercise`·`deleteCustomExercise`) · `ExercisePickerSheet.tsx`(새 종목 폼·`내 종목` 칩·`편집`·`종목 삭제`) · `RoutineEditorScreen.tsx`(시트에 저장 함수 연결) |
+| 테스트 | `v116.test.ts`에 describe `NN3` 15개 추가 (NN2까지 46 → 61) |
+| README | Limitations 한 줄 (`README.md:485`) |
+| 안 건드림 | `seed.ts`·`backup.ts`·Dexie 스키마·시드 JSON·`package.json` 버전 |
+
+### PLAN 검증 항목 ↔ 테스트
+
+| PLAN 검증 | 테스트 이름(`NN3 …`) |
+|---|---|
+| `validateExercise` 네 건 | `…공백뿐인 이름…` · `…번들 종목의 shortName과 같은 이름…` · `…짧은 이름이 번들의 shortName이나 name과 같으면…` · `…자기 자신과 같은 이름은 통과…` |
+| `uniqueId('custom-', …)` | `uniqueId('custom-', …): make가 처음 낸 값이 이미 있는 내 종목 id면…` |
+| `exerciseInUse` 세 건 | `…보관 종목(retiredExercises)에만…` · `…substituteFor(recordKey)에만…` · `…어디에도 없으면 false` |
+| 번들에 `custom-`·`custom` 없음 | `번들 카탈로그에 custom- id와 custom 필드가 없다` |
+| 내 종목 루틴 `validateRoutine` | `내 종목을 넣은 루틴은 finalizeRoutine 뒤 validateRoutine(…)이 빈 배열…` |
+| `parseBackup` 통과 | `그 루틴과 내 종목을 담은 백업은 parseBackup을 통과한다` |
+| `zeroWeightHint` | `zeroWeightHint는 allowZeroWeight인 내 종목에 false를 준다` |
+| 스캔 | `db.exercises.put·delete는 routineStore.ts에만…` · `routineStore.ts는 내 종목 쓰기마다 requestSync()…` · `종목 삭제 버튼 앞 260자 안에 btn-danger…, 시트에 db.이 없다` |
+
+### 결함 복원
+
+| 되살린 결함 | 실패한 테스트 | 원상복구 |
+|---|---|---|
+| ⑬ `exerciseInUse`가 `retiredExercises`를 안 봄 | NN3 `보관 종목…` | `cmp` 일치 |
+| `exerciseInUse`가 `recordKeys`를 안 봄 | NN3 `substituteFor…` | `cmp` 일치 |
+| `validateExercise`가 짧은 이름을 안 비교 | NN3 `짧은 이름이 번들의…` | `cmp` 일치 |
+| 시트에서 `db.exercises.put` 직접 호출 | NN3 `종목 삭제 버튼 앞…, 시트에 db.이 없다` | `cmp` 일치 |
+
+복원 확인 중 `src`에서 vitest를 돌리면 `import.meta.glob("/src/**")`가 빗나가 스캔이 헛실패한다 — 결함 복원도 레포 루트에서 돌린다.
+
+### 수정표 밖
+
+- 기존 테스트는 고치지 않았다. 새 `input` 5개(체크박스 포함)에 `{...NO_AUTOFILL}`을 달아 `inputProps.test.ts`를 통과시켰다.
+
+### 설계 메모
+
+- 편집 중인 초안에 들어 있는 내 종목도 `exerciseInUse`에 넣는다(`[...루틴, draft]`) — 저장 전 초안이 가리키는 종목을 지워 저장이 `카탈로그에 없는 종목`으로 막히는 것을 피한다.
+- 배포 영향: 루틴 JSON 내보내기에는 내 종목이 실리지 않는다. 기기를 옮길 때는 전체 백업을 쓴다.
+
+### 실행 결과
+
+- `npm test`: `Test Files 60 passed (60)` · `Tests 1530 passed (1530)`
+- `npm run build`: `✓ built in 3.39s`
+- `node scripts/quality-scan.mjs --ci`: `통과`
+- `git rev-list --count main..HEAD`: 커밋 전 4 → 이 커밋 포함 5
+
+### 하지 않은 것 · 사람 확인 필요
+
+- 내 종목의 대체 종목·보상작용·템포·시작 무게 편집(범위 제외).
+- 실기기 확인 필요: iOS에서 종목 폼에 키보드가 올라올 때 `만들고 추가` 버튼에 닿는지.

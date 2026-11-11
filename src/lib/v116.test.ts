@@ -10,6 +10,7 @@ import { allRecordKeys, summarize } from "./history"
 import {
   blankRoutine,
   defaultLineFor,
+  exerciseInUse,
   finalizeRoutine,
   forkRoutine,
   takenDayIds,
@@ -20,11 +21,14 @@ import {
   uniqueId,
   usedKeys,
   validateDraft,
+  validateExercise,
   type UsedKeys,
 } from "./routineEdit"
 import { buildSession } from "./sessionFactory"
 import { stripComments } from "./sourceScan"
 import { suggestNextDay } from "./suggestNextDay"
+import { APP_ID, SCHEMA_VERSION, parseBackup, type BackupFile } from "./backup"
+import { zeroWeightHint } from "./setRowState"
 import { makeRecordKey, recordDayIdOf } from "../types"
 import type { Exercise, RoutineDay, RoutineTemplate, Session, SessionEntry } from "../types"
 
@@ -1059,6 +1063,112 @@ describe("NN2 루틴 편집 화면", () => {
         expect(at, `${p} ${label}`).toBeGreaterThan(0)
         expect(text.slice(Math.max(0, at - 260), at), `${p} ${label}`).toMatch(/btn-danger/)
       }
+    })
+  })
+})
+
+// ─── NN3 ───────────────────────────────────────────────────────
+describe("NN3 내 종목", () => {
+  const catalog = BUNDLED_EXERCISES
+  const mine = (over: Partial<Exercise> = {}): Exercise => ({
+    id: "custom-aaaa1111", name: "푸시업", shortName: "푸시업", cueTip: "", compensationSigns: [], custom: true, allowZeroWeight: true, ...over,
+  })
+  const firstBundled = catalog[0]
+  const keys = (...k: string[]): UsedKeys => ({ dayIds: new Set(), recordKeys: new Set(k) })
+
+  it("NN3 validateExercise: 공백뿐인 이름은 문구를 낸다", () => {
+    expect(validateExercise({ name: "  ", shortName: "" }, catalog)).toEqual(["종목 이름을 적어 주세요"])
+  })
+
+  it("NN3 validateExercise: 번들 종목의 shortName과 같은 이름은 거절한다", () => {
+    expect(validateExercise({ name: firstBundled.shortName, shortName: "" }, catalog)).toEqual(["같은 이름의 종목이 이미 있습니다"])
+  })
+
+  it("NN3 validateExercise: 이름은 새것이어도 짧은 이름이 번들의 shortName이나 name과 같으면 거절한다", () => {
+    expect(validateExercise({ name: "새 종목 가나다", shortName: firstBundled.shortName }, catalog)).toEqual(["같은 이름의 종목이 이미 있습니다"])
+    expect(validateExercise({ name: "새 종목 가나다", shortName: firstBundled.name }, catalog)).toEqual(["같은 이름의 종목이 이미 있습니다"])
+    expect(validateExercise({ name: "새 종목 가나다", shortName: "새 짧은" }, catalog)).toEqual([])
+  })
+
+  it("NN3 validateExercise: 편집 중인 자기 자신과 같은 이름은 통과한다", () => {
+    const withMine = [...catalog, mine()]
+    expect(validateExercise({ name: "푸시업", shortName: "" }, withMine)).toEqual(["같은 이름의 종목이 이미 있습니다"])
+    expect(validateExercise({ name: "푸시업", shortName: "" }, withMine, "custom-aaaa1111")).toEqual([])
+  })
+
+  it("NN3 uniqueId('custom-', …): make가 처음 낸 값이 이미 있는 내 종목 id면 다음 값을 쓴다", () => {
+    const taken = new Set([...catalog.map((e) => e.id), "custom-aaaa1111"])
+    const seq = ["aaaa1111", "bbbb2222"]
+    expect(uniqueId("custom-", taken, () => seq.shift() as string)).toBe("custom-bbbb2222")
+  })
+
+  it("NN3 exerciseInUse: 보관 종목(retiredExercises)에만 있어도 true", () => {
+    const r = structuredClone(NN_ROUTINE)
+    const line = { ...structuredClone(r.days[0].exercises[0]), exerciseId: "custom-aaaa1111" }
+    r.days[0].retiredExercises = [line]
+    expect(exerciseInUse("custom-aaaa1111", [r], NN1_EMPTY)).toBe(true)
+  })
+
+  it("NN3 exerciseInUse: 세션의 substituteFor(recordKey)에만 있어도 true", () => {
+    expect(exerciseInUse("custom-aaaa1111", [NN_ROUTINE], keys("custom-aaaa1111@d1"))).toBe(true)
+  })
+
+  it("NN3 exerciseInUse: 어디에도 없으면 false", () => {
+    expect(exerciseInUse("custom-aaaa1111", [NN_ROUTINE], nn1Used)).toBe(false)
+  })
+
+  it("NN3 번들 카탈로그에 custom- id와 custom 필드가 없다", () => {
+    expect(catalog.filter((e) => e.id.startsWith("custom-"))).toEqual([])
+    expect(catalog.filter((e) => "custom" in e)).toEqual([])
+  })
+
+  const withMineRoutine = () =>
+    nn1Fin((d) => {
+      d.days[0].exercises.push({ ...structuredClone(d.days[0].exercises[0]), exerciseId: "custom-aaaa1111", plannedOrder: 0 })
+    })
+
+  it("NN3 내 종목을 넣은 루틴은 finalizeRoutine 뒤 validateRoutine(결과, [...번들, 내 종목])이 빈 배열이고 번들 검증은 그대로다", () => {
+    expect(validateRoutine(withMineRoutine(), [...catalog, mine()])).toEqual([])
+    expect(validateRoutine(withMineRoutine(), catalog)).not.toEqual([])
+    expect(validateRoutine(BUNDLED_ROUTINE, BUNDLED_EXERCISES)).toEqual([])
+  })
+
+  it("NN3 그 루틴과 내 종목을 담은 백업은 parseBackup을 통과한다", () => {
+    const file: BackupFile = {
+      app: APP_ID, schemaVersion: SCHEMA_VERSION, exportedAt: NN_NOW.toISOString(),
+      routines: [withMineRoutine()], exercises: [...catalog, mine()], sessions: [], settings: [],
+    }
+    expect("file" in parseBackup(JSON.stringify(file))).toBe(true)
+  })
+
+  it("NN3 zeroWeightHint는 allowZeroWeight인 내 종목에 false를 준다", () => {
+    const set = { weight: 0, reps: 10, done: true } as Parameters<typeof zeroWeightHint>[0]
+    expect(zeroWeightHint(set, false, mine().allowZeroWeight === true)).toBe(false)
+    expect(zeroWeightHint(set, false, false)).toBe(true)
+  })
+
+  describe("스캔", () => {
+    const srcFiles = () => Object.keys(NN1_SOURCES).filter((p) => !/\.test\.tsx?$/.test(p)).map((p) => p.slice(1))
+
+    it("NN3 db.exercises.put·delete는 routineStore.ts에만 있다", () => {
+      const hits = srcFiles().filter((p) => /db\.exercises\.(put|delete)\(/.test(nn1Src(p)))
+      expect(hits).toEqual(["src/lib/routineStore.ts"])
+    })
+
+    it("NN3 routineStore.ts는 내 종목 쓰기마다 requestSync()를 부른다 (export async function 수와 같다)", () => {
+      const store = nn1Src("src/lib/routineStore.ts")
+      expect(store).toContain("saveCustomExercise")
+      expect(store).toContain("deleteCustomExercise")
+      expect((store.match(/export async function/g) ?? []).length).toBe((store.match(/requestSync\(\)/g) ?? []).length)
+    })
+
+    it("NN3 종목 삭제 버튼 앞 260자 안에 btn-danger가 있고, 시트에 db.이 없다", () => {
+      const sheet = nn1Src("src/components/ExercisePickerSheet.tsx")
+      const at = sheet.indexOf("종목 삭제")
+      expect(at).toBeGreaterThan(0)
+      expect(sheet.slice(Math.max(0, at - 260), at)).toMatch(/btn-danger/)
+      expect(sheet).not.toMatch(/(^|\W)db\./)
+      expect(sheet).toContain("＋ 새 종목 만들기")
     })
   })
 })
