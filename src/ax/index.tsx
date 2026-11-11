@@ -46,11 +46,13 @@ interface StepperProps {
   min: number
   max: number
   label: string
+  /** 입력칸 폭(px). 안 주면 Astryx 기본 폭. 줄 시트는 이름(`반복 최소`)이 한 줄로 들어가도록 줄인다 */
+  inputWidth?: number
   onChange: (v: number) => void
 }
 
 /** − 입력칸 ＋. `NumberInput`의 증감 버튼은 터치에서 숨어서 버튼을 따로 붙인다. */
-export function Stepper({ value, step, min, max, label, onChange }: StepperProps) {
+export function Stepper({ value, step, min, max, label, inputWidth, onChange }: StepperProps) {
   return (
     <HStack gap={2}>
       <Button
@@ -68,6 +70,7 @@ export function Stepper({ value, step, min, max, label, onChange }: StepperProps
         max={max}
         step={step}
         value={value}
+        width={inputWidth}
         onChange={onChange}
         {...NUMBER_AUTOFILL}
         controlStyle={CONTROL_STYLE}

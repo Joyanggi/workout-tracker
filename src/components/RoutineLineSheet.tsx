@@ -77,19 +77,19 @@ export default function RoutineLineSheet({
 
         <HStack gap={2} align="center" justify="between">
           <Text>세트</Text>
-          <Stepper value={line.sets} step={1} min={1} max={10} label="세트" onChange={(v) => set({ sets: v })} />
+          <Stepper value={line.sets} step={1} min={1} max={10} label="세트" inputWidth={160} onChange={(v) => set({ sets: v })} />
         </HStack>
         <HStack gap={2} align="center" justify="between">
-          <Text>반복 최소</Text>
-          <Stepper value={line.repMin} step={1} min={1} max={50} label="반복 최소" onChange={(v) => set({ repMin: v })} />
+          <Text textWrap="nowrap">반복 최소</Text>
+          <Stepper value={line.repMin} step={1} min={1} max={50} label="반복 최소" inputWidth={160} onChange={(v) => set({ repMin: v })} />
         </HStack>
         <HStack gap={2} align="center" justify="between">
-          <Text>반복 최대</Text>
-          <Stepper value={line.repMax} step={1} min={1} max={50} label="반복 최대" onChange={(v) => set({ repMax: v })} />
+          <Text textWrap="nowrap">반복 최대</Text>
+          <Stepper value={line.repMax} step={1} min={1} max={50} label="반복 최대" inputWidth={160} onChange={(v) => set({ repMax: v })} />
         </HStack>
         <HStack gap={2} align="center" justify="between">
           <Text>휴식(초)</Text>
-          <Stepper value={line.restSec} step={15} min={0} max={600} label="휴식" onChange={(v) => set({ restSec: v })} />
+          <Stepper value={line.restSec} step={15} min={0} max={600} label="휴식" inputWidth={160} onChange={(v) => set({ restSec: v })} />
         </HStack>
 
         {/* Switch의 탭 영역은 이웃과의 간격 절반까지만 넓어진다(트랙이 24px라 21px 떨어진 점까지 닿으려면 위·아래 18px 이상) */}

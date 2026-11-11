@@ -158,7 +158,7 @@ const inPageLastRow = () => {
 /**
  * 탭 영역. 화면 본체는 컨트롤 가운데에서 위·아래·좌·우 21px 점이 그 컨트롤(이나 그 안)을 가리키는지 본다(예외 없음).
  * 시트(useHit=true)는 눈에 보이는 박스가 아니라 Astryx가 터치에서 넓혀 주는 누를 수 있는 영역을 잰다:
- * 보이는 박스를 `--astryx-hit-inset-*`(위·오른쪽·아래·왼쪽)만큼 키운 상자가 가로·세로 44px 이상이다(사람 결정 A).
+ * 보이는 박스를 `--astryx-hit-inset-*`(위·오른쪽·아래·왼쪽)만큼 키운 상자를 잰다(사람 결정 A). 44px 미달은 '주의', 36px 미만만 실패(사람 결정 C).
  * Astryx는 이 값을 프레임당 4ms씩 나눠 비동기로 잡아서, 값이 바뀌지 않고 가만해질 때까지 기다린 뒤 잰다(실행마다 달라지지 않게).
  */
 const inPageTapArea = async (useHit) => {
@@ -166,6 +166,7 @@ const inPageTapArea = async (useHit) => {
   const scope = sheet ?? document.body
   const sel = 'button, [role="switch"], [role="button"], [role="checkbox"], [role="radio"], input[type="checkbox"], input[type="radio"], summary'
   const bad = []
+  const warn = []
   let n = 0
   const wait = (ms) => new Promise((done) => setTimeout(done, ms))
   const readInsets = (box) => {
@@ -194,9 +195,10 @@ const inPageTapArea = async (useHit) => {
       const w = r.width + left + right
       const h = r.height + top + bottom
       n += 1
-      if (w < 43.5 || h < 43.5) {
-        bad.push(`"${name}" 보이는 ${Math.round(r.width)}×${Math.round(r.height)} → 탭 영역 ${w.toFixed(1)}×${h.toFixed(1)} (inset ${top}/${right}/${bottom}/${left})`)
-      }
+      const line = `"${name}" 보이는 ${Math.round(r.width)}×${Math.round(r.height)} → 탭 영역 ${w.toFixed(1)}×${h.toFixed(1)} (inset ${top}/${right}/${bottom}/${left})`
+      // 사람 결정 C: 36px 미만(눈에 보이는 박스 수준)만 실패. 36~44px는 '주의'로 표에 찍고 실기기 확인으로 넘긴다
+      if (w < 35.5 || h < 35.5) bad.push(line)
+      else if (w < 43.5 || h < 43.5) warn.push(line)
       continue
     }
     // 화면 본체: Astryx의 탭 영역이 화면 가운데로 온 뒤 비동기로 잡힌다. 바로 재면 옛 값을 잰다
@@ -212,7 +214,8 @@ const inPageTapArea = async (useHit) => {
       bad.push(`"${name}" ${Math.round(r.width)}×${Math.round(r.height)} ${failed.join('·')}`)
     }
   }
-  return { ok: bad.length === 0, detail: `${n}개 중 ${bad.length}개 실패: ` + bad.join(' · ') }
+  const warnText = warn.length > 0 ? ` | 주의 ${warn.length}개(44px 미만): ` + warn.join(' · ') : ''
+  return { ok: bad.length === 0, warn: warn.length, detail: `${n}개 중 ${bad.length}개 실패: ` + bad.join(' · ') + warnText }
 }
 
 /** 버튼 높이 (after만) */
@@ -267,7 +270,7 @@ async function runChecks(page, scene, vp, scheme, kind) {
 }
 
 function printResults() {
-  const mark = (c) => (c === null ? '·' : c.ok ? '✓' : '✗')
+  const mark = (c) => (c === null ? '·' : !c.ok ? '✗' : c.warn > 0 ? `주의 ${c.warn}` : '✓')
   console.log(`\n| 장면 | 폭 | 모드 | ${CHECK_COLUMNS.join(' | ')} |`)
   console.log(`|---|---|---|${CHECK_COLUMNS.map(() => '---').join('|')}|`)
   for (const r of results) {
@@ -277,6 +280,10 @@ function printResults() {
     CHECK_COLUMNS.filter((c) => r.cells[c] && !r.cells[c].ok).map((c) => `- ${r.scene} ${r.vp} ${r.scheme} · ${c}: ${r.cells[c].detail}`),
   )
   if (fails.length > 0) console.log(`\n실패 상세:\n${fails.join('\n')}`)
+  const warns = results.flatMap((r) =>
+    CHECK_COLUMNS.filter((c) => r.cells[c]?.ok && r.cells[c].warn > 0).map((c) => `- ${r.scene} ${r.vp} ${r.scheme} · ${c}: ${r.cells[c].detail}`),
+  )
+  if (warns.length > 0) console.log(`\n주의 상세(실패 아님, 실기기 확인):\n${warns.join('\n')}`)
   return fails.length
 }
 

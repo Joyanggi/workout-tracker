@@ -31,8 +31,13 @@
     작업 시작 전에 `git log`와 `grep returnChoiceReason`으로 먼저 확인했다.
 11. **새로 확인 (EE2 라운드):** 이 환경의 Bash 도구에서 `python - <<'EOF'` heredoc 본문이 길고
     작은따옴표·백슬래시가 섞이면 셸 파싱이 깨진다(`unexpected EOF while looking for matching`).
+12. **새로 확인 (NN1 라운드):** 11번이 또 났다 — 한 Bash 호출에 heredoc을 둘 이상 넣어도 깨진다. 파일은 Write 도구로 쓰고 Bash에는 짧은 명령만 둔다.
+13. **새로 확인 (NN1 라운드):** 테스트에서 `node:fs`를 import하면 `npm run build`(타입 확인)가 실패한다(vitest는 통과). 소스 스캔은 `import.meta.glob(..., { query: '?raw' })`로 읽는다.
 14. **새로 확인 (OO0 라운드):** 사람이 iOS 27(17.5 이상)을 확인했다 — Astryx 지원 조건 통과. Playwright 1.65.0 + chromium은 이 환경에서 받아졌고 `iPhone 14` 흉내(390×844, 터치, `pointer: coarse`)로 찍힌다(엔진은 chromium. webkit 아님). Playwright 기기 목록의 `iPhone 14` 뷰포트는 390×664라 844로 덮어썼다.
 15. **새로 확인 (OO0 라운드):** `page.evaluate`로 보내는 함수는 바깥 스코프의 도우미를 못 본다 → 공유 도우미는 `addInitScript`로 `window.__vis`·`__scrollEnd`에 올려 쓴다.
+
+16. **새로 확인 (OO3 라운드):** 스크린샷은 Playwright의 Chromium으로 찍는다. iOS Safari가 아니라서 `light-dark()`·`@scope`·`@starting-style`·safe-area·`<dialog>`·`dvh`·화면 키보드는 실기기 확인으로만 본다. `package-lock.json`에 `lucide-react`가 들어온다(theme-neutral의 의존성).
+17. **새로 확인 (OO3 라운드):** 이 환경에서 Python으로 파일을 읽고 쓰면 CRLF로 저장된다(`git`이 "CRLF will be replaced" 경고를 내고, `v117` 소스 스캔 정규식이 `\n}\n`에서 깨진다). 고치면 `sed -i 's/\r$//'`로 LF로 되돌리거나, 파일 편집은 Edit 도구로 한다. 시트 `--check`는 5분 안팎이라 Bash 포그라운드 한도(10분)에 둘을 이어 돌리면 넘친다 → 하나씩 백그라운드로 돌린다.
 
 ---
 
@@ -212,14 +217,14 @@ dev 서버(Playwright, `vite createServer`)의 `document.styleSheets`: `[{"name"
 
 ## OO3. 루틴 편집 화면을 Astryx로
 
-**결과: 미완(중단, 사람 필요) — `after --check`가 시트 탭 영역 때문에 종료 코드 1(위 사람 결정 A 절). 구현·테스트·빌드·스캔·흐름 검사 넷은 통과. 결함 복원 ⑩⑪⑭·배포 영향·1.17.0 상향·꺾임 확인은 안 했다.**
+**결과: 완료 — 사람 결정 C로 시트의 탭 영역 기준을 완화해 `after --check` 종료 코드 0(최종 코드로 한 번, 같은 코드에서 앞서 세 번 더 0). 결함 복원 ⑩⑪⑭ 확인, `반복 최소/최대` 꺾임은 고쳤고, `package.json` 1.17.0으로 올렸다. 시트의 44px 미달 목록은 "사람 확인 필요"로 넘겼다.**
 
 | 항목 | 내용 |
 |---|---|
-| 바뀐 파일 | `src/screens/RoutineEditorScreen.tsx`, `src/components/RoutineLineSheet.tsx`, `src/components/ExercisePickerSheet.tsx`, `src/App.tsx`(lazy+Suspense), `src/ax/index.tsx`(`Sheet`에 `SizeProvider`), `src/lib/v116.test.ts`(표의 두 줄), `src/lib/v117.test.ts`(describe `OO3`, 9개), `scripts/screenshots.mjs`(검사 보정), `README.md`(Limitations 한 줄), 이 문서, `docs/screenshots/v1.17/after-*` 22장 |
+| 바뀐 파일 | `src/screens/RoutineEditorScreen.tsx`, `src/components/RoutineLineSheet.tsx`, `src/components/ExercisePickerSheet.tsx`, `src/App.tsx`(lazy+Suspense), `src/ax/index.tsx`(`Sheet`에 `SizeProvider`, `Stepper`에 `inputWidth`), `src/lib/v116.test.ts`(표의 두 줄), `src/lib/v117.test.ts`(describe `OO3`, 9개), `scripts/screenshots.mjs`(검사 보정), `README.md`(Limitations 한 줄), 이 문서, `docs/screenshots/v1.17/after-*` 22장 |
 | 기존 테스트 | `v116.test.ts` 1064·1169줄만 `/btn-danger\|variant="destructive"/`로. 그 밖에는 안 고쳤다(NN4 `RoutineListPanel` 줄은 건드리지 않음) |
 | 실행 결과 | `npm test`: Test Files 61 passed (61), Tests 1558 passed (1558) · `npm run build` 통과 · `quality-scan --ci` 통과 |
-| 과거 판정 불변 | `git diff --stat -- src/lib src/db` → `v116.test.ts`(4줄)·`v117.test.ts`만. 골든 테스트 수정 없음 |
+| 과거 판정 불변 | 아래 "과거 판정 불변 확인" 절 |
 
 ### PLAN과 다르게 한 것
 
@@ -238,7 +243,15 @@ dev 서버(Playwright, `vite createServer`)의 `document.styleSheets`: `[{"name"
 |---|---|---|
 | `탭 영역`은 장면마다 가운데에서 21px 네 점의 `elementFromPoint` | **시트 장면(`line-sheet`·`line-sheet-end`·`picker-form`)만** 보이는 박스를 `--astryx-hit-inset-*`만큼 키운 상자(Astryx가 터치에서 넓혀 주는 누를 수 있는 영역)가 가로·세로 44px 이상인지 잰다. 값·위치가 400ms 가만해질 때까지 기다린 뒤 잰다. 편집 화면 본체의 기준(44px, 붙은 컨트롤 8px)은 그대로 | 사람 결정 A. 시트 안 측정이 실행마다 달라 판정이 흔들렸다 |
 
-결과(`scripts/screenshots.mjs` 보정 후 두 번 실행): 본체 장면 ✓. 시트 장면은 **여전히 실패, 단 1~4px 모자람**이고 `--check` 종료 코드 1이다. 실패 목록(390 다크, 2회째): `햄스트링`·`둔근` 칩 → 41.3px(위 4/아래 1.3) · `세트 감소` 40.7 · `세트 증가` 42.7 · `휴식 증가` 42.0 · 스위치(트랙 40×24) 40.3 / `picker-form` 스위치 39.7. 375 다크: 칩 `상부가슴`·`가슴`·`측면어깨` 40.3, `직접 입력` 40.7, 방식 `A`·`B`·`코어`(28px) 41.6, 스위치 41.2. 1회째에는 `A`·`B`·`코어` 42.9 등 다른 자리가 걸렸다. 위·아래 inset의 한쪽이 4·8px 대신 0.3~2.7px 같은 소수로 줄어 있고 실행마다 어느 컨트롤이 그런지 바뀐다(값이 가만해진 뒤에도). 간격을 넓혀도 같았다(앞 기록). 이 부분이 Astryx 측정 쪽 동작인지 시트 배치 탓인지는 확인하지 못했다.
+결정 A 직후의 결과(완화 전, 두 번 실행): 본체 장면 ✓. 시트 장면은 **여전히 실패, 단 1~4px 모자람**이고 `--check` 종료 코드 1이었다. 실패 목록(390 다크, 2회째): `햄스트링`·`둔근` 칩 → 41.3px(위 4/아래 1.3) · `세트 감소` 40.7 · `세트 증가` 42.7 · `휴식 증가` 42.0 · 스위치(트랙 40×24) 40.3 / `picker-form` 스위치 39.7. 375 다크: 칩 `상부가슴`·`가슴`·`측면어깨` 40.3, `직접 입력` 40.7, 방식 `A`·`B`·`코어`(28px) 41.6, 스위치 41.2. 1회째에는 `A`·`B`·`코어` 42.9 등 다른 자리가 걸렸다. 위·아래 inset의 한쪽이 4·8px 대신 0.3~2.7px 같은 소수로 줄어 있고 실행마다 어느 컨트롤이 그런지 바뀐다(값이 가만해진 뒤에도). 간격을 넓혀도 같았다(앞 기록). 이 부분이 Astryx 측정 쪽 동작인지 시트 배치 탓인지는 확인하지 못했다.
+
+### PLAN과 다르게 한 것 — 사람 결정 (C) (결정 A를 이어서 완화)
+
+| PLAN | 실제 | 이유 |
+|---|---|---|
+| `탭 영역` 모든 장면에서 44px, 예외 없음 | **시트 장면(`line-sheet`·`line-sheet-end`·`picker-form`)만:** 히트 영역(보이는 박스 + `--astryx-hit-inset-*`) 가로·세로 중 하나라도 **36px 미만이면 ✗**(눈에 보이는 박스 수준 = 진짜 깨짐), **36px 이상 44px 미만은 표에 `주의 n`으로 찍고 실패로 세지 않는다.** 측정값은 `주의 상세`에 그대로 찍는다. 종료 코드는 ✗만 센다. 편집 화면 본체(44px, 붙은 컨트롤 8px)는 그대로 엄격 | 사람 결정 C. 시트의 소수 inset이 실행마다 다른 컨트롤에서 1~4px 모자라 종료 코드가 흔들렸다. 실제 탭은 `pointerdown`에서 다시 재므로 손가락에는 영향이 작을 수 있어 실기기 확인(⑨)으로 넘긴다 |
+
+이 기준으로 같은 코드에서 `--check`를 돌린 결과: 종료 코드 0 · ✗ 0개. `주의`는 실행마다 개수와 자리가 달라도(1~9개/장면) 종료 코드는 안 흔들렸다. 구현: `scripts/screenshots.mjs`의 `inPageTapArea`(`bad` 35.5px 미만 / `warn` 43.5px 미만)·`printResults`. 흔들리는 걸 가려 두는 것이 아니라 36px 아래로 떨어지는 진짜 깨짐은 여전히 잡힌다는 근거는 아래 결함 복원 ⑪(스위치가 35.3px로 ✗)다.
 
 ### 스크립트 보정 (`scripts/screenshots.mjs`, OO0이 "처음 돌릴 때 고친다"고 한 부분)
 
@@ -257,14 +270,64 @@ dev 서버(Playwright, `vite createServer`)의 `document.styleSheets`: `[{"name"
 | 편집 → 뒤로 → 고르기 | ✓ | 목록 복귀 · 줄 시트 열림 |
 | 긴 검색어 | ✓ | 가로 넘침 없음 true · 안내 true · 지우면 목록 true |
 
-모양 검사: `가로 넘침`·`제목 한 줄`·`머리 줄`(375 포함)·`글자 잘림`·`입력 글자`·`마지막 줄`·`버튼 높이`는 **전 장면 ✓**. `editor-full`·`editor-leave`·`editor-problems`·`editor-long`의 `탭 영역`도 ✓(375 포함). **`탭 영역`이 시트 장면(`line-sheet`·`line-sheet-end`·`picker-form`, 390·375)에서 실행마다 다른 컨트롤 2~8개로 실패한다**:
-`"햄스트링" 88×36 아래 · "둔근" 56×36 아래 · "세트 감소" 36×36 위 · "세트 증가" 36×36 위 · "휴식 감소" 36×36 위 …` / `picker-form "" 40×24 아래`(스위치).
+모양 검사(최종 코드): `가로 넘침`·`제목 한 줄`·`머리 줄`(375 포함)·`글자 잘림`·`입력 글자`·`마지막 줄`·`버튼 높이`는 **전 장면 ✓**. `editor-full`·`editor-leave`·`editor-problems`·`editor-long`의 `탭 영역`도 ✓(375 포함). 시트 장면의 `탭 영역`: ✗ 0개, `주의`만(아래 "사람 확인 필요"). 종료 코드 0.
 
-### 남은 것 (사람 필요)
+### 줄 시트 라이트 — `반복 최소`·`반복 최대` 꺾임
 
-- **시트 안 탭 영역이 `--check`에서 불안정하다.** 같은 화면에서 실행마다 실패하는 컨트롤이 바뀐다. 단독 탐침(한 컨트롤만 스크롤해서 700ms 뒤 측정)에서는 `--astryx-hit-inset-*`가 4/4(칩)·8/8(세그먼트)로 정상이고, 전체를 순서대로 훑을 때만 값이 1~3px 모자란 컨트롤이 나온다. 간격을 12→16→20px로 넓혀도 같은 현상이라 간격 문제가 아니다(PLAN이 말한 "넓힐 수 없는 자리"). 원인 후보: `hitArea.ts`가 프레임당 4ms로 나눠 재고 시트 안에서 스크롤·`resize` 뒤 값이 이웃 측정 순서에 따라 달라짐. 실제 탭은 `pointerdown`에서 다시 재므로(`checkAtPress`) 손가락에는 영향이 작을 수 있으나 **실기기로 확인하지 않았다**. 결정이 필요하다: 시트 탭 영역 판정을 "단독 측정 + 대기"로 바꿀지, 시트의 `Stepper`·칩 배치를 바꿀지.
-- 줄 시트 라이트 스크린샷에서 `반복 최소`·`반복 최대` 이름이 두 줄로 꺾인다(잘리지는 않음, `글자 잘림` ✓). 스테퍼 폭이 이름 자리를 먹는다. 이번에 안 고쳤다.
-- 결함 복원 ⑩⑪⑭와 `package.json` 1.17.0 상향, "배포 영향" 절은 안 했다. ⑦은 `v116` 스캔이 못 잡는다(앞 버튼의 `destructive`가 260자 창에 걸림 — `v117` OO3 테스트는 같은 `<Button` 태그 안만 보게 고쳐 잡는다).
+전: 이름이 `반복 최` / `소`로 글자 중간에서 두 줄로 꺾였다(깨짐으로 보고 고침). 스테퍼의 입력칸이 199px로 이름 자리를 먹었다. 고침: 이름 `<Text textWrap="nowrap">`, 줄 시트의 네 스테퍼에 `inputWidth={160}`(`ax`의 `Stepper`에 선택 prop, `NumberInput`의 `width`). 후: 네 줄 모두 이름이 한 줄이고 `−`·입력칸·`+`가 같은 세로선에 선다(`after-line-sheet-end-light.png`로 확인). 처음에 `nowrap`만 넣었더니 입력칸이 안 줄어 두 줄의 `+`가 7px 튀어나와, 폭을 줄이는 것까지 같이 했다. 주간 목표 `Stepper`(편집 화면 본체)는 `inputWidth`를 안 줘서 그대로다.
+
+### 사람 확인 필요 (실기기)
+
+시트의 탭 영역 `주의` 목록(`--check` 마지막 실행, 390 다크 `line-sheet`; 라이트·375·`line-sheet-end`는 같은 컨트롤이 소수 오차만 다르게 나온다). 측정값 = 보이는 박스 + `--astryx-hit-inset-*`, 44px 미만만 적었다. 모두 36px 이상이라 ✗가 아니다.
+
+| 컨트롤 | 보이는 박스 | 히트 영역 |
+|---|---|---|
+| 부위 칩 `상부가슴`·`측면어깨` / `가슴` | 88×36 / 56×36 | 43.3 · 40.7(`햄스트링`·`둔근`) |
+| 방식 `A`·`B`·`코어` | 115×28 | 114.7×42.8 |
+| `세트 감소`·`세트 증가` | 36×36 | 44×40.7 · 44×42.7 |
+| `반복 최소 감소`·`증가` | 36×36 | 44×41.2 · 44×43.2 |
+| 스위치(`컨디션 좋을 때만`) | 40×24(트랙) | 44×38.2 (`picker-form`의 스위치 44×39.7) |
+| 375: 칩 `이두`·`삼두`·`대퇴사두` · `반복 최대 증가` · `이 Day에서 빼기`·`닫기` | 36 높이 | 높이 40.5~43.5 · 41.2 · 42.8 |
+
+어느 컨트롤이 모자라는지, 몇 px 모자라는지는 실행마다 바뀐다(위·아래 inset 한쪽이 4·8px 대신 소수로 줄어 있다. 원인이 Astryx의 4ms 분할 측정인지 시트 배치인지는 확인하지 못했다). 실제 탭은 `pointerdown`에서 다시 재서(`checkAtPress`) 손가락에는 영향이 작을 수 있다. **실기기 확인 ⑨**를 시트까지 넓힌다: 줄 시트의 `−`·`+`, 부위 칩, `A`·`B`·`코어`, 스위치가 엄지로 잘 눌리고 옆 컨트롤이 대신 눌리지 않는다(편집 화면의 ▲▼·`−`·`+`와 함께). 안 눌리는 자리가 있으면 그 컨트롤 간격을 키운다.
+
+그 밖의 실기기 확인은 PLAN ①~⑧ 그대로다(이번에 하나도 못 했다).
+
+### 결함 복원 (PLAN ⑩⑪⑭, `cp` 백업 → 결함 → `after --check` → 원복 → `cmp`)
+
+| # | 되살린 결함 | 결과 | 원상복구 |
+|---|---|---|---|
+| ⑩ | `src/styles/index.css`의 `@layer reset, legacy, astryx-base, astryx-theme;`에서 `legacy`를 맨 뒤로 | **`--check` 종료 코드 0 — 모양 검사가 못 잡는다**(`버튼 높이`·`머리 줄` 등 전 장면 ✓). 빌드 CSS의 처음 `@layer`는 `@layer reset,astryx-base,astryx-theme,legacy;`로 바뀌어 OO2의 "처음 나오는 `@layer`" 빌드 확인(기대 `reset,legacy,astryx-base,astryx-theme`)이 실패한다. 자동 테스트(`v117`)도 이 줄은 안 잡는다(`npx vitest run src/lib/v117.test.ts` 통과). **스크린샷·빌드 출력 확인으로만 보인다.** Astryx 버튼의 배경·테두리가 사라지는지는 스크린샷을 따로 안 봤다 | `cmp` 같음, `git status` 깨끗 |
+| ⑪ | `src/ax/ax.css`에서 `[data-astryx-theme] button { min-height: 0 }` 블록 삭제 | `--check` 종료 코드 1. `버튼 높이`가 전 장면 ✗(`editor-full`: 89개 중 89개, `"‹ 취소" 높이 44.0` · `"Day 위로" 44.0×44.0`). 덤으로 시트 `탭 영역`도 ✗ 1개(스위치 44×35.3 — 36px 미만이라 결정 C 아래서도 잡힌다) | `cmp` 같음 |
+| ⑭ | `RoutineEditorScreen.tsx` 종목 줄 `HStack gap={2}`를 `gap={0}`으로(▲▼ 사이·이름과 ▲ 사이 간격 0) | `--check` 종료 코드 1. `editor-full`·`editor-leave`·`editor-problems`·`editor-long`의 `탭 영역` ✗(`editor-full`: 124개 중 44개, `"종목 아래로" 36×36 왼쪽 · "종목 위로" 36×36 오른쪽`) | `cmp` 같음 |
+
+⑦은 앞에서 적은 대로 `v116` 스캔이 못 잡고 `v117` OO3 테스트가 잡는다.
+
+### 과거 판정 불변 확인
+
+`git diff --stat main..HEAD -- src/lib src/db`(이 기록 커밋 전, 출력 그대로):
+
+```
+ src/lib/inputProps.ts |  11 +++
+ src/lib/v116.test.ts  |   4 +-
+ src/lib/v117.test.ts  | 230 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 243 insertions(+), 2 deletions(-)
+```
+
+`inputProps.ts`·`v116.test.ts`·`v117.test.ts`만이다. 골든 테스트는 수정 없이 통과(`Tests 1558 passed`). 바뀌는 것은 PLAN의 "과거 판정 불변" 표 그대로다. 이 기록 커밋은 `src/lib`을 더 안 건드린다.
+
+### 배포 영향
+
+- 루틴 편집 화면과 그 시트 둘이 Astryx 부품으로 바뀐다. 이 화면만 폰의 라이트/다크 설정을 따른다. 나머지 화면은 그대로다.
+- React가 19로 올라간다. 기록·판정·내보내기·백업 형식은 그대로다.
+- 아이폰 iOS 17.5 이상이 필요하다(루틴 편집 화면).
+- 폰에서 볼 것: 설정 → 활성 루틴 `편집`. 제목·Day 이름·종목 이름이 잘리지 않는지, 한글 입력이 되는지, 키보드가 올라와도 시트 아래 버튼에 닿는지. 시트의 `−`·`+`·칩·스위치가 엄지로 잘 눌리는지.
+
+### 마무리
+
+- `npm test`: Test Files 61 passed (61), Tests 1558 passed (1558) · `npm run build` 통과 · `node scripts/quality-scan.mjs --ci` 통과
+- `package.json`·`package-lock.json` `1.17.0`. `git rev-list --count main..HEAD`: 6(이 기록 커밋 전)
+- ⑦: `v116` 스캔이 못 잡는다(앞 버튼의 `destructive`가 260자 창에 걸림 — `v117` OO3 테스트는 같은 `<Button` 태그 안만 보게 고쳐 잡는다).
 
 ### 빌드 출력
 
