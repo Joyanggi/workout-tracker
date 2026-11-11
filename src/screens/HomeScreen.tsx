@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import type { JSX } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import DayPickerSheet from '../components/DayPickerSheet'
 import MuscleVolumeBars from '../components/MuscleVolumeBars'

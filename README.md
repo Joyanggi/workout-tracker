@@ -2,7 +2,7 @@
 
 > 16개월간 기록이 없었던 것이 문제였다. 그래서 "기록하는 마찰"을 최소화하는 것만을 목표로 만든 1인용 운동 기록 PWA.
 
-`React 18` · `TypeScript` · `Vite` · `Dexie (IndexedDB)` · `zustand` · `recharts` · `vite-plugin-pwa` · `GitHub Pages`
+`React 19` · `TypeScript` · `Vite` · `Dexie (IndexedDB)` · `zustand` · `recharts` · `vite-plugin-pwa` · `GitHub Pages`
 
 **[https://joyanggi.github.io/workout-tracker/](https://joyanggi.github.io/workout-tracker/)**
 
@@ -349,7 +349,7 @@ flowchart TB
 ## Tech Stack
 
 - 빌드: Vite, TypeScript
-- UI: React 18 (라우터 없음 — 탭 4개라 상태로 충분)
+- UI: React 19 (라우터 없음 — 탭 4개라 상태로 충분)
 - 상태: zustand (설정 · 진행 중 세션 · 휘발성 UI 상태만. 나머지는 `dexie-react-hooks` live query로 직접 읽음)
 - 저장: Dexie (IndexedDB, 스키마 v3) + localStorage (비밀값·휴식 타이머·백업 대기 플래그)
 - 차트: recharts (분석 탭만 `React.lazy`로 지연 로딩)

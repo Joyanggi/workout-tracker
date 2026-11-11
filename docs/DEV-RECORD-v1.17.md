@@ -84,3 +84,25 @@
 - `npm test`: Test Files 60 passed (60), Tests 1538 passed (1538)
 - `npm run build` 통과, `node scripts/quality-scan.mjs --ci` 통과
 - 결함 복원: 해당 없음(앱 코드 무변경). 검사가 깨짐을 잡는다는 증거는 `before --check` 실패가 대신한다.
+
+---
+
+## OO1. React 18.3 → 19
+
+| 항목 | 내용 |
+|---|---|
+| 바뀐 파일 | `package.json`, `package-lock.json`, `src/components/TabBar.tsx`, `src/screens/HomeScreen.tsx`, `README.md`, 이 문서 (6개) |
+| 버전 | `react`·`react-dom` `^19.3.1`, `@types/react`·`@types/react-dom` `^19.3.0` |
+| 코드 변경 | 전역 `JSX` 두 곳에 `import type { JSX } from 'react'` 추가. 그 밖 타입 오류 없음 |
+| 테스트 | 추가·수정 없음(순수 함수·소스 스캔 테스트라 React 버전 무관) → 새 describe 없어 결함 복원 0건 |
+
+### PLAN 검증 ↔ 확인
+
+| PLAN 검증 | 확인 |
+|---|---|
+| `npm run build` 통과 | 통과 |
+| `npm test` 수정 없이 통과 | 60 파일 / 1538 테스트 통과 |
+| `home`·`settings`·`editor-full`(다크) `cmp` | `before`와 바이트 동일 3/3 (같은 날 2026-11-11). `after` 파일은 커밋하지 않고 지웠다 |
+| 손으로 한 번씩(세션·분석·저장, 콘솔 경고) | **사람 확인 필요** — 이 구현자는 실기기·수동 흐름을 못 돌렸다 |
+
+실행 결과: `Test Files 60 passed (60)` · `Tests 1538 passed (1538)` · 빌드 성공 · `quality-scan` 통과.
