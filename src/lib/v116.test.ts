@@ -1222,7 +1222,10 @@ describe("NN4 루틴 목록", () => {
       const at = store.indexOf("export async function deleteRoutine")
       const body = store.slice(at, store.indexOf("export async function", at + 10))
       expect(body).toMatch(/id === bundledId/)
-      expect(body).toContain("activeRoutineId")
+      // 활성 루틴 id를 settings에서 읽고, 그 값을 id와 비교한다 (변수명에 묶이지 않음)
+      const read = body.match(/(\w+)\s*=\s*\(await db\.settings\.get\(['"]activeRoutineId['"]\)\)/)
+      expect(read).not.toBeNull()
+      expect(body).toMatch(new RegExp(`id === ${read![1]}\\b`))
     })
 
     it("NN4 RoutineListPanel.tsx에 db.routines.put·db.settings·setSettings가 없다 (읽기만)", () => {

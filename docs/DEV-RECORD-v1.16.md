@@ -277,6 +277,9 @@
 | 패널이 `db.routines.put`을 직접 부름 | NN4 `…읽기만` + NN1 `routines.put·delete는 정해진 파일에만` | `cmp` 일치 |
 | `deleteRoutine`에서 `bundledId` 비교 삭제 | NN4 `deleteRoutine 본문…` | `cmp` 일치 |
 | 삭제 진입 버튼의 `btn-danger` 제거 | NN4 `…btn-danger` | `cmp` 일치 |
+| `deleteRoutine`에서 `id === activeId \|\|`만 삭제 (리뷰 반영) | NN4 `deleteRoutine 본문…` (읽은 변수와 `id` 비교 단언) | `cmp` 일치 |
+
+리뷰 반영: ① `deleteRoutine` 스캔이 `activeRoutineId`로 읽은 값과 `id`의 비교를 실제로 단언(테스트 수 69 그대로). ② `RoutineListPanel`의 전환 안내 문구를 PLAN 확정 문구로 교체.
 
 ### 과거 판정 불변 확인 (테스트 안에 고정한 루틴 `routine-v2.4.json`·픽스처 한정)
 

@@ -68,8 +68,8 @@ export default function RoutineListPanel({
             {asking === 'use' && (
               <div style={{ paddingBottom: 10 }}>
                 <p className="row-sub">
-                  이 루틴으로 바꿉니다. 운동 기록은 지워지지 않지만, 새 루틴에 없는 Day·종목의 기록은 이름과 그룹 없이
-                  보입니다. 원래 루틴으로 다시 바꾸면 원래대로 보입니다.
+                  루틴을 바꾸면 홈의 제안과 주간 목표가 이 루틴 기준이 됩니다. 지난 기록은 그대로 남지만, 이 루틴에 없는
+                  Day·종목은 이름과 그룹 없이 보일 수 있습니다. 다시 바꾸면 원래대로 보입니다.
                 </p>
                 <button className="btn" onClick={() => void run(() => activateRoutine(r.id))}>
                   바꾸기
