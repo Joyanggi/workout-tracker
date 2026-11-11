@@ -1,7 +1,5 @@
 {
-  "duplicates": {
-    "orderDeviations": "SummaryScreen.tsx가 derive.ts의 공용 함수를 그대로 복사했다 — 첫 품질 정리에서 import로 바꾸고 이 줄을 지운다"
-  },
+  "duplicates": {},
   "testSupport": [
     "src/lib/sourceScan.ts",
     "src/lib/testFixtures.ts"
