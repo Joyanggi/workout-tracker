@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { BUNDLED_EXERCISES, BUNDLED_ROUTINE, shouldResetActiveRoutine } from "../db/seed"
 import { validateRoutine } from "../db/validateRoutine"
-import { muscleBars } from "./dashboard"
+import { keyARecordKeys, muscleBars } from "./dashboard"
 import { displayDay } from "./dayChoice"
 import { planDayChange } from "./dayChange"
 import { findDay, findDayForRecord, weeklyVolume } from "./derive"
@@ -9,8 +9,10 @@ import { sessionToMarkdown } from "./exportMarkdown"
 import { allRecordKeys, summarize } from "./history"
 import {
   blankRoutine,
+  defaultLineFor,
   finalizeRoutine,
   forkRoutine,
+  takenDayIds,
   nextDayId,
   NO_GUARD_GAP_DAYS,
   resolveMuscleTargets,
@@ -928,6 +930,135 @@ describe("NN1 finalizeRoutine·보관·시드·쓰기", () => {
       expect(at).toBeGreaterThan(0)
       expect(seed.slice(seed.lastIndexOf("if (", at), at)).toContain("shouldResetActiveRoutine")
       expect(seed.split("activeRoutineId: BUNDLED_ROUTINE.id")).toHaveLength(2)
+    })
+  })
+})
+
+// ─── NN2 ───────────────────────────────────────────────────────
+describe("NN2 루틴 편집 화면", () => {
+  const catalog = BUNDLED_EXERCISES
+  const draftOf = () => toDraft(NN_ROUTINE)
+
+  it("NN2 validateDraft: 표의 여섯 조건이 각각 문구 하나를 내고, 번들 그대로는 빈 배열이다", () => {
+    expect(validateDraft(draftOf(), catalog)).toEqual([])
+    const a = draftOf(); a.name = " "
+    expect(validateDraft(a, catalog)).toEqual(["루틴 이름을 적어 주세요"])
+    const b = draftOf(); b.days = []
+    expect(validateDraft(b, catalog)).toEqual(["Day를 하나 이상 만들어 주세요"])
+    const c = draftOf(); c.days[0].name = ""
+    expect(validateDraft(c, catalog)).toEqual(["Day 이름을 적어 주세요"])
+    const d = draftOf(); const dName = d.days[0].name; d.days[0].exercises = []
+    expect(validateDraft(d, catalog)).toEqual([`${dName}: 종목을 하나 이상 넣어 주세요`])
+    const e = draftOf(); e.days[0].exercises[0].muscle = ""
+    expect(validateDraft(e, catalog)).toEqual([expect.stringMatching(/ · .+: 부위를 골라 주세요$/)])
+    const f = draftOf(); f.days[0].exercises[0].repMin = 20; f.days[0].exercises[0].repMax = 10
+    expect(validateDraft(f, catalog)).toEqual([expect.stringMatching(/ · .+: 반복 최소가 최대보다 큽니다$/)])
+  })
+
+  it("NN2 defaultLineFor('lateral-raise')는 초안의 d1 줄 값이다 (측면어깨·B·4세트·12~20·90초)", () => {
+    expect(defaultLineFor("lateral-raise", draftOf(), NN_ROUTINE, catalog)).toEqual({
+      muscle: "측면어깨", group: "B", sets: 4, repMin: 12, repMax: 20, restSec: 90,
+    })
+  })
+
+  it("NN2 defaultLineFor('smith-incline-press')(대체 전용)는 원 종목의 부위·방식에 표의 기본값이다", () => {
+    expect(defaultLineFor("smith-incline-press", draftOf(), NN_ROUTINE, catalog)).toEqual({
+      muscle: "상부가슴", group: "A", sets: 3, repMin: 8, repMax: 12, restSec: 90,
+    })
+  })
+
+  it("NN2 defaultLineFor('없는-종목')는 부위가 비고 방식 A다", () => {
+    const line = defaultLineFor("없는-종목", draftOf(), NN_ROUTINE, catalog)
+    expect(line.muscle).toBe("")
+    expect(line.group).toBe("A")
+  })
+
+  it("NN2 Day 순서를 바꿔 저장해도 lowerBodyDayId는 d3 그대로이고 days[0]이 바뀐다", () => {
+    const out = nn1Fin((d) => {
+      d.days = [d.days[3], ...d.days.slice(0, 3)]
+    })
+    expect(out.rules.lowerBodyDayId).toBe("d3")
+    expect(out.days[0].id).toBe("d4")
+    expect(validateRoutine(out, catalog)).toEqual([])
+  })
+
+  it("NN2 종목 순서를 바꿔 finalizeRoutine한 뒤에도 골든 세션의 sessionToMarkdown이 NN_EXPORT_BEFORE와 같다", () => {
+    const out = nn1Fin((d) => {
+      d.days[0].exercises.reverse()
+    })
+    expect(out.days[0].exercises.map((e) => e.plannedOrder)).toEqual(out.days[0].exercises.map((_, i) => i + 1))
+    expect(nnOutputs(out).exportLines).toEqual(NN_EXPORT_BEFORE)
+  })
+
+  it("NN2 주요 3종목(keyARecordKeys): 번들 값, B종목을 빼도 같고, A종목 세트 변경은 순위를 바꾼다", () => {
+    expect(keyARecordKeys(NN_ROUTINE)).toEqual(["incline-chest-press@d1", "lat-pulldown@d2", "seated-cable-row@d2"])
+    const noB = nn1Fin((d) => {
+      d.days[0].exercises = d.days[0].exercises.filter((e) => e.exerciseId !== "pec-deck-fly")
+    })
+    expect(keyARecordKeys(noB)).toEqual(keyARecordKeys(NN_ROUTINE))
+    const more = nn1Fin((d) => {
+      const sp = d.days[0].exercises.find((e) => e.exerciseId === "shoulder-press")
+      if (!sp) throw new Error("shoulder-press 없음")
+      sp.sets = 5
+    })
+    const keys = keyARecordKeys(more)
+    expect(keys[0]).toBe("shoulder-press@d1")
+    expect(keys).not.toContain("seated-cable-row@d2")
+  })
+
+  it("NN2 takenDayIds: 다른 루틴·보관 Day·세션·초안의 Day id를 모두 피한다", () => {
+    const other = structuredClone(NN_ROUTINE)
+    other.retiredDays = [{ ...structuredClone(NN_ROUTINE.days[0]), id: "d7" }]
+    const draft = draftOf()
+    draft.days.push({ ...structuredClone(draft.days[0]), id: "d9" })
+    const taken = takenDayIds([other], NN_SESSIONS, draft)
+    for (const id of ["d1", "d2", "d3", "d4", "d7", "d9", "fallback-push"]) expect(taken.has(id), id).toBe(true)
+    expect(nextDayId(taken)).toBe("d5")
+  })
+
+  describe("스캔", () => {
+    const src = (p: string) => stripComments(NN1_SOURCES["/" + p] ?? "")
+    const screens = ["src/screens/RoutineEditorScreen.tsx", "src/components/RoutineLineSheet.tsx", "src/components/ExercisePickerSheet.tsx"]
+
+    it("NN2 편집 화면은 toDraft(와 uniqueId(를 쓰고, randomUUID는 routineEdit.ts 밖 어디에도 없다", () => {
+      expect(src("src/screens/RoutineEditorScreen.tsx")).toContain("toDraft(")
+      expect(src("src/screens/RoutineEditorScreen.tsx")).toContain("uniqueId(")
+      for (const p of ["src/screens/RoutineEditorScreen.tsx", "src/components/ExercisePickerSheet.tsx", "src/components/RoutineListPanel.tsx", "src/lib/routineStore.ts"]) {
+        expect(src(p), p).not.toContain("randomUUID")
+      }
+    })
+
+    it("NN2 편집 화면·시트에 db.이 없고, muscleSets·plannedOrder 대입은 routineEdit.ts 밖의 screens·components에 없다", () => {
+      for (const p of screens) expect(src(p), p).not.toMatch(/(^|\W)db\./)
+      const outside = Object.keys(NN1_SOURCES)
+        .filter((p) => /^\/src\/(screens|components)\//.test(p) && !/\.test\.tsx?$/.test(p))
+        .filter((p) => /(muscleSets|plannedOrder)\s*(=[^=]|:\s*[^,}\s])/.test(stripComments(NN1_SOURCES[p])))
+      // plannedOrder: 0 은 새 줄의 자리 표시값 — 번호는 finalizeRoutine이 매긴다
+      expect(outside.filter((p) => !/RoutineEditorScreen/.test(p))).toEqual([])
+      expect(src("src/screens/RoutineEditorScreen.tsx")).not.toMatch(/muscleSets\s*=|plannedOrder\s*=[^=]/)
+    })
+
+    it("NN2 설정의 편집 버튼 근처에 disabled와 진행 중 세션 문구가 있고, App의 View에 'routineEdit'가 있다", () => {
+      const s = src("src/screens/SettingsScreen.tsx")
+      const at = s.search(/편집\s*<\/button>/)
+      const around = s.slice(Math.max(0, at - 400), at + 200)
+      expect(around).toContain("disabled")
+      expect(s).toContain("OPEN_SESSION_BLOCK.edit")
+      expect(src("src/App.tsx")).toMatch(/type View = .*'routineEdit'/)
+    })
+
+    it("NN2 Day 삭제·이 Day에서 빼기·저장하지 않고 나가기 앞 260자 안에 btn-danger가 있다", () => {
+      const targets: [string, string][] = [
+        ["src/screens/RoutineEditorScreen.tsx", "Day 삭제"],
+        ["src/components/RoutineLineSheet.tsx", "이 Day에서 빼기"],
+        ["src/screens/RoutineEditorScreen.tsx", "저장하지 않고 나가기"],
+      ]
+      for (const [p, label] of targets) {
+        const text = src(p)
+        const at = text.indexOf(label)
+        expect(at, `${p} ${label}`).toBeGreaterThan(0)
+        expect(text.slice(Math.max(0, at - 260), at), `${p} ${label}`).toMatch(/btn-danger/)
+      }
     })
   })
 })

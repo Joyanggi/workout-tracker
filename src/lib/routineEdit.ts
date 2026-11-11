@@ -230,3 +230,55 @@ export function validateDraft(draft: RoutineTemplate, catalog: Exercise[]): stri
 export function shouldForkOnEdit(routineId: string, bundledId: string): boolean {
   return routineId === bundledId
 }
+
+/** 종목 줄 시트의 부위 칩 순서 (NN2). 이 루틴이 쓰는 부위가 먼저 오고 나머지가 이 순서로 이어진다 */
+export const MUSCLE_SUGGESTIONS: MuscleKey[] = [
+  '가슴', '상부가슴', '등', '광배', '어깨', '측면어깨', '후면어깨', '이두', '삼두', '팔',
+  '하체', '대퇴사두', '햄스트링', '둔근', '종아리', '내전근', '코어',
+]
+
+/** 종목을 새로 넣을 때 줄에 채울 값 */
+export type LineDefaults = Pick<RoutineExercise, 'muscle' | 'group' | 'sets' | 'repMin' | 'repMax' | 'restSec'>
+
+const LINE_FALLBACK: LineDefaults = { muscle: '', group: 'A', sets: 3, repMin: 8, repMax: 12, restSec: 90 }
+
+/**
+ * 새 줄의 기본값. 저장하지 않고 매번 계산한다 (카탈로그에 부위를 더하지 않는다 — F9).
+ * ① 초안의 다른 Day에 같은 종목 ② 번들 루틴 ③ 이 종목을 substitutes로 가진 원 종목의 부위·방식 ④ 표의 기본값.
+ * 여러 줄이 맞으면 days 배열 순서로 처음 나오는 줄.
+ */
+export function defaultLineFor(
+  exerciseId: string,
+  draft: RoutineTemplate,
+  bundled: RoutineTemplate,
+  catalog: Exercise[],
+): LineDefaults {
+  const firstLine = (id: string): RoutineExercise | undefined => {
+    for (const routine of [draft, bundled]) {
+      for (const day of routine.days) {
+        const hit = day.exercises.find((e) => e.exerciseId === id)
+        if (hit) return hit
+      }
+    }
+    return undefined
+  }
+  const own = firstLine(exerciseId)
+  if (own) {
+    return { muscle: own.muscle, group: own.group, sets: own.sets, repMin: own.repMin, repMax: own.repMax, restSec: own.restSec }
+  }
+  for (const origin of catalog) {
+    if (!origin.substitutes?.some((s) => s.exerciseId === exerciseId)) continue
+    const line = firstLine(origin.id)
+    if (line) return { ...LINE_FALLBACK, muscle: line.muscle, group: line.group }
+  }
+  return { ...LINE_FALLBACK }
+}
+
+/** 새 Day id가 피해야 할 id: 모든 루틴(보관 포함)·모든 세션·초안의 Day. 다른 루틴이 쓰던 id를 다시 쓰면 그 기록 라인에 얹힌다 (F3) */
+export function takenDayIds(routines: RoutineTemplate[], sessions: Session[], draft: RoutineTemplate): Set<string> {
+  const taken = new Set<string>(usedKeys(sessions).dayIds)
+  for (const r of [...routines, draft]) {
+    for (const day of [...r.days, ...r.fallbackDays, ...(r.retiredDays ?? [])]) taken.add(day.id)
+  }
+  return taken
+}

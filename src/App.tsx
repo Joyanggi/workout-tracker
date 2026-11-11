@@ -12,6 +12,7 @@ import HistoryScreen from './screens/HistoryScreen'
 import HomeScreen from './screens/HomeScreen'
 import Onboarding from './screens/Onboarding'
 import SessionScreen from './screens/SessionScreen'
+import RoutineEditorScreen from './screens/RoutineEditorScreen'
 import SettingsScreen from './screens/SettingsScreen'
 import SummaryScreen from './screens/SummaryScreen'
 import { useRestTimer } from './lib/useRestTimer'
@@ -27,7 +28,7 @@ import { useSettings } from './store/settings'
  */
 const AnalyzeScreen = lazy(() => import('./screens/AnalyzeScreen'))
 
-type View = 'tabs' | 'session' | 'summary'
+type View = 'tabs' | 'session' | 'summary' | 'routineEdit'
 
 export default function App() {
   // 최상위에서 호출해야 온보딩 전에도 서비스워커가 등록된다 (usePwaUpdate 주석 참조)
@@ -36,6 +37,7 @@ export default function App() {
   const [bootError, setBootError] = useState<string | null>(null)
   const [tab, setTab] = useState<TabId>('home')
   const [view, setView] = useState<View>('tabs')
+  const [editTarget, setEditTarget] = useState<'active' | 'blank'>('active')
   const { loaded, onboardingDone, load } = useSettings()
   const restoreSession = useSessionStore((s) => s.restore)
   const openSession = useSessionStore((s) => s.session)
@@ -145,6 +147,10 @@ export default function App() {
     return <SummaryScreen bundle={bundle} onDone={() => setView('tabs')} />
   }
 
+  if (view === 'routineEdit' && bundle) {
+    return <RoutineEditorScreen bundle={bundle} target={editTarget} onDone={() => setView('tabs')} />
+  }
+
   return (
     <div className="app">
       {banner}
@@ -162,7 +168,15 @@ export default function App() {
         ) : (
           <p className="center-note">불러오는 중…</p>
         ))}
-      {tab === 'settings' && <SettingsScreen seed={seed} />}
+      {tab === 'settings' && (
+        <SettingsScreen
+          seed={seed}
+          onEditRoutine={(target) => {
+            setEditTarget(target)
+            setView('routineEdit')
+          }}
+        />
+      )}
       {/*
         최소화된 세션의 재개 스트립 (Z5) — 어느 탭에 있든 보인다.
         홈의 "진행 중" 배너를 이것으로 통합했다 (같은 정보가 두 줄 뜨지 않게).

@@ -126,3 +126,58 @@
 
 - `HomeScreen.tsx:594`는 PLAN 표대로 `findDayForRecord`로 바꿨지만, 실제로는 제안 점수 목록(후보 Day)의 이름이다. 후보에는 보관 Day가 없어 동작 차이는 없다.
 - 실기기 확인 해당 없음(화면 없음).
+
+---
+
+## NN2. 루틴 편집 화면 — Day·종목·주간 목표
+
+### 범위
+
+| 항목 | 내용 |
+|---|---|
+| 커밋 | 이 기록과 같은 커밋 (`feat(NN2): …`) — 해시는 최종 보고에 적는다 |
+| 새 파일 | `src/screens/RoutineEditorScreen.tsx` · `src/components/RoutineLineSheet.tsx` · `src/components/ExercisePickerSheet.tsx` · `src/lib/useRoutineEditContext.ts`(읽기 전용 훅 — 화면에 `db.`을 두지 않으려고 분리) |
+| 바뀐 소스 | `routineEdit.ts`(`MUSCLE_SUGGESTIONS`·`defaultLineFor`·`takenDayIds`) · `App.tsx`(`View`에 `'routineEdit'`, `editTarget`) · `SettingsScreen.tsx`(`편집` 버튼·`onEditRoutine` props·진행 중 세션 문구) |
+| 테스트 | `v116.test.ts`에 describe `NN2` 12개 추가 (NN1까지 34 → 46) |
+| README | 기능 표 설정 줄, Limitations 한 줄 (`README.md:40`, `:483` — PLAN의 `:467`은 줄이 밀렸다) |
+| 안 건드림 | `routineStore.ts`·`finalizeRoutine`·시드·Dexie 스키마·`RoutineIoPanel.tsx`·`package.json` 버전 |
+
+### PLAN 검증 항목 ↔ 테스트
+
+| PLAN 검증 | 테스트 이름(`NN2 …`) |
+|---|---|
+| `validateDraft` 여섯 조건 | `validateDraft: 표의 여섯 조건이 각각 문구 하나를 내고…` |
+| `defaultLineFor` 세 줄 | `defaultLineFor('lateral-raise')…` · `('smith-incline-press')…` · `('없는-종목')…` |
+| Day 순서와 `lowerBodyDayId` | `Day 순서를 바꿔 저장해도 lowerBodyDayId는 d3 그대로…` |
+| 종목 순서 + 내보내기 골든 | `종목 순서를 바꿔 finalizeRoutine한 뒤에도 …NN_EXPORT_BEFORE와 같다` |
+| 주요 3종목 | `주요 3종목(keyARecordKeys)…` |
+| 스캔 넷 | `편집 화면은 toDraft(와 uniqueId(…` · `…db.이 없고 muscleSets·plannedOrder 대입은…` · `설정의 편집 버튼 근처에…` · `Day 삭제·이 Day에서 빼기·저장하지 않고 나가기 앞 260자…` |
+| (추가) | `takenDayIds` — 새 Day id가 다른 루틴·보관 Day·세션 id를 피한다 (PLAN "nextDayId의 taken"을 화면에서 순수 함수로 뺐다) |
+
+### 결함 복원
+
+| 되살린 결함 | 실패한 테스트 | 원상복구 |
+|---|---|---|
+| ⑪ 화면이 `db.routines.put` 직접 호출 | NN2 `db.이 없고…` 스캔 + NN1 `routines.put·delete` 스캔 | `cmp` 일치 |
+| ⑫ `defaultLineFor`의 ③ 삭제 | NN2 `smith-incline-press` | `cmp` 일치 |
+| `Day 삭제` 버튼에서 `btn-danger` 제거 | NN2 `btn-danger` 스캔 | `cmp` 일치 |
+| `takenDayIds`가 `retiredDays`를 안 봄 | NN2 `takenDayIds` | `cmp` 일치 |
+
+처음 쓴 `db.` 스캔은 정규식의 `\b`가 백스페이스 문자로 저장돼 결함 ⑪을 못 잡았다(구멍). 결함 복원으로 발견해 `(^|\W)db\.`로 고쳤다.
+
+### 수정표 밖
+
+- `src/lib/inputProps.test.ts`(`input·textarea 개수와 NO_AUTOFILL spread 개수가 같다`)는 고치지 않았다. 새 `input` 7개에 `{...NO_AUTOFILL}`을 달아 통과시켰다.
+
+### 실행 결과
+
+- `npm test`: `Test Files 60 passed (60)` · `Tests 1515 passed (1515)`
+- `npm run build`: `✓ built in 3.40s`
+- `node scripts/quality-scan.mjs --ci`: `통과`
+- `git rev-list --count main..HEAD`: 커밋 전 3 → 이 커밋 포함 4
+
+### 하지 않은 것 · 사람 확인 필요
+
+- 하한 모드 Day 편집(자동 맞춤·삭제만), `＋ 새 루틴`(NN4)과 `onEditRoutine('blank')` 진입점은 화면 쪽만 준비하고 설정에는 연결하지 않았다.
+- `Day 삭제`는 두 단계 버튼(`Day 삭제` → `정말 삭제`)이다. 기존 시트 규약대로 `btn-danger`를 단다.
+- 실기기 확인 필요: iOS 홈 화면 앱에서 편집 화면의 safe-area, 시트 입력에 키보드가 올라올 때 `저장` 버튼 가림, `▲▼`·스테퍼 터치 크기. 이 환경에서는 못 했다.
