@@ -2,7 +2,7 @@ import type { RecordKey, RoutineTemplate, Session, SetRecord } from '../types'
 import { parseRecordKey, recordDayIdOf } from '../types'
 import { isSameMonth, monthGrid } from './dates'
 import { hasPain } from './pain'
-import { completedSessions, doneSets, e1rm, findDay, totalDoneSets, totalVolume } from './derive'
+import { completedSessions, doneSets, e1rm, findDayForRecord, findDay, plannedInDay, totalDoneSets, totalVolume } from './derive'
 
 /** 기록 탭 조회 (DESIGN.md §5.3) */
 
@@ -44,7 +44,7 @@ export function summarize(
   /** 볼륨에서 제외할 기록 라인 (T8 어시스티드 — 보조 무게는 볼륨이 아니다) */
   excludeFromVolume?: (recordKey: RecordKey) => boolean,
 ): SessionSummary {
-  const day = findDay(routine, session.dayId)
+  const day = findDayForRecord(routine, session.dayId)
   const durationMin =
     session.endedAt
       ? Math.round(
@@ -148,15 +148,16 @@ export function allRecordKeys(sessions: Session[], routine: RoutineTemplate): Re
   return [...counts.entries()]
     .map(([recordKey, sessionCount]) => {
       const { exerciseId, dayId } = parseRecordKey(recordKey)
-      const routineExercise = findDay(routine, dayId)?.exercises.find(
-        (e) => e.exerciseId === exerciseId,
-      )
+      // known은 지금 쓰는 종목일 때만 true. 보관한 종목·Day는 "루틴에 없음"이되 그룹은 남는다 (NN1)
+      const current = findDay(routine, dayId)?.exercises.find((e) => e.exerciseId === exerciseId)
+      const recordDay = findDayForRecord(routine, dayId)
+      const recorded = current ?? (recordDay ? plannedInDay(recordDay, exerciseId) : undefined)
       return {
         recordKey,
         exerciseId,
         dayId,
-        known: routineExercise !== undefined,
-        group: routineExercise?.group ?? null,
+        known: current !== undefined,
+        group: recorded?.group ?? null,
         sessionCount,
       }
     })

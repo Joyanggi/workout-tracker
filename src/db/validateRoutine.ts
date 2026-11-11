@@ -55,6 +55,27 @@ export function validateRoutine(routine: RoutineTemplate, catalog: Exercise[]): 
     }
   }
 
+  // 8. 정규 Day가 하나도 없으면 제안·대시보드가 days[0]에서 터진다 (NN1)
+  if (routine.days.length === 0) problems.push('정규 Day가 없음')
+
+  // 9. Day id는 days·fallbackDays·retiredDays 전체에서 겹치지 않는다 (NN1)
+  const everyDay = [...routine.days, ...routine.fallbackDays, ...(routine.retiredDays ?? [])]
+  const seenDayIds = new Set<string>()
+  for (const d of everyDay) {
+    if (seenDayIds.has(d.id)) problems.push(`Day id 중복 "${d.id}"`)
+    seenDayIds.add(d.id)
+  }
+
+  // 10. 보관 종목은 같은 Day의 현재 종목과 겹치지 않는다 (NN1)
+  for (const d of everyDay) {
+    const current = new Set(d.exercises.map((e) => e.exerciseId))
+    for (const r of d.retiredExercises ?? []) {
+      if (current.has(r.exerciseId)) {
+        problems.push(`${d.name}: 보관 종목 "${r.exerciseId}"가 현재 종목과 겹침`)
+      }
+    }
+  }
+
   routine.days.forEach((d) => checkDay(d, `days/${d.id}`))
   routine.fallbackDays.forEach((d) => checkDay(d, `fallbackDays/${d.id}`))
 
