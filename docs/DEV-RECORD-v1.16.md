@@ -240,3 +240,74 @@
 
 - 내 종목의 대체 종목·보상작용·템포·시작 무게 편집(범위 제외).
 - 실기기 확인 필요: iOS에서 종목 폼에 키보드가 올라올 때 `만들고 추가` 버튼에 닿는지.
+
+---
+
+## NN4. 루틴 목록 — 새 루틴·전환·삭제
+
+### 범위
+
+| 항목 | 내용 |
+|---|---|
+| 커밋 | `2d48a6b feat(NN4): …` (5개 파일) |
+| 새 파일 | `src/components/RoutineListPanel.tsx` (읽기 `useLiveQuery`, 쓰기는 `routineStore`의 `activateRoutine`·`deleteRoutine`) |
+| 바뀐 소스 | `SettingsScreen.tsx`(활성 루틴 카드 아래에 카드 · `＋ 새 루틴 만들기` → `onEditRoutine('blank')`) · `DayPickerSheet.tsx`(하한 모드 머리말을 `fallbackDays.length > 0` 안으로) |
+| 테스트 | `v116.test.ts`에 describe `NN4` 8개 추가 (누적 61 → 69) |
+| README | 기능 표 설정 줄, Limitations 한 문장 |
+| 안 건드림 | `routineStore.ts`·`routineEdit.ts`·시드·Dexie 스키마·온보딩 |
+
+### PLAN 검증 항목 ↔ 테스트
+
+| PLAN 검증 | 테스트 이름(`NN4 …`) |
+|---|---|
+| `blankRoutine` rules 복사 | `blankRoutine의 rules는 번들 rules와 같은 값이고 다른 객체다` |
+| 새 루틴 weeklyVolume 빈 sets, 번들로 복귀 | `새 루틴(Day d5)으로 weeklyVolume을 구하면 …` |
+| 복사본 `curl@d1` known/B ↔ 번들 false/null | `복사본에서 새로 넣은 종목은 …` |
+| 스캔: 삭제 문구 | `…'이름과 그룹을 다시 볼 수 없게 됩니다'가 있다` |
+| 스캔: `deleteRoutine` 두 비교 | `routineStore.ts deleteRoutine 본문에 bundledId와 activeRoutineId …` |
+| 스캔: 패널에 쓰기 없음 | `…db.routines.put·db.settings·setSettings가 없다 (읽기만)` |
+| 스캔: 하한 모드 조건 | `DayPickerSheet.tsx의 '하한 모드 · 30분'은 fallbackDays.length > 0 …` |
+| 스캔: `btn-danger` | `…삭제 진입 버튼 앞에 btn-danger가 있다` |
+
+### 결함 복원 (`cp` 백업 → 결함 → 레포 루트에서 `npx vitest run src/lib/v116.test.ts` → 복구)
+
+| 되살린 결함 | 실패한 테스트 | 원상복구 |
+|---|---|---|
+| ⑭ 하한 모드 머리말을 조건 밖으로 | NN4 `하한 모드 · 30분 …조건 안` | `cmp` 일치 |
+| 패널이 `db.routines.put`을 직접 부름 | NN4 `…읽기만` + NN1 `routines.put·delete는 정해진 파일에만` | `cmp` 일치 |
+| `deleteRoutine`에서 `bundledId` 비교 삭제 | NN4 `deleteRoutine 본문…` | `cmp` 일치 |
+| 삭제 진입 버튼의 `btn-danger` 제거 | NN4 `…btn-danger` | `cmp` 일치 |
+
+### 과거 판정 불변 확인 (테스트 안에 고정한 루틴 `routine-v2.4.json`·픽스처 한정)
+
+| # | 확인 | 결과 |
+|---|---|---|
+| ① | 골든 다섯 (NN0 `a67a6ca`) | 통과 |
+| ② | 복사본 루틴으로 골든 다섯 | 통과 |
+| ③ | `suggestNextDay`·`dashboard`·`export`·`history`·`dayChoice`·`seedRepair`·`seedRevision`·`v113`·`v114`·`v115` | 수정 없이 통과 |
+| ④ | 바뀌는 것 | 루틴을 바꾸거나 삭제한 설치본에서만(PLAN "과거 판정 불변" 표) |
+
+### 수정표 밖
+
+- 없음. 기존 테스트는 고치지 않았다.
+
+### 하지 않은 것 · 사람 확인 필요
+
+- 루틴 복사·이름만 바꾸기·공유, 온보딩 루틴 고르기(범위 제외).
+- `activateRoutine`·`deleteRoutine`은 Dexie가 필요해 단위 테스트 없이 스캔으로만 잠갔다(PLAN대로). 설정 탭의 실제 전환·삭제 흐름은 브라우저에서 눈으로 보지 못했다 — 사람 확인 필요.
+- 실기기 확인 필요(PLAN): iOS 홈 화면 앱에서 편집 화면 safe-area·키보드 올라온 시트의 `저장` 도달, 종목 7개 Day에서 `▲` `▼` 터치(375px).
+
+## 배포 영향
+
+- 설정 탭에 루틴 `편집` 버튼과 `루틴 목록` 카드가 생긴다. 편집을 저장하기 전에는 아무것도 바뀌지 않는다.
+- 기본 루틴을 고치면 복사본이 생기고 그 뒤로 복사본은 기본 루틴의 업데이트를 받지 않는다.
+- Dexie 스키마와 백업 형식 버전은 그대로다. v1.15로 되돌려 배포해도 데이터가 남는다.
+- 이슈 #31의 요청 2만 반영했다. 요청 1·5는 다음 PLAN이다. 루틴 JSON 내보내기에는 직접 만든 종목이 실리지 않는다.
+
+## v1.16 최종 실행 결과
+
+- `npm test`: `Test Files 60 passed (60)` · `Tests 1538 passed (1538)`
+- `npm run build`: `✓ built in 3.40s`
+- `node scripts/quality-scan.mjs --ci`: `통과`
+- `git rev-list --count main..HEAD`: 이 기록 커밋 포함 7 (골든 2 + 구현 4 + 기록·버전 1; PLAN은 골든을 1로 셌으나 시각 정규화 커밋이 따로 있다)
+- `package.json` 1.15.0 → 1.16.0
