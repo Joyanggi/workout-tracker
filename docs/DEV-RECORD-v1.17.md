@@ -221,9 +221,9 @@ dev 서버(Playwright, `vite createServer`)의 `document.styleSheets`: `[{"name"
 
 | 항목 | 내용 |
 |---|---|
-| 바뀐 파일 | `src/screens/RoutineEditorScreen.tsx`, `src/components/RoutineLineSheet.tsx`, `src/components/ExercisePickerSheet.tsx`, `src/App.tsx`(lazy+Suspense), `src/ax/index.tsx`(`Sheet`에 `SizeProvider`, `Stepper`에 `inputWidth`), `src/lib/v116.test.ts`(표의 두 줄), `src/lib/v117.test.ts`(describe `OO3`, 9개), `scripts/screenshots.mjs`(검사 보정), `README.md`(Limitations 한 줄), 이 문서, `docs/screenshots/v1.17/after-*` 22장 |
+| 바뀐 파일 | `src/screens/RoutineEditorScreen.tsx`, `src/components/RoutineLineSheet.tsx`, `src/components/ExercisePickerSheet.tsx`, `src/App.tsx`(lazy+Suspense), `src/ax/index.tsx`(`Sheet`에 `SizeProvider`, `Stepper`에 `inputWidth`), `src/lib/v116.test.ts`(표의 두 줄), `src/lib/v117.test.ts`(describe `OO3`, 10개), `scripts/screenshots.mjs`(검사 보정), `README.md`(Limitations 한 줄), 이 문서, `docs/screenshots/v1.17/after-*` 22장 |
 | 기존 테스트 | `v116.test.ts` 1064·1169줄만 `/btn-danger\|variant="destructive"/`로. 그 밖에는 안 고쳤다(NN4 `RoutineListPanel` 줄은 건드리지 않음) |
-| 실행 결과 | `npm test`: Test Files 61 passed (61), Tests 1558 passed (1558) · `npm run build` 통과 · `quality-scan --ci` 통과 |
+| 실행 결과 | `npm test`: Test Files 61 passed (61), Tests 1559 passed (1559) · `npm run build` 통과 · `quality-scan --ci` 통과 |
 | 과거 판정 불변 | 아래 "과거 판정 불변 확인" 절 |
 
 ### PLAN과 다르게 한 것
@@ -236,6 +236,7 @@ dev 서버(Playwright, `vite createServer`)의 `document.styleSheets`: `[{"name"
 | 시트 안 버튼 크기 | `ax`의 `Sheet`가 `SizeProvider value="lg"`를 다시 건다 | 시트 안은 크기 기본값이 새로 시작해 `닫기`·`−`·`+`가 32px로 나왔다 |
 | 간격 | 줄 시트 `VStack gap={5}`·칩 `gap={4}`·`Switch`는 `paddingBlock={2}`, 주간 목표 `gap={3}`, 고르기 목록 `gap={4}` | "붙은 컨트롤 8px 이상"을 넘겨 탭 영역을 얻으려고 넓힘 |
 | 흐름 검사 4개 스크립트 | 아래 "스크립트 보정" | OO0 때 한 번도 못 돌려 본 선택자·타이밍 |
+| `<Banner status="error">` (PLAN에 prop 없음) | `collapsible={false}`를 더함(편집 화면·종목 고르기 시트) | 리뷰 반려 1: 기본값이 접힘이라 `루틴 이름을 적어 주세요` 같은 문제 문구가 가려졌다 |
 
 ### PLAN과 다르게 한 것 — 사람 결정 (A)
 
@@ -314,7 +315,7 @@ dev 서버(Playwright, `vite createServer`)의 `document.styleSheets`: `[{"name"
  3 files changed, 243 insertions(+), 2 deletions(-)
 ```
 
-`inputProps.ts`·`v116.test.ts`·`v117.test.ts`만이다. 골든 테스트는 수정 없이 통과(`Tests 1558 passed`). 바뀌는 것은 PLAN의 "과거 판정 불변" 표 그대로다. 이 기록 커밋은 `src/lib`을 더 안 건드린다.
+`inputProps.ts`·`v116.test.ts`·`v117.test.ts`만이다. 골든 테스트는 수정 없이 통과(`Tests 1559 passed`). 바뀌는 것은 PLAN의 "과거 판정 불변" 표 그대로다. 이 기록 커밋은 `src/lib`을 더 안 건드린다.
 
 ### 배포 영향
 
@@ -325,7 +326,7 @@ dev 서버(Playwright, `vite createServer`)의 `document.styleSheets`: `[{"name"
 
 ### 마무리
 
-- `npm test`: Test Files 61 passed (61), Tests 1558 passed (1558) · `npm run build` 통과 · `node scripts/quality-scan.mjs --ci` 통과
+- `npm test`: Test Files 61 passed (61), Tests 1559 passed (1559) · `npm run build` 통과 · `node scripts/quality-scan.mjs --ci` 통과
 - `package.json`·`package-lock.json` `1.17.0`. `git rev-list --count main..HEAD`: 6(이 기록 커밋 전)
 - ⑦: `v116` 스캔이 못 잡는다(앞 버튼의 `destructive`가 260자 창에 걸림 — `v117` OO3 테스트는 같은 `<Button` 태그 안만 보게 고쳐 잡는다).
 
@@ -346,4 +347,14 @@ Astryx CSS·JS는 지연 청크 `RoutineEditorScreen-*`에만 있다. 그 CSS의
 
 ### 장면 확인 (after 다크·라이트, 390; 보이는 것만)
 
-세로로 쌓인 제목 없음(`루틴 편집` 한 줄) · 머리 줄이 겹치지 않음(검사 ✓) · `Day 1 — Push` 다 보임 · 종목 이름이 줄바꿈되고 ▲▼가 화면 안(`editor-long` 긴 이름 두 줄) · ▲▼·`−`·`+`가 글자로 보임 · 라이트에서 글자 읽힘. 시트 마지막 버튼 가림 없음(`마지막 줄` ✓). 위 `반복 최소` 꺾임만 예외.
+editor-problems: 문제 문구(`루틴 이름을 적어 주세요`)가 배너 안에 보임 · 세로로 쌓인 제목 없음(`루틴 편집` 한 줄) · 머리 줄이 겹치지 않음(검사 ✓) · `Day 1 — Push` 다 보임 · 종목 이름이 줄바꿈되고 ▲▼가 화면 안(`editor-long` 긴 이름 두 줄) · ▲▼·`−`·`+`가 글자로 보임 · 라이트에서 글자 읽힘. 시트 마지막 버튼 가림 없음(`마지막 줄` ✓). 위 `반복 최소` 꺾임만 예외.
+
+### 리뷰 반영 (반려 1)
+
+| 항목 | 내용 |
+|---|---|
+| 고친 것 | `RoutineEditorScreen.tsx:237`·`ExercisePickerSheet.tsx:135`의 `<Banner>`에 `collapsible={false}`. 스캔 추가: `v117` OO3 "세 파일의 `<Banner` 태그마다 같은 태그 안에 `collapsible={false}`"(OO3 10개) |
+| 결함 복원 | `ExercisePickerSheet.tsx`에서 `collapsible={false}` 제거 → 새 스캔 실패(`Tests 1 failed | 20 passed`) → `cp` 원복 → `cmp` 같음, `git status`에 의도한 변경만 |
+| 장면 확인 | `after-editor-problems-{dark,light}.png`: 배너 안에 `루틴 이름을 적어 주세요`가 보임. `picker-form`·`settings`도 다시 찍혀 바뀜 |
+| 실행 결과 | `npm test`: Test Files 61 passed (61), Tests 1559 passed (1559) · `npm run build` 통과 · `quality-scan --ci` 통과 |
+| 경미한 점 | `editor-full`·`editor-long`의 회색 줄(hover)은 스크립트가 마우스를 옮기지 않아 그대로(앱 결함 아님). 메인 `index-*` gzip은 OO1 값을 못 찾음("OO1 때 안 잼"). ⑩ 배경·테두리 스크린샷 확인은 이번에도 안 함. `−` 글자 기준선은 그대로 |

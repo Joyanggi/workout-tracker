@@ -221,6 +221,17 @@ describe("OO3 — 루틴 편집 화면을 Astryx로", () => {
     expect(src(EDITOR)).toContain("`${muscle} 주간 목표`")
   })
 
+  it("OO3 세 파일의 <Banner 태그마다 같은 태그 안에 collapsible={false}가 있다(접힌 배너가 문제 문구를 가리는 것을 막는다)", () => {
+    let count = 0
+    for (const p of OO3_FILES) {
+      for (const tag of src(p).match(/<Banner\b[^>]*>/g) ?? []) {
+        count += 1
+        expect(tag, `${p} ${tag}`).toContain("collapsible={false}")
+      }
+    }
+    expect(count).toBe(2)
+  })
+
   it("OO3 화면의 상태·저장 경로가 그대로다(toDraft·uniqueId, db. 없음, muscleSets·plannedOrder 직접 대입 없음)", () => {
     const s = src(EDITOR)
     expect(s).toContain("toDraft(")

@@ -234,7 +234,7 @@ function Editor({
       )}
 
       {problems.length > 0 && (
-        <Banner status="error" title="저장할 수 없습니다">
+        <Banner status="error" title="저장할 수 없습니다" collapsible={false}>
           <VStack gap={1}>
             {problems.map((p) => (
               <Text key={p}>{p}</Text>
