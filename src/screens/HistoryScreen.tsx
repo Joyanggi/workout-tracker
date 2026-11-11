@@ -179,6 +179,7 @@ export default function HistoryScreen({ bundle }: { bundle: RoutineBundle }) {
                 days={diet.days}
                 defaultPlanId={diet.defaultPlanId}
                 variantDefaults={diet.variantDefaults}
+                userFoods={diet.userFoods}
                 trainedThatDay={strengthDates(sessions).has(selectedDate)}
               />
             </>

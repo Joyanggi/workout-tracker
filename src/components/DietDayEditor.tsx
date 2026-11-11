@@ -2,6 +2,8 @@ import { useState } from 'react'
 import DietPlanSheet from './DietPlanSheet'
 import DietSlotSheet from './DietSlotSheet'
 import DietVariantSheet from './DietVariantSheet'
+import FoodLogSheet from './FoodLogSheet'
+import NumberStepper from './NumberStepper'
 import { addDays } from '../lib/dates'
 import {
   additionNote,
@@ -10,11 +12,13 @@ import {
   slotGrade,
   hasVariants,
   isReducedPlan,
+  logEntryText,
   itemVariant,
   LOW_KCAL_STREAK_WARN,
   planStreak,
   slotScore,
   slotsFor,
+  sortedLog,
   substitutionNote,
   summarizeDietDay,
   todayVariantChoices,
@@ -26,11 +30,14 @@ import {
   applyClearAddition,
   applyClearSlot,
   applyClearSubstitution,
+  applyAddLog,
   applyNote,
   applyPlan,
+  applyRemoveLog,
   applySkipSlot,
   applySubstitution,
   applyToggleItem,
+  applyUpdateLog,
   applyVariantChoice,
   emptyDietDay,
   seedVariantChoices,
@@ -42,7 +49,7 @@ import {
   rememberVariantDefault,
   removeDietDay,
 } from '../lib/useDiet'
-import type { DietDay, DietPlan } from '../types'
+import type { DietDay, DietPlan, Food } from '../types'
 import { NO_AUTOFILL } from '../lib/inputProps'
 
 /**
@@ -74,6 +81,7 @@ export default function DietDayEditor({
   today,
   /** 마지막으로 고른 단백질원 변형 (DD3 5-b) — 미기록 슬롯의 초기 표시에만 쓴다 */
   variantDefaults,
+  userFoods,
 }: {
   date: string
   plans: DietPlan[]
@@ -83,12 +91,15 @@ export default function DietDayEditor({
   showStreakWarning?: boolean
   today: string
   variantDefaults: Record<string, number>
+  userFoods: Food[]
 }) {
   const [slotSheet, setSlotSheet] = useState<string | null>(null)
   const [variantSheet, setVariantSheet] = useState<{ slotId: string; itemId: string } | null>(null)
   const [planSheet, setPlanSheet] = useState(false)
   const [noteDraft, setNoteDraft] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [foodSheet, setFoodSheet] = useState(false)
+  const [openLogId, setOpenLogId] = useState<string | null>(null)
 
   const stored = days.find((d) => d.date === date)
   const plan = findPlan(plans, stored?.planId ?? defaultPlanId)
@@ -159,6 +170,12 @@ export default function DietDayEditor({
           {summary.kcal.toLocaleString()} / {summary.targetKcal.toLocaleString()}kcal ·{' '}
           {dietDayStatusText(summary)}
         </p>
+        {summary.logCount > 0 && (
+          <p className="row-sub">
+            먹은 것 {summary.logCount}건 포함
+            {summary.logUnknown > 0 && ` · 영양 미입력 ${summary.logUnknown}건`}
+          </p>
+        )}
       </div>
 
       {warnStreak && (
@@ -275,6 +292,59 @@ export default function DietDayEditor({
       })}
 
       <div className="card">
+        <div className="card-label">먹은 것 (시간별)</div>
+        {sortedLog(day.log).map((entry) => (
+          <div key={entry.id}>
+            <button
+              className="diet-item"
+              aria-expanded={openLogId === entry.id}
+              onClick={() => setOpenLogId(openLogId === entry.id ? null : entry.id)}
+            >
+              <span>{logEntryText(entry)}</span>
+            </button>
+            {openLogId === entry.id && (
+              <div className="btn-row" style={{ alignItems: 'center' }}>
+                <input
+                  {...NO_AUTOFILL}
+                  className="field"
+                  type="time"
+                  value={entry.time}
+                  onChange={(e) => {
+                    const time = e.target.value
+                    mutate((d) => applyUpdateLog(d, entry.id, { time }))
+                  }}
+                  aria-label="먹은 시각"
+                />
+                <NumberStepper
+                  value={entry.count}
+                  step={0.5}
+                  min={0.5}
+                  decimals={2}
+                  ariaLabel="먹은 개수"
+                  onChange={(count) => mutate((d) => applyUpdateLog(d, entry.id, { count }))}
+                />
+                <button
+                  className="btn btn-sm btn-danger"
+                  onClick={() => {
+                    mutate((d) => applyRemoveLog(d, entry.id))
+                    setOpenLogId(null)
+                  }}
+                >
+                  삭제
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+        {(day.log?.length ?? 0) === 0 && (
+          <p className="row-sub">플랜에 없는 음식이나 다른 시간에 먹은 것을 적습니다.</p>
+        )}
+        <button className="btn btn-sm" style={{ marginTop: 8 }} onClick={() => setFoodSheet(true)}>
+          ＋ 먹은 것 추가
+        </button>
+      </div>
+
+      <div className="card">
         <div className="card-label">메모 (선택)</div>
         <input
           {...NO_AUTOFILL}
@@ -301,7 +371,8 @@ export default function DietDayEditor({
           {confirmDelete ? (
             <>
               <p className="row-sub" style={{ color: 'var(--danger)' }}>
-                이 날 식단 기록({summary.loggedSlots}슬롯)이 삭제됩니다. 되돌릴 수 없습니다.
+                이 날 식단 기록({summary.loggedSlots}슬롯
+                {summary.logCount > 0 && ` · 먹은 것 ${summary.logCount}건`})이 삭제됩니다. 되돌릴 수 없습니다.
               </p>
               <div className="btn-row">
                 <button className="btn btn-sm" onClick={() => setConfirmDelete(false)}>
@@ -324,6 +395,18 @@ export default function DietDayEditor({
             </button>
           )}
         </div>
+      )}
+
+      {foodSheet && (
+        <FoodLogSheet
+          date={date}
+          today={today}
+          plans={plans}
+          days={days}
+          userFoods={userFoods}
+          onAdd={(entry) => mutate((d) => applyAddLog(d, entry))}
+          onClose={() => setFoodSheet(false)}
+        />
       )}
 
       {openSlot && (

@@ -1,4 +1,4 @@
-import type { DietDay, DietSlot, SlotRecord } from '../types'
+import type { DietDay, DietSlot, FoodLogEntry, SlotRecord } from '../types'
 import { hasVariants, pairedVariant, todayVariantChoices } from './diet'
 
 /**
@@ -206,4 +206,50 @@ export function applyPlan(day: DietDay, planId: string): DietDay {
 
 export function applyNote(day: DietDay, note: string): DietDay {
   return { ...day, note: note.trim() === '' ? undefined : note }
+}
+
+/*
+ * 먹은 것 (MM2) — `day.log`. 전부 `{ ...day }`로 짓는다: 다른 필드를 새로 나열해 지으면
+ * 기존 연산이 `log`를 떨어뜨린다 (되돌리기 근거 — PLAN "되돌리기").
+ */
+const LOG_TIME = /^([01]\d|2[0-3]):[0-5]\d$/
+
+/** 개수는 0.5 단위, 최소 0.5 */
+function snapCount(count: number): number {
+  return Math.max(0.5, Math.round(count * 2) / 2)
+}
+
+export function applyAddLog(day: DietDay, entry: FoodLogEntry): DietDay {
+  if (!LOG_TIME.test(entry.time)) return day
+  return { ...day, log: [...(day.log ?? []), { ...entry, count: snapCount(entry.count) }] }
+}
+
+/** 시각·개수만 바꾼다. 이름·영양값은 적은 순간의 복사본 그대로다 */
+export function applyUpdateLog(
+  day: DietDay,
+  id: string,
+  patch: { time?: string; count?: number },
+): DietDay {
+  if (patch.time !== undefined && !LOG_TIME.test(patch.time)) return day
+  return {
+    ...day,
+    log: day.log?.map((e) =>
+      e.id === id
+        ? {
+            ...e,
+            time: patch.time ?? e.time,
+            count: patch.count === undefined ? e.count : snapCount(patch.count),
+          }
+        : e,
+    ),
+  }
+}
+
+/** 지운다. 남은 게 없으면 `log` 키를 지운다 (빈 배열을 저장하지 않는다) */
+export function applyRemoveLog(day: DietDay, id: string): DietDay {
+  const rest = (day.log ?? []).filter((e) => e.id !== id)
+  const next = { ...day }
+  if (rest.length === 0) delete next.log
+  else next.log = rest
+  return next
 }

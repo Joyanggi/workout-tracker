@@ -14,7 +14,7 @@ import { findPlan, useDiet } from '../lib/useDiet'
  */
 export default function DietScreen() {
   const today = todayLocal()
-  const { plans, days, defaultPlanId, variantDefaults, loading } = useDiet()
+  const { plans, days, defaultPlanId, variantDefaults, userFoods, loading } = useDiet()
   const sessions = useLiveQuery(() => db.sessions.toArray(), [], [])
 
   if (loading) return <p className="center-note">불러오는 중…</p>
@@ -35,6 +35,7 @@ export default function DietScreen() {
         days={days}
         defaultPlanId={defaultPlanId}
         variantDefaults={variantDefaults}
+        userFoods={userFoods}
         trainedThatDay={trainedToday}
         showStreakWarning
       />

@@ -112,11 +112,12 @@ describe('인바리언트 — 백업 예약 지점', () => {
     const src = stripComments(sources['/src/lib/useDiet.ts']!)
     /*
      * mutateDietDay(변경) · removeDietDay(삭제) · rememberVariantDefault(DD3 기본값)
-     * 셋 다 성공 후에 예약해야 한다. 변형 기본값도 기기를 바꾸면 같이 옮겨져야 하는
+     * (MM1(PLAN-v1.15): 내 음식 쓰기 mutateUserFoods가 늘어 3 → 4)
+     * 넷 다 성공 후에 예약해야 한다. 변형 기본값도 기기를 바꾸면 같이 옮겨져야 하는
      * 사용자 데이터다 — 백업에서 빠지면 "설정이 초기화되는" 조용한 손실이 된다.
      */
-    const writers = src.match(/export function (mutateDietDay|removeDietDay|rememberVariantDefault)/g) ?? []
-    expect(writers.length).toBe(3)
+    const writers = src.match(/export function (mutateDietDay|removeDietDay|rememberVariantDefault|mutateUserFoods)/g) ?? []
+    expect(writers.length).toBe(4)
     expect((src.match(/\.then\(scheduleBackup\)/g) ?? []).length).toBe(writers.length)
   })
 })
