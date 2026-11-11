@@ -97,7 +97,11 @@ function nnOutputs(routine: RoutineTemplate) {
     week: weeklyVolume(NN_SESSIONS, routine, NN_TODAY),
     suggest: { dayId: suggestion.day.id, rule: suggestion.rule, reason: suggestion.reason, scores: suggestion.scores },
     bars: muscleBars(NN_SESSIONS, routine, NN_TODAY),
-    exportLines: NN_SESSIONS.map((s) => sessionToMarkdown(s, routine, NN_CATALOG, 0).split("\n")),
+    exportLines: NN_SESSIONS.map((s) =>
+      sessionToMarkdown(s, routine, NN_CATALOG, 0)
+        .replace(/\[\d\d:\d\d–\d\d:\d\d, /g, "[시각, ")
+        .split("\n"),
+    ),
     keys: allRecordKeys(NN_SESSIONS, routine),
   }
 }
@@ -323,7 +327,7 @@ const NN_BARS_BEFORE = {
 
 const NN_EXPORT_BEFORE: string[][] = [
   [
-    "## 2026-11-02 (월) — Day 1 Push  [03:00–04:30, 90분]",
+    "## 2026-11-02 (월) — Day 1 Push  [시각, 90분]",
     "수행 순서: 스미스 인클라인 → 펙덱 플라이 → 체스트프레스 → 숄더프레스 → 레터럴 레이즈 → 리어델트 → 푸쉬다운",
     "",
     "### 스미스 인클라인 (D1/A) 40kg (대체: 인클라인 프레스 — 자리 없음)",
@@ -365,7 +369,7 @@ const NN_EXPORT_BEFORE: string[][] = [
     "보상작용: 없음"
   ],
   [
-    "## 2026-11-03 (화) — Pull 축소  [03:00–04:30, 90분]",
+    "## 2026-11-03 (화) — Pull 축소  [시각, 90분]",
     "수행 순서: 랫풀다운 → 시티드 로우 → 리어델트",
     "",
     "### 랫풀다운 (D2/A) 40kg",
@@ -386,7 +390,7 @@ const NN_EXPORT_BEFORE: string[][] = [
     "보상작용: 없음"
   ],
   [
-    "## 2026-11-05 (목) — Day 3 하체 + 코어  [03:00–04:30, 90분]",
+    "## 2026-11-05 (목) — Day 3 하체 + 코어  [시각, 90분]",
     "수행 순서: 레그 익스텐션 → 레그 컬 → 몬스터 글루트 → 힙 어덕션 → 크런치 → 데드버그 → 레터럴 레이즈",
     "",
     "### 레그 익스텐션 (D3/A) 40kg",
@@ -427,7 +431,7 @@ const NN_EXPORT_BEFORE: string[][] = [
     "보상작용: 없음"
   ],
   [
-    "## 2026-11-06 (금) — Day 4 피지크 보완  [03:00–04:30, 90분]",
+    "## 2026-11-06 (금) — Day 4 피지크 보완  [시각, 90분]",
     "수행 순서: 뉴트럴 랫풀 → 인클라인 프레스",
     "",
     "### 뉴트럴 랫풀 (D4/B) 40kg",
