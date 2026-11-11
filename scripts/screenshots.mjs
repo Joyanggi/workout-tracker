@@ -156,7 +156,7 @@ const inPageLastRow = () => {
 }
 
 /** 탭 영역: 컨트롤 가운데에서 위·아래·좌·우 21px 점이 그 컨트롤(이나 그 안)을 가리킨다. 예외 없음 */
-const inPageTapArea = () => {
+const inPageTapArea = async () => {
   const sheet = [...document.querySelectorAll('dialog[open], [role="dialog"]')].find(window.__vis)
   const scope = sheet ?? document.body
   const sel = 'button, [role="switch"], [role="button"], [role="checkbox"], [role="radio"], input[type="checkbox"], input[type="radio"], summary'
@@ -166,10 +166,16 @@ const inPageTapArea = () => {
     if (el.disabled || el.getAttribute('aria-disabled') === 'true') continue
     if (!window.__vis(el)) continue
     el.scrollIntoView({ block: 'center', inline: 'center' })
-    const r = el.getBoundingClientRect()
+    // Astryx의 탭 영역은 화면 가운데로 온 뒤 비동기로 잡힌다. 바로 재면 옛 값을 잰다. 시트 안은 더 늦게 잡힌다
+    // 시트 안은 탭 영역이 프레임마다 조금씩(프레임당 4ms) 잡혀서 한참 뒤에야 자리 잡는다. 800ms 기다린다
+    await new Promise((done) => setTimeout(done, sheet ? 800 : 80))
+    // Switch는 보이는 컨트롤이 트랙이고, 늘어나는 탭 영역도 입력(input)이 아니라 입력과 트랙을 함께 감싼 부모에 걸린다
+    // (input은 트랙보다 크고 가운데가 1px쯤 어긋난다). 그래서 가운데도 그 부모의 것을 쓴다
+    const box = el.getAttribute('role') === 'switch' ? el.parentElement : el
+    const r = box.getBoundingClientRect()
     const cx = r.left + r.width / 2
     const cy = r.top + r.height / 2
-    const own = (hit) => hit !== null && (el.contains(hit) || (el.labels ? [...el.labels].some((l) => l.contains(hit)) : false))
+    const own = (hit) => hit !== null && (box.contains(hit) || (el.labels ? [...el.labels].some((l) => l.contains(hit)) : false))
     const sides = [[0, -21, '위'], [0, 21, '아래'], [-21, 0, '왼쪽'], [21, 0, '오른쪽']]
     const failed = sides.filter(([dx, dy]) => !own(document.elementFromPoint(cx + dx, cy + dy))).map((s) => s[2])
     n += 1
@@ -391,8 +397,11 @@ async function runFlows(page) {
     await line.waitFor({ timeout: 3000 })
     await settle(page, 500)
     const swapped = (await line.count()) === 1 && (await picker.count()) === 0
-    await line.getByRole('button', { name: '닫기', exact: true }).click()
+    // 내 종목이 둘째 Day에 남으면 뒤 흐름(편집 버튼이 있는 목록)이 비므로 `이 Day에서 빼기`로 닫는다 — 시트가 내려가는 경로는 같다
+    await line.getByRole('button', { name: '이 Day에서 빼기', exact: true }).click()
     const closed = await gone(page.locator('dialog[open], [role="dialog"]').filter({ visible: true }))
+    await page.evaluate(() => window.scrollTo(0, 0)) // 머리 줄의 `저장`을 화면 안으로 — 스크롤된 채로 재면 화면 밖 점이라 빗나간다
+    await settle(page, 200)
     const after = await page.evaluate(() => {
       const inert = ['html', 'body', '#root'].some((s) => document.querySelector(s)?.hasAttribute('inert'))
       const save = [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === '저장')
@@ -408,7 +417,7 @@ async function runFlows(page) {
     flow('시트 교체', swapped && closed && !after.inert && after.hit && after.scrolls,
       `교체 ${swapped} · 닫힘 ${closed} · inert ${after.inert} · 저장 가운데 ${after.hit} · 스크롤 ${after.scrolls}`)
   } catch (e) {
-    flow('시트 교체', false, String(e.message).split('\n')[0])
+    flow('시트 교체', false, String(e.message).split('\n').slice(0, 8).join(' | '))
   }
 
   // 2. 바깥 탭
@@ -430,7 +439,7 @@ async function runFlows(page) {
     flow('바깥 탭', listClosed && formStays && backClosed, `목록 닫힘 ${listClosed} · 폼 유지 ${formStays} · 뒤로 후 닫힘 ${backClosed}`)
     if ((await picker.count()) > 0) await picker.getByRole('button', { name: '닫기', exact: true }).click().catch(() => {})
   } catch (e) {
-    flow('바깥 탭', false, String(e.message).split('\n')[0])
+    flow('바깥 탭', false, String(e.message).split('\n').slice(0, 8).join(' | '))
   }
 
   // 3. 편집 → 뒤로 → 고르기
@@ -443,10 +452,10 @@ async function runFlows(page) {
     await pickCustom()
     await line.waitFor({ timeout: 3000 })
     flow('편집 → 뒤로 → 고르기', true, '목록 복귀 · 줄 시트 열림')
-    await line.getByRole('button', { name: '닫기', exact: true }).click()
+    await line.getByRole('button', { name: '이 Day에서 빼기', exact: true }).click()
     await settle(page, 800)
   } catch (e) {
-    flow('편집 → 뒤로 → 고르기', false, String(e.message).split('\n')[0])
+    flow('편집 → 뒤로 → 고르기', false, String(e.message).split('\n').slice(0, 8).join(' | '))
   }
 
   // 4. 긴 검색어
@@ -463,7 +472,7 @@ async function runFlows(page) {
     flow('긴 검색어', noOverflow && empty && back, `가로 넘침 없음 ${noOverflow} · 안내 ${empty} · 지우면 목록 ${back}`)
     await picker.getByRole('button', { name: '닫기', exact: true }).click().catch(() => {})
   } catch (e) {
-    flow('긴 검색어', false, String(e.message).split('\n')[0])
+    flow('긴 검색어', false, String(e.message).split('\n').slice(0, 8).join(' | '))
   }
 }
 

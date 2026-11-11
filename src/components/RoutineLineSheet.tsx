@@ -1,6 +1,5 @@
-import { NO_AUTOFILL } from '../lib/inputProps'
 import { useState } from 'react'
-import NumberStepper from './NumberStepper'
+import { Button, Heading, HStack, SegmentedControl, SegmentedControlItem, Sheet, Stepper, Switch, Text, TextField, ToggleButton, VStack } from '../ax'
 import { MUSCLE_SUGGESTIONS } from '../lib/routineEdit'
 import type { RoutineExercise } from '../types'
 
@@ -42,82 +41,67 @@ export default function RoutineLineSheet({
   const set = (patch: Partial<RoutineExercise>) => onChange({ ...line, ...patch })
 
   return (
-    <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="종목 줄 편집">
-        <div className="sheet-grip" />
-        <div className="card-label">{name}</div>
+    // 고친 값이 곧바로 초안에 들어가므로 바깥 탭으로 닫혀도 잃는 것이 없다 → purpose="info"
+    <Sheet label="종목 줄 편집" purpose="info" height="hug" onClose={onClose}>
+      <VStack gap={5} paddingBlockEnd={3}>
+        <Heading level={2}>{name}</Heading>
 
-        <div className="card-label" style={{ marginTop: 12 }}>부위</div>
-        <div className="pill-row">
+        <Text color="secondary">부위</Text>
+        <HStack gap={4} wrap="wrap">
           {chips.map((m) => (
-            <button
+            <ToggleButton
               key={m}
-              className={line.muscle === m && !custom ? 'chip chip-accent' : 'chip'}
-              onClick={() => {
+              label={m}
+              size="lg"
+              isPressed={line.muscle === m && !custom}
+              onPressedChange={() => {
                 setCustom(false)
                 set({ muscle: m })
               }}
-            >
-              {m}
-            </button>
+            />
           ))}
-          <button className={custom ? 'chip chip-accent' : 'chip'} onClick={() => setCustom(true)}>
-            직접 입력
-          </button>
-        </div>
+          <ToggleButton label="직접 입력" size="lg" isPressed={custom} onPressedChange={() => setCustom(true)} />
+        </HStack>
         {custom && (
-          <input
-            {...NO_AUTOFILL}
-            className="field"
-            style={{ marginTop: 8 }}
-            aria-label="부위 직접 입력"
-            value={line.muscle}
-            onChange={(e) => set({ muscle: e.target.value })}
-          />
+          <TextField label="부위 직접 입력" isLabelHidden value={line.muscle} onChange={(v) => set({ muscle: v })} />
         )}
 
-        <div className="card-label" style={{ marginTop: 12 }}>방식</div>
-        <div className="segment">
-          {GROUPS.map((g) => (
-            <button key={g.value} aria-pressed={line.group === g.value} onClick={() => set({ group: g.value })}>
-              {g.label}
-            </button>
-          ))}
-        </div>
-        <p className="row-sub" style={{ whiteSpace: 'normal' }}>{GROUP_HINT[line.group]}</p>
+        <VStack paddingBlock={2}>
+          <SegmentedControl label="방식" size="lg" layout="fill" value={line.group} onChange={(v) => set({ group: v as RoutineExercise['group'] })}>
+            {GROUPS.map((g) => (
+              <SegmentedControlItem key={g.value} value={g.value} label={g.label} />
+            ))}
+          </SegmentedControl>
+        </VStack>
+        <Text color="secondary">{GROUP_HINT[line.group]}</Text>
 
-        <div className="row">
-          <div className="row-main"><div className="row-title">세트</div></div>
-          <NumberStepper value={line.sets} step={1} min={1} max={10} ariaLabel="세트" onChange={(v) => set({ sets: v })} />
-        </div>
-        <div className="row">
-          <div className="row-main"><div className="row-title">반복 최소</div></div>
-          <NumberStepper value={line.repMin} step={1} min={1} max={50} ariaLabel="반복 최소" onChange={(v) => set({ repMin: v })} />
-        </div>
-        <div className="row">
-          <div className="row-main"><div className="row-title">반복 최대</div></div>
-          <NumberStepper value={line.repMax} step={1} min={1} max={50} ariaLabel="반복 최대" onChange={(v) => set({ repMax: v })} />
-        </div>
-        <div className="row">
-          <div className="row-main"><div className="row-title">휴식(초)</div></div>
-          <NumberStepper value={line.restSec} step={15} min={0} max={600} ariaLabel="휴식" onChange={(v) => set({ restSec: v })} />
-        </div>
+        <HStack gap={2} align="center" justify="between">
+          <Text>세트</Text>
+          <Stepper value={line.sets} step={1} min={1} max={10} label="세트" onChange={(v) => set({ sets: v })} />
+        </HStack>
+        <HStack gap={2} align="center" justify="between">
+          <Text>반복 최소</Text>
+          <Stepper value={line.repMin} step={1} min={1} max={50} label="반복 최소" onChange={(v) => set({ repMin: v })} />
+        </HStack>
+        <HStack gap={2} align="center" justify="between">
+          <Text>반복 최대</Text>
+          <Stepper value={line.repMax} step={1} min={1} max={50} label="반복 최대" onChange={(v) => set({ repMax: v })} />
+        </HStack>
+        <HStack gap={2} align="center" justify="between">
+          <Text>휴식(초)</Text>
+          <Stepper value={line.restSec} step={15} min={0} max={600} label="휴식" onChange={(v) => set({ restSec: v })} />
+        </HStack>
 
-        <label className="row" style={{ cursor: 'pointer' }}>
-          <div className="row-main"><div className="row-title">컨디션 좋을 때만</div></div>
-          <input {...NO_AUTOFILL} type="checkbox" checked={line.optional} onChange={(e) => set({ optional: e.target.checked })} />
-        </label>
+        {/* Switch의 탭 영역은 이웃과의 간격 절반까지만 넓어진다(트랙이 24px라 21px 떨어진 점까지 닿으려면 위·아래 18px 이상) */}
+        <VStack paddingBlock={2}>
+          <Switch label="컨디션 좋을 때만" value={line.optional} onChange={(v) => set({ optional: v })} />
+        </VStack>
 
-        <div className="card-label" style={{ marginTop: 12 }}>메모</div>
-        <input {...NO_AUTOFILL} className="field" aria-label="메모" value={line.note} onChange={(e) => set({ note: e.target.value })} />
+        <TextField label="메모" value={line.note} onChange={(v) => set({ note: v })} />
 
-        <button className="btn btn-danger" style={{ marginTop: 16 }} onClick={onRemove}>
-          이 Day에서 빼기
-        </button>
-        <button className="btn" style={{ marginTop: 8 }} onClick={onClose}>
-          닫기
-        </button>
-      </div>
-    </div>
+        <Button variant="destructive" width="100%" label="이 Day에서 빼기" onClick={onRemove} />
+        <Button variant="secondary" width="100%" label="닫기" onClick={onClose} />
+      </VStack>
+    </Sheet>
   )
 }

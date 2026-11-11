@@ -120,3 +120,111 @@ describe("OO2 — Astryx 바탕", () => {
     expect(s).toMatch(/const NUMBER_AUTOFILL = \{ autoComplete: AX_NO_AUTOFILL\.autoComplete \}/)
   })
 })
+
+// ─── OO3 ───────────────────────────────────────────────────────
+const EDITOR = "src/screens/RoutineEditorScreen.tsx"
+const LINE_SHEET = "src/components/RoutineLineSheet.tsx"
+const PICKER = "src/components/ExercisePickerSheet.tsx"
+const OO3_FILES = [EDITOR, LINE_SHEET, PICKER]
+
+describe("OO3 — 루틴 편집 화면을 Astryx로", () => {
+  it("OO3 세 파일에 옛 마크업(<button·<input·<textarea·<h1·className=)과 NumberStepper·NO_AUTOFILL}이 없고 ../ax만 쓴다", () => {
+    for (const p of OO3_FILES) {
+      const s = src(p)
+      expect(s, p).not.toMatch(/<button|<input|<textarea|<h1|className=|NumberStepper|NO_AUTOFILL\}/)
+      expect(s, p).toContain("from '../ax'")
+    }
+  })
+
+  it("OO3 세 파일에 색 값(#…)과 var(--가 없다", () => {
+    for (const p of OO3_FILES) {
+      const s = src(p)
+      expect(s, p).not.toMatch(/#[0-9a-fA-F]{3,8}\b/)
+      expect(s, p).not.toContain("var(--")
+    }
+  })
+
+  it("OO3 화면 맨 바깥이 AxRoot이고 App은 lazy로만 읽는다", () => {
+    expect(src(EDITOR)).toContain("<AxRoot")
+    const app = src("src/App.tsx")
+    expect(app).toContain("lazy(() => import('./screens/RoutineEditorScreen'))")
+    expect(app).not.toMatch(/import RoutineEditorScreen/)
+  })
+
+  it("OO3 문구가 그대로 있다", () => {
+    const want: Record<string, string[]> = {
+      [EDITOR]: [
+        "‹ 취소", "루틴 편집", "저장하지 않고 나가기", "계속 편집",
+        "기본 루틴은 그대로 두고 복사본을 만들어 고칩니다. 지금까지의 기록은 이어집니다.",
+        "루틴 이름", "Day 이름", "Day 설명", "Day 위로", "Day 아래로", "종목 위로", "종목 아래로",
+        "＋ 종목 추가", "Day 삭제", "정말 삭제", "＋ Day 추가", "하한 모드", "주간 목표", "플랜 합계", "직접",
+      ],
+      [LINE_SHEET]: [
+        "종목 줄 편집", "부위", "직접 입력", "방식", "세트", "반복 최소", "반복 최대", "휴식(초)",
+        "컨디션 좋을 때만", "메모", "이 Day에서 빼기", "닫기",
+      ],
+      [PICKER]: [
+        "종목 고르기", "종목 검색", "내 종목", "＋ 새 종목 만들기", "맨몸 운동 (무게 0kg으로 기록)",
+        "종목 삭제", "루틴이나 기록에서 쓰는 종목은 지울 수 없습니다", "뒤로",
+      ],
+    }
+    for (const [p, words] of Object.entries(want)) {
+      const s = src(p)
+      for (const w of words) expect(s, `${p} ${w}`).toContain(w)
+    }
+  })
+
+  it("OO3 다섯 파괴 문구 앞 260자 안에 variant=\"destructive\"가 있다", () => {
+    const targets: [string, string][] = [
+      [EDITOR, 'label="Day 삭제"'],
+      [EDITOR, 'label="정말 삭제"'],
+      [EDITOR, 'label="저장하지 않고 나가기"'],
+      [LINE_SHEET, 'label="이 Day에서 빼기"'],
+      [PICKER, 'label="종목 삭제"'],
+    ]
+    for (const [p, label] of targets) {
+      const s = src(p)
+      const at = s.indexOf(label)
+      expect(at, `${p} ${label}`).toBeGreaterThan(0)
+      // 같은 <Button 태그 안이어야 한다(앞 버튼의 variant가 260자 창에 걸려 통과하는 것을 막는다)
+      const tagStart = s.lastIndexOf('<Button', at)
+      expect(s.slice(Math.max(0, at - 260, tagStart), at), `${p} ${label}`).toContain('variant="destructive"')
+    }
+  })
+
+  it("OO3 종목 고르기 시트는 폼일 때만 'form', 목록일 때 'info'다", () => {
+    const s = src(PICKER)
+    expect(s).toContain("'form'")
+    expect(s).toContain("'info'")
+    expect(s).toMatch(/purpose=\{form === null \? 'info' : 'form'\}/)
+  })
+
+  it("OO3 isIconOnly 버튼마다 같은 태그 안에 icon=이 있다", () => {
+    let count = 0
+    for (const p of OO3_FILES) {
+      for (const tag of src(p).match(/<Button\b[\s\S]*?\/>/g) ?? []) {
+        if (!tag.includes("isIconOnly")) continue
+        count += 1
+        expect(tag, `${p} ${tag.slice(0, 60)}`).toContain("icon=")
+      }
+    }
+    expect(count).toBe(4)
+  })
+
+  it("OO3 Stepper의 접근성 이름이 지금과 같다(세트·반복 최소·반복 최대·휴식·<부위> 주간 목표)", () => {
+    const sheet = src(LINE_SHEET)
+    const steppers = sheet.match(/<Stepper\b[^>]*>/g) ?? []
+    expect(steppers).toHaveLength(4)
+    for (const name of ["세트", "반복 최소", "반복 최대", "휴식"]) {
+      expect(steppers.some((t) => t.includes(`label="${name}"`)), name).toBe(true)
+    }
+    expect(src(EDITOR)).toContain("`${muscle} 주간 목표`")
+  })
+
+  it("OO3 화면의 상태·저장 경로가 그대로다(toDraft·uniqueId, db. 없음, muscleSets·plannedOrder 직접 대입 없음)", () => {
+    const s = src(EDITOR)
+    expect(s).toContain("toDraft(")
+    expect(s).toContain("uniqueId(")
+    expect(s).not.toMatch(/(^|\W)db\./)
+  })
+})

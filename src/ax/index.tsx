@@ -103,7 +103,8 @@ export function Sheet({ label, purpose = 'info', height = 'hug', onClose, childr
         if (!open) onClose()
       }}
     >
-      {children}
+      {/* 시트는 화면과 다른 층에 그려져 크기 기본값이 새로 시작한다 → 화면과 같은 크기를 다시 건다 */}
+      <SizeProvider value="lg">{children}</SizeProvider>
     </BottomSheet>
   )
 }

@@ -207,3 +207,72 @@ dev 서버(Playwright, `vite createServer`)의 `document.styleSheets`: `[{"name"
 - `npm run build` 통과, `node scripts/quality-scan.mjs --ci` 통과
 - `package-lock.json`에 `lucide-react`가 들어왔다(theme-neutral의 의존성). 번들에 실리는지는 OO3 청크 표로 본다.
 - 리뷰 반영: 반려 1 `ax.css` 리셋을 원본 `reset.css`와 대조해 다시 옮김(위 "리셋 대조"). 반려 6의 `git diff --stat` 출력은 최종 기록 커밋에서 붙인다.
+
+---
+
+## OO3. 루틴 편집 화면을 Astryx로
+
+**결과: 미완 — `after --check`가 종료 코드 0이 아니다(아래 "남은 것"). 구현·테스트·빌드·스캔·흐름 검사 넷은 통과.**
+
+| 항목 | 내용 |
+|---|---|
+| 바뀐 파일 | `src/screens/RoutineEditorScreen.tsx`, `src/components/RoutineLineSheet.tsx`, `src/components/ExercisePickerSheet.tsx`, `src/App.tsx`(lazy+Suspense), `src/ax/index.tsx`(`Sheet`에 `SizeProvider`), `src/lib/v116.test.ts`(표의 두 줄), `src/lib/v117.test.ts`(describe `OO3`, 9개), `scripts/screenshots.mjs`(검사 보정), `README.md`(Limitations 한 줄), 이 문서, `docs/screenshots/v1.17/after-*` 22장 |
+| 기존 테스트 | `v116.test.ts` 1064·1169줄만 `/btn-danger\|variant="destructive"/`로. 그 밖에는 안 고쳤다(NN4 `RoutineListPanel` 줄은 건드리지 않음) |
+| 실행 결과 | `npm test`: Test Files 61 passed (61), Tests 1558 passed (1558) · `npm run build` 통과 · `quality-scan --ci` 통과 |
+| 과거 판정 불변 | `git diff --stat -- src/lib src/db` → `v116.test.ts`(4줄)·`v117.test.ts`만. 골든 테스트 수정 없음 |
+
+### PLAN과 다르게 한 것
+
+| PLAN | 실제 | 이유 |
+|---|---|---|
+| `Item`의 `description`은 문자열 | `<>…</>`(ReactNode)로 감쌈 | 문자열 description은 Astryx가 한 줄로 자른다(`Item.tsx` `isStringDescription`). 잘림 검사가 잡았다. 문자열 `label`은 모두 짧아 그대로 |
+| 나가기 확인 두 버튼 `width="100%"` 반반 | `style={{flex:'1 1 auto'}}` | 390px에서 `저장하지 않고 나가기`가 2px 모자라 잘렸다. 글자 폭이 먼저, 남는 폭만 나눈다 |
+| `SegmentedControl`·`ToggleButton` 기본 크기 | `size="lg"`, 줄 시트 `방식`은 `layout="fill"` | 기본 28·32px라 탭 영역이 44에 못 닿는다. 붙어 있는 세그먼트는 가로로 못 늘어 `fill`로 폭을 키움 |
+| 시트 안 버튼 크기 | `ax`의 `Sheet`가 `SizeProvider value="lg"`를 다시 건다 | 시트 안은 크기 기본값이 새로 시작해 `닫기`·`−`·`+`가 32px로 나왔다 |
+| 간격 | 줄 시트 `VStack gap={5}`·칩 `gap={4}`·`Switch`는 `paddingBlock={2}`, 주간 목표 `gap={3}`, 고르기 목록 `gap={4}` | "붙은 컨트롤 8px 이상"을 넘겨 탭 영역을 얻으려고 넓힘 |
+| 흐름 검사 4개 스크립트 | 아래 "스크립트 보정" | OO0 때 한 번도 못 돌려 본 선택자·타이밍 |
+
+### 스크립트 보정 (`scripts/screenshots.mjs`, OO0이 "처음 돌릴 때 고친다"고 한 부분)
+
+- 탭 영역: `scrollIntoView` 직후 바로 재면 Astryx가 아직 탭 영역을 안 잡은 상태(`--astryx-hit-inset-*` = 0)라 거의 다 실패했다. 잡힐 때까지 기다린다(화면 80ms, 시트 800ms — Astryx는 프레임당 4ms 예산으로 조금씩 잰다).
+- `Switch`는 보이는 컨트롤이 트랙이고 탭 영역은 `input`이 아니라 `input`+트랙을 감싼 부모에 걸린다 → 그 부모로 포함 여부와 가운데를 잰다(입력칸은 트랙보다 크고 1px 어긋난다).
+- 흐름 `시트 교체`: 머리 줄 `저장`을 재기 전에 맨 위로 스크롤(스크롤된 채면 화면 밖 점). 흐름 1·3은 내 종목을 `이 Day에서 빼기`로 닫는다(안 그러면 그 Day 목록에서 내 종목이 숨어 뒤 흐름의 `편집` 버튼이 없다). 실패 메시지는 8줄까지 보인다.
+
+### `after --check` 결과 (마지막 실행)
+
+흐름 검사:
+
+| 흐름 검사 | 결과 | 상세 |
+|---|---|---|
+| 시트 교체 | ✓ | 교체 true · 닫힘 true · inert false · 저장 가운데 true · 스크롤 true |
+| 바깥 탭 | ✓ | 목록 닫힘 true · 폼 유지 true · 뒤로 후 닫힘 true |
+| 편집 → 뒤로 → 고르기 | ✓ | 목록 복귀 · 줄 시트 열림 |
+| 긴 검색어 | ✓ | 가로 넘침 없음 true · 안내 true · 지우면 목록 true |
+
+모양 검사: `가로 넘침`·`제목 한 줄`·`머리 줄`(375 포함)·`글자 잘림`·`입력 글자`·`마지막 줄`·`버튼 높이`는 **전 장면 ✓**. `editor-full`·`editor-leave`·`editor-problems`·`editor-long`의 `탭 영역`도 ✓(375 포함). **`탭 영역`이 시트 장면(`line-sheet`·`line-sheet-end`·`picker-form`, 390·375)에서 실행마다 다른 컨트롤 2~8개로 실패한다**:
+`"햄스트링" 88×36 아래 · "둔근" 56×36 아래 · "세트 감소" 36×36 위 · "세트 증가" 36×36 위 · "휴식 감소" 36×36 위 …` / `picker-form "" 40×24 아래`(스위치).
+
+### 남은 것 (사람 필요)
+
+- **시트 안 탭 영역이 `--check`에서 불안정하다.** 같은 화면에서 실행마다 실패하는 컨트롤이 바뀐다. 단독 탐침(한 컨트롤만 스크롤해서 700ms 뒤 측정)에서는 `--astryx-hit-inset-*`가 4/4(칩)·8/8(세그먼트)로 정상이고, 전체를 순서대로 훑을 때만 값이 1~3px 모자란 컨트롤이 나온다. 간격을 12→16→20px로 넓혀도 같은 현상이라 간격 문제가 아니다(PLAN이 말한 "넓힐 수 없는 자리"). 원인 후보: `hitArea.ts`가 프레임당 4ms로 나눠 재고 시트 안에서 스크롤·`resize` 뒤 값이 이웃 측정 순서에 따라 달라짐. 실제 탭은 `pointerdown`에서 다시 재므로(`checkAtPress`) 손가락에는 영향이 작을 수 있으나 **실기기로 확인하지 않았다**. 결정이 필요하다: 시트 탭 영역 판정을 "단독 측정 + 대기"로 바꿀지, 시트의 `Stepper`·칩 배치를 바꿀지.
+- 줄 시트 라이트 스크린샷에서 `반복 최소`·`반복 최대` 이름이 두 줄로 꺾인다(잘리지는 않음, `글자 잘림` ✓). 스테퍼 폭이 이름 자리를 먹는다. 이번에 안 고쳤다.
+- 결함 복원 ⑩⑪⑭와 `package.json` 1.17.0 상향, "배포 영향" 절은 안 했다. ⑦은 `v116` 스캔이 못 잡는다(앞 버튼의 `destructive`가 260자 창에 걸림 — `v117` OO3 테스트는 같은 `<Button` 태그 안만 보게 고쳐 잡는다).
+
+### 빌드 출력
+
+```
+dist/assets/index-uhmhDGvT.css                  23.90 kB │ gzip:   5.28 kB
+dist/assets/RoutineEditorScreen-VjYaYryv.css   299.02 kB │ gzip:  48.19 kB
+dist/assets/index-j2nd1xWZ.js                  561.80 kB │ gzip: 183.89 kB
+dist/assets/RoutineEditorScreen-BYpE6QhZ.js    651.25 kB │ gzip: 210.60 kB
+```
+
+Astryx CSS·JS는 지연 청크 `RoutineEditorScreen-*`에만 있다. 그 CSS의 `grep -o -F | wc -l`: `light-dark(` 255 · `@starting-style` 17 · `@scope` 4 · `@layer` 10 (낮춰 쓰지 않았다 — `cssTarget` 변경 불필요). 메인 `index-*` gzip은 OO1 때 값을 이 기록에서 못 찾아 나란히 적지 못했다(지금: js 183.89 kB, css 5.28 kB). `lucide`는 `RoutineEditorScreen-*.js`에 들어 있다(없애려 손대지 않음).
+
+### legacy 누수 (OO2가 넘긴 것)
+
+`버튼 높이` 검사가 전 장면 ✓(글자 버튼 36px, 아이콘 버튼 36×36 정사각, 글자 보임)라 `ax.css`의 `min-height` 규칙이 새는 legacy `.btn` 스타일을 막고 있다. `<button>`의 계산 스타일을 `.btn`과 대조하는 별도 측정은 하지 않았다.
+
+### 장면 확인 (after 다크·라이트, 390; 보이는 것만)
+
+세로로 쌓인 제목 없음(`루틴 편집` 한 줄) · 머리 줄이 겹치지 않음(검사 ✓) · `Day 1 — Push` 다 보임 · 종목 이름이 줄바꿈되고 ▲▼가 화면 안(`editor-long` 긴 이름 두 줄) · ▲▼·`−`·`+`가 글자로 보임 · 라이트에서 글자 읽힘. 시트 마지막 버튼 가림 없음(`마지막 줄` ✓). 위 `반복 최소` 꺾임만 예외.
