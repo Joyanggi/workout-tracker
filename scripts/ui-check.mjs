@@ -274,6 +274,14 @@ async function runScenes(browser, port, scheme) {
     await page.locator('.resume-strip').waitFor()
     await settle(page, 600)
     await snap('home-resume')
+    // QQ6: 세션이 열려 있을 때 설정 (`편집` 비활성 + 안내 문구)
+    await optional('settings-open', async () => {
+      await page.getByRole('button', { name: '설정', exact: true }).click()
+      await settle(page, 600)
+      await snap('settings-open')
+      await page.getByRole('button', { name: '홈', exact: true }).click()
+      await page.locator('.resume-strip').waitFor({ timeout: 3000 })
+    })
     await page.locator('.resume-strip').click()
     await page.getByRole('button', { name: '세션 최소화', exact: true }).waitFor()
     await settle(page, 600)
@@ -352,6 +360,52 @@ async function runScenes(browser, port, scheme) {
     await toEnd()
     await snap('settings-end')
     await toTop()
+
+    // QQ6: 375 폭, 활성 아닌 루틴 줄(`이 루틴 쓰기`·`삭제`), 그 줄의 확인 상태
+    await optional('settings-375', async () => {
+      await page.setViewportSize({ width: 375, height: 812 })
+      await settle(page, 500)
+      await snap('settings-375')
+    })
+    await optional('settings-routines', async () => {
+      await page.evaluate(
+        () =>
+          new Promise((resolve, reject) => {
+            const open = indexedDB.open('workout-tracker')
+            open.onerror = () => reject(open.error)
+            open.onsuccess = () => {
+              const idb = open.result
+              const tx = idb.transaction('routines', 'readwrite')
+              const store = tx.objectStore('routines')
+              const all = store.getAll()
+              all.onsuccess = () => {
+                const base = all.result[0]
+                store.put({ ...base, id: 'qq6-extra-routine', name: 'QQ6 확인용 루틴' })
+              }
+              tx.oncomplete = () => {
+                idb.close()
+                resolve(null)
+              }
+              tx.onerror = () => reject(tx.error)
+            }
+          }),
+      )
+      await page.reload()
+      await page.getByRole('button', { name: '설정', exact: true }).click()
+      await settle(page, 800)
+      await page.getByText('QQ6 확인용 루틴', { exact: true }).scrollIntoViewIfNeeded()
+      await settle(page, 300)
+      await snap('settings-routines-375')
+      await btn(page, '이 루틴 쓰기').click()
+      await settle(page, 500)
+      await snap('settings-routines-confirm-375')
+      await btn(page, '취소').click()
+      await page.setViewportSize({ width: 390, height: 844 })
+      await settle(page, 400)
+      await page.getByText('QQ6 확인용 루틴', { exact: true }).scrollIntoViewIfNeeded()
+      await snap('settings-routines')
+      await toTop()
+    })
   } else {
     await page.getByRole('button', { name: '설정', exact: true }).click()
     await settle(page, 600)
