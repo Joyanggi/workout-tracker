@@ -259,18 +259,18 @@ export default function ExerciseCard({
           <span className="ex-name">
             {name}
             {substituteForName && (
-              <span className="chip chip-warn" style={{ marginLeft: 6 }}>
+              <span className="chip chip-warn ml-inline">
                 대체
               </span>
             )}
             {/* 계획에 없이 얹은 종목 (CC15) — 다음 세션에 자동으로 생기지 않는다는 사실도 담는다 */}
             {isExtra && (
-              <span className="chip chip-accent" style={{ marginLeft: 6 }}>
+              <span className="chip chip-accent ml-inline">
                 추가
               </span>
             )}
             {entry.performedOrder !== null && (
-              <span className="chip" style={{ marginLeft: 6 }}>
+              <span className="chip ml-inline">
                 {entry.performedOrder}번째 수행
               </span>
             )}
@@ -285,12 +285,12 @@ export default function ExerciseCard({
                 <span className="chip chip-accent">감각 {entry.sensoryScore}</span>
               )}
               {hasCompensation(entry.compensation) && (
-                <span className="chip chip-warn" style={{ marginLeft: 4 }}>
+                <span className="chip chip-warn ml-inline">
                   {compensationSummary(entry.compensation)}
                 </span>
               )}
               {hasPain(entry) && (
-                <span className="chip chip-warn" style={{ marginLeft: 4 }}>
+                <span className="chip chip-warn ml-inline">
                   통증
                 </span>
               )}
@@ -355,7 +355,7 @@ export default function ExerciseCard({
               <span className={setupNote ? 'setup-value' : 'setup-empty'}>
                 {setupNote || '머신 세팅 메모 추가'}
               </span>
-              <span aria-hidden="true" style={{ marginLeft: 'auto', opacity: 0.5 }}>
+              <span aria-hidden="true" className="ml-auto" style={{ opacity: 0.5 }}>
                 ✎
               </span>
             </button>
@@ -372,7 +372,7 @@ export default function ExerciseCard({
             <span className={scaleIsCustom ? 'setup-value' : 'setup-empty'}>
               무게 단위 · {describeScale(weightScale)}
             </span>
-            <span aria-hidden="true" style={{ marginLeft: 'auto', opacity: 0.5 }}>
+            <span aria-hidden="true" className="ml-auto" style={{ opacity: 0.5 }}>
               ✎
             </span>
           </button>
@@ -520,8 +520,8 @@ export default function ExerciseCard({
 
           {showCalibration && (
             <button
-              className="btn btn-sm btn-warn"
-              style={{ marginTop: 10 }}
+              className="btn btn-sm btn-warn mt-row"
+              
               onClick={() =>
                 pending.forEach(({ i }) =>
                   actions.patchSet(entry.recordKey, i, { weight: calibrated }),
@@ -532,7 +532,7 @@ export default function ExerciseCard({
             </button>
           )}
 
-          <div className="btn-row" style={{ marginTop: 10 }}>
+          <div className="btn-row mt-row">
             <button className="btn btn-sm" onClick={() => actions.addSet(entry.recordKey)}>
               + 세트
             </button>

@@ -135,3 +135,51 @@ describe("QQ4 — 여백 토큰 한 벌", () => {
     expect(text).toMatch(/spaceSetVerdicts\(layouts\)/)
   })
 })
+
+describe("QQ5 — 인라인 여백을 클래스로", () => {
+  const TSX = Object.entries(ALL_SRC).filter(([p]) => p.endsWith(".tsx") && !/\.test\./.test(p))
+  // 여러 줄로 적힌 style={{ … }}도 잡도록 [\s\S]*? (한 줄 [^}]*는 SubstituteSheet의 여러 줄 style을 놓쳤다)
+  const STYLE = /style=\{\{[\s\S]*?\}\}/g
+  const SPACE_KEY = /\b(margin(Top|Bottom|Left|Right|Inline|Block)?|padding(Top|Bottom|Left|Right|Inline|Block)?|gap|rowGap|columnGap)\s*:/
+  // 예외 목록은 비워 둔다. 필요하면 파일:줄과 이유로 더하고 리뷰어가 본다.
+  const ALLOWED: string[] = []
+  const lineOf = (text: string, index: number) => text.slice(0, index).split("\n").length
+
+  it("src/**/*.tsx에 인라인 여백(margin·padding·gap) 키가 0건이다", () => {
+    expect(TSX.length).toBeGreaterThan(40) // 스캔이 아무것도 안 읽은 것이 아니다
+    const hits: string[] = []
+    for (const [path, text] of TSX) {
+      for (const m of text.matchAll(STYLE)) {
+        const at = `${path}:${lineOf(text, m.index ?? 0)}`
+        if (SPACE_KEY.test(m[0]) && !ALLOWED.includes(at)) hits.push(at)
+      }
+    }
+    expect(hits).toEqual([])
+  })
+
+  it("자식 없는 빈 칸 <div style={{ height: N }} />이 0건이다", () => {
+    const hits: string[] = []
+    for (const [path, text] of TSX) {
+      for (const m of text.matchAll(/<div\s+style=\{\{\s*height:\s*\d+\s*\}\}\s*\/>/g)) {
+        hits.push(`${path}:${lineOf(text, m.index ?? 0)}`)
+      }
+    }
+    expect(hits).toEqual([])
+  })
+
+  it("스캔 정규식이 여러 줄 style과 gap을 잡는다 (SubstituteSheet 사례)", () => {
+    const sample = "<span style={{\n  flex: 1,\n  gap: 2,\n}}>"
+    const m = sample.match(STYLE)
+    expect(m).not.toBeNull()
+    expect(SPACE_KEY.test(m![0])).toBe(true)
+    expect(SPACE_KEY.test("style={{ marginTop: 10 }}")).toBe(true)
+    expect(SPACE_KEY.test("style={{ color: 'red', whiteSpace: 'normal' }}")).toBe(false)
+  })
+
+  it("space.css 유틸 클래스가 쓰이는 이름만 있다 (.tsx가 붙인 mt-·mb-·ml-·mr- 클래스는 정의된 여덟 개 안이다)", () => {
+    const known = new Set(["mt-row", "mt-group", "mt-section", "mb-row", "mb-group", "ml-inline", "mr-inline", "ml-auto"])
+    const used = new Set<string>()
+    for (const [, text] of TSX) for (const m of text.matchAll(/\b(m[tblr]-[a-z]+)\b/g)) used.add(m[1])
+    expect([...used].filter((c) => !known.has(c))).toEqual([])
+  })
+})

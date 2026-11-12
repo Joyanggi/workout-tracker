@@ -64,7 +64,7 @@ export default function HistoryScreen({ bundle }: { bundle: RoutineBundle }) {
     <div className="screen">
       <h1 className="screen-title">기록</h1>
 
-      <div className="segment" style={{ marginBottom: 16 }}>
+      <div className="segment mb-group">
         <button aria-pressed={mode === 'calendar'} onClick={() => setMode('calendar')}>
           달력
         </button>
@@ -99,7 +99,7 @@ export default function HistoryScreen({ bundle }: { bundle: RoutineBundle }) {
           />
 
           {(dietStats.logged > 0 || dietStats.partialDates.size > 0) && (
-            <p className="row-sub" style={{ margin: '-6px 0 12px', whiteSpace: 'normal' }}>
+            <p className="row-sub mb-group" style={{ whiteSpace: 'normal' }}>
               {/*
                 범례는 **점**을 설명한다 (테두리가 아니다 — 테두리는 오늘·선택 표시다).
                 색만 다르고 설명이 없으면 "왜 이 날은 회색인가"가 된다.
@@ -113,7 +113,7 @@ export default function HistoryScreen({ bundle }: { bundle: RoutineBundle }) {
 
           <div className="card">
             <div className="week-head">
-              <div className="card-label" style={{ marginBottom: 0 }}>
+              <div className="card-label label-flush">
                 {selectedDate ? `${selectedDate} (${weekdayKo(selectedDate)})` : '이 달의 세션'}
               </div>
               {selectedDate ? (
@@ -130,7 +130,7 @@ export default function HistoryScreen({ bundle }: { bundle: RoutineBundle }) {
             </div>
 
             {listed.length === 0 && (
-              <p className="row-sub" style={{ marginTop: 8 }}>
+              <p className="row-sub mt-row">
                 기록이 없습니다.
               </p>
             )}
@@ -142,7 +142,7 @@ export default function HistoryScreen({ bundle }: { bundle: RoutineBundle }) {
                     <div className="row-title">
                       {s.dayName}
                       {session.mode !== 'normal' && (
-                        <span className="chip chip-warn" style={{ marginLeft: 6 }}>
+                        <span className="chip chip-warn ml-inline">
                           {session.mode === 'return' ? '복귀' : '디로드'}
                         </span>
                       )}
@@ -169,7 +169,7 @@ export default function HistoryScreen({ bundle }: { bundle: RoutineBundle }) {
           */}
           {selectedDate && !diet.loading && diet.plans.length > 0 && (
             <>
-              <div className="card-label" style={{ marginTop: 4 }}>
+              <div className="card-label mt-row">
                 {selectedDate} 식단
               </div>
               <DietDayEditor

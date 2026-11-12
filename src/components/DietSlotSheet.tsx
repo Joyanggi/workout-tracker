@@ -116,16 +116,15 @@ export default function DietSlotSheet({
                 </div>
               )}
 
-              <button className="btn btn-primary" style={{ marginTop: 8 }} onClick={() => act(onCheckAll)}>
+              <button className="btn btn-primary mt-row" onClick={() => act(onCheckAll)}>
                 전부 먹음 ({slot.items.length}개)
               </button>
-              <div style={{ height: 8 }} />
               {/*
                 대체와 추가가 **같은 모양의 행**을 갖는다 (AA3): [기록/수정] + [지우기].
                 예전엔 추가만 지우기가 있었고 대체는 슬롯 전체 삭제밖에 없었다 —
                 지우기가 비대칭이면 대체를 고치려고 추가까지 다시 적어야 한다.
               */}
-              <div className="btn-row">
+              <div className="btn-row mt-row">
                 <button className="btn" onClick={() => openMode('substitution')}>
                   {record?.substitution ? '대체 수정' : '대체했어요'}
                 </button>
@@ -135,13 +134,12 @@ export default function DietSlotSheet({
                   </button>
                 )}
               </div>
-              <div style={{ height: 8 }} />
               {/*
                 추가는 대체와 별개 항목이다 (G2). 추가 섭취를 대체로 적으면
                 "일부 대체"로 해석돼 점수가 부당하게 깎이고, 분석에서 결식·대체·과식을
                 구분할 수 없다.
               */}
-              <div className="btn-row">
+              <div className="btn-row mt-row">
                 <button className="btn" onClick={() => openMode('addition')}>
                   {record?.addition ? '추가 기록 수정' : '추가로 먹었어요'}
                 </button>
@@ -151,14 +149,12 @@ export default function DietSlotSheet({
                   </button>
                 )}
               </div>
-              <div style={{ height: 8 }} />
-              <button className="btn" onClick={() => act(onSkip)}>
+              <button className="btn mt-row" onClick={() => act(onSkip)}>
                 안 먹음
               </button>
               {record && (
                 <>
-                  <div style={{ height: 8 }} />
-                  <button className="btn" onClick={() => act(onClear)}>
+                  <button className="btn mt-row" onClick={() => act(onClear)}>
                     기록 지우기
                   </button>
                 </>
@@ -166,7 +162,7 @@ export default function DietSlotSheet({
             </>
           ) : (
             <>
-              <div className="card-label" style={{ marginTop: 8 }}>
+              <div className="card-label mt-row">
                 {MODE_COPY[mode].title}
               </div>
               <p className="row-sub">
@@ -184,7 +180,7 @@ export default function DietSlotSheet({
                 autoFocus
               />
 
-              <div className="card-label" style={{ marginTop: 14 }}>
+              <div className="card-label mt-group">
                 어느 쪽이었나요
               </div>
               <div className="check-list">
@@ -198,7 +194,7 @@ export default function DietSlotSheet({
                     <span className="check-box" aria-hidden="true">
                       {quality === q.id ? '✓' : ''}
                     </span>
-                    <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <span className="stack-tight">
                       <span className="row-title">{QUALITY_LABEL[q.id]}</span>
                       <span className="row-sub">{q.hint}</span>
                     </span>
@@ -207,8 +203,8 @@ export default function DietSlotSheet({
               </div>
 
               <button
-                className="btn btn-primary"
-                style={{ marginTop: 12 }}
+                className="btn btn-primary mt-group"
+                
                 disabled={!canSave}
                 onClick={() =>
                   act(() =>
@@ -220,15 +216,13 @@ export default function DietSlotSheet({
               >
                 저장
               </button>
-              <div style={{ height: 8 }} />
-              <button className="btn" onClick={() => setMode(null)}>
+              <button className="btn mt-row" onClick={() => setMode(null)}>
                 뒤로
               </button>
             </>
           )}
 
-          <div style={{ height: 8 }} />
-          <button className="btn" onClick={dismiss}>
+          <button className="btn mt-row" onClick={dismiss}>
             닫기
           </button>
         </>

@@ -47,7 +47,7 @@ export default function ExerciseHistoryScreen({
     return (
       <div className="card">
         <div className="card-label">종목별 기록</div>
-        <p className="row-sub" style={{ marginBottom: 8 }}>
+        <p className="row-sub mb-row">
           같은 기계라도 Day가 다르면 다른 기록입니다 (무게대와 목적이 다름).
         </p>
         {keys.map((info) => (
@@ -55,16 +55,16 @@ export default function ExerciseHistoryScreen({
             <div className="row-main">
               <div className="row-title">
                 {nameOf(info.exerciseId)}
-                <span className="chip" style={{ marginLeft: 6 }}>
+                <span className="chip ml-inline">
                   {info.dayId.toUpperCase()}
                 </span>
                 {info.group && (
-                  <span className="chip" style={{ marginLeft: 4 }}>
+                  <span className="chip ml-inline">
                     {info.group}
                   </span>
                 )}
                 {!info.known && (
-                  <span className="chip chip-warn" style={{ marginLeft: 4 }}>
+                  <span className="chip chip-warn ml-inline">
                     현재 루틴에 없음
                   </span>
                 )}
@@ -121,7 +121,7 @@ export default function ExerciseHistoryScreen({
                 <div className="row-title">
                   {n.date} ({weekdayKo(n.date)})
                   {n.sensoryScore !== undefined && (
-                    <span className="chip" style={{ marginLeft: 6 }}>
+                    <span className="chip ml-inline">
                       감각 {n.sensoryScore}
                     </span>
                   )}
@@ -143,12 +143,12 @@ export default function ExerciseHistoryScreen({
               <div className="row-title">
                 {point.date} ({weekdayKo(point.date)})
                 {point.mode !== 'normal' && (
-                  <span className="chip chip-warn" style={{ marginLeft: 6 }}>
+                  <span className="chip chip-warn ml-inline">
                     {point.mode === 'return' ? '복귀' : '디로드'}
                   </span>
                 )}
                 {!inverse && point.bestE1rm >= best && history.length > 1 && (
-                  <span className="chip chip-accent" style={{ marginLeft: 4 }}>
+                  <span className="chip chip-accent ml-inline">
                     최고
                   </span>
                 )}

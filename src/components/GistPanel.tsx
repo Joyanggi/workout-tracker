@@ -153,7 +153,7 @@ export default function GistPanel() {
 
       {!configured ? (
         <>
-          <p className="row-sub" style={{ marginBottom: 10 }}>
+          <p className="row-sub mb-row">
             <strong>gist</strong> 권한만 있는 개인 액세스 토큰을 붙여넣으세요. 토큰은 이 기기의
             localStorage에만 저장되고 백업 파일이나 코드에는 들어가지 않습니다.
           </p>
@@ -162,17 +162,16 @@ export default function GistPanel() {
           </a>
           <input
             {...NO_AUTOFILL}
-            className="field"
-            style={{ marginTop: 10 }}
+            className="field mt-row"
+            
             type="password"
             value={tokenInput}
             onChange={(e) => setTokenInput(e.target.value)}
             placeholder="ghp_… 또는 github_pat_…"
             aria-label="GitHub 개인 액세스 토큰"
           />
-          <div style={{ height: 8 }} />
           <button
-            className="btn btn-sm btn-primary"
+            className="btn btn-sm btn-primary mt-row"
             onClick={() => void onSaveToken()}
             disabled={busy || tokenInput.trim().length === 0}
           >
@@ -203,7 +202,7 @@ export default function GistPanel() {
             </div>
           </div>
 
-          <div className="btn-row" style={{ marginTop: 10 }}>
+          <div className="btn-row mt-row">
             <button className="btn btn-sm btn-primary" onClick={() => void onBackupNow()} disabled={busy}>
               지금 백업
             </button>
@@ -218,7 +217,7 @@ export default function GistPanel() {
 
           {restoreStaged && (
             <>
-              <div className="warn-box" style={{ marginTop: 12 }}>
+              <div className="warn-box mt-group">
                 <strong>Gist 백업 내용</strong>
                 <br />
                 세션 {restoreStaged.summary.sessions}개 ({restoreStaged.summary.oldestSession ?? '—'} ~{' '}
@@ -250,7 +249,7 @@ export default function GistPanel() {
             </>
           )}
 
-          <div className="btn-row" style={{ marginTop: 10 }}>
+          <div className="btn-row mt-row">
             {confirmRemove ? (
               <>
                 <button className="btn btn-sm" onClick={() => setConfirmRemove(false)}>
@@ -278,19 +277,19 @@ export default function GistPanel() {
 
       {sync.status !== 'idle' && (
         <p
-          className="row-sub"
-          style={{ marginTop: 10, color: sync.status === 'error' ? 'var(--danger)' : 'var(--accent)' }}
+          className="row-sub mt-row"
+          style={{ color: sync.status === 'error' ? 'var(--danger)' : 'var(--accent)' }}
         >
           {stateLabel(sync)}
         </p>
       )}
       {message && (
-        <p className="row-sub" style={{ marginTop: 8, color: 'var(--accent)' }}>
+        <p className="row-sub mt-row" style={{ color: 'var(--accent)' }}>
           {message}
         </p>
       )}
 
-      <p className="row-sub" style={{ marginTop: 10 }}>
+      <p className="row-sub mt-row">
         secret gist로 만들어집니다 (URL을 아는 사람만 볼 수 있음). 세션을 종료하면 자동으로
         올라갑니다.
       </p>

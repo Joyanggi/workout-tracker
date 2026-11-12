@@ -41,7 +41,7 @@ export default function SubstituteSheet({
           <div className="card-label">자리 없음 · {originalName} 대체</div>
 
           {previews.length === 0 ? (
-            <p className="row-sub" style={{ marginTop: 12 }}>
+            <p className="row-sub mt-group">
               이 종목에는 등록된 대체가 없습니다. 순서를 바꿔 다른 종목을 먼저 하세요.
             </p>
           ) : (
@@ -78,7 +78,7 @@ export default function SubstituteSheet({
                 </div>
               )}
 
-              <div className="check-list" style={{ marginTop: 12 }}>
+              <div className="check-list mt-group">
                 {previews.map((preview) => {
                   const { option, exercise } = preview
                   const notes: string[] = []
@@ -94,15 +94,7 @@ export default function SubstituteSheet({
                       onClick={() => onSelect(preview)}
                     >
                       {/* row-title/row-sub는 블록 전제 스타일이라 span 안에서는 한 줄로 붙는다 */}
-                      <span
-                        style={{
-                          flex: 1,
-                          textAlign: 'left',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: 2,
-                        }}
-                      >
+                      <span className="stack-tight" style={{ flex: 1, textAlign: 'left' }}>
                         <span className="row-title">{exercise.shortName}</span>
                         {notes.length > 0 && <span className="row-sub">{notes.join(' · ')}</span>}
                         {preview.blocked === 'no-history' && (
@@ -126,8 +118,7 @@ export default function SubstituteSheet({
             </>
           )}
 
-          <div style={{ height: 8 }} />
-          <button className="btn" onClick={dismiss}>
+          <button className="btn mt-row" onClick={dismiss}>
             취소
           </button>
         </>

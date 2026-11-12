@@ -9,14 +9,14 @@ export default function UpdatePrompt({ needRefresh, update, dismiss }: PwaUpdate
 
   return (
     <div
-      className="banner banner-info"
-      style={{ position: 'sticky', top: 'var(--safe-t)', zIndex: 30, margin: 12 }}
+      className="banner banner-info update-prompt"
+      style={{ position: 'sticky', top: 'var(--safe-t)', zIndex: 30 }}
     >
       <span>새 버전이 준비됐어요</span>
       <button onClick={update}>
         <span>업데이트</span>
       </button>
-      <button onClick={dismiss} style={{ background: 'transparent', marginLeft: 0 }}>
+      <button onClick={dismiss} className="banner-dismiss" style={{ background: 'transparent' }}>
         <span style={{ color: 'var(--accent)' }}>나중에</span>
       </button>
     </div>

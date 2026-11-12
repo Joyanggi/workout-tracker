@@ -55,13 +55,13 @@ export default function AddExerciseSheet({
           </p>
 
           {groups.length === 0 ? (
-            <p className="row-sub" style={{ marginTop: 12 }}>
+            <p className="row-sub mt-group">
               추가할 수 있는 종목이 없습니다 (전부 이 세션에 있습니다).
             </p>
           ) : (
             groups.map(({ day, items }) => (
               <div key={day.id}>
-                <div className="card-label" style={{ marginTop: 16 }}>
+                <div className="card-label mt-group">
                   {day.name} · {day.exercises.length}종목 {dayTotalSets(day)}세트
                 </div>
                 {items.map(({ ex, recordKey, name }) => (
@@ -88,7 +88,7 @@ export default function AddExerciseSheet({
             ))
           )}
 
-          <button className="btn" style={{ marginTop: 16 }} onClick={dismiss}>
+          <button className="btn mt-group" onClick={dismiss}>
             닫기
           </button>
         </>

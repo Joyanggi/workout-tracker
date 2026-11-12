@@ -99,7 +99,7 @@ export default function FinishSheet({
             </p>
           )}
 
-          <div className="card-label" style={{ marginTop: 16 }}>
+          <div className="card-label mt-group">
             유산소 (선택)
           </div>
           <div className="pill-row">
@@ -114,7 +114,7 @@ export default function FinishSheet({
             ))}
           </div>
           {cardioType && (
-            <div className="btn-row" style={{ marginTop: 8 }}>
+            <div className="btn-row mt-row">
               <input
                 {...NO_AUTOFILL}
                 className="field"
@@ -135,7 +135,7 @@ export default function FinishSheet({
             </div>
           )}
 
-          <div className="card-label" style={{ marginTop: 16 }}>
+          <div className="card-label mt-group">
             메모 (선택)
           </div>
           <textarea
@@ -147,11 +147,10 @@ export default function FinishSheet({
             placeholder="컨디션, 특이사항"
           />
 
-          <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => void submit()}>
+          <button className="btn btn-primary mt-group" onClick={() => void submit()}>
             기록 마치기
           </button>
-          <div style={{ height: 8 }} />
-          <button className="btn" onClick={dismiss}>
+          <button className="btn mt-row" onClick={dismiss}>
             계속하기
           </button>
 
@@ -161,10 +160,9 @@ export default function FinishSheet({
             (Day 변경은 기록 탭에서 가능하지만 진행 중 세션은 기록 탭에 없다)
             기록이 있을 때는 세트 수를 보여주고 확인을 한 단계 더 받는다.
           */}
-          <div style={{ height: 8 }} />
           {confirmDiscard ? (
             <>
-              <p className="row-sub" style={{ color: 'var(--danger)' }}>
+              <p className="row-sub mt-row" style={{ color: 'var(--danger)' }}>
                 {anyDone
                   ? `${doneCount}세트 기록이 삭제됩니다. 되돌릴 수 없습니다.`
                   : '이 세션을 삭제합니다.'}
@@ -179,7 +177,7 @@ export default function FinishSheet({
               </div>
             </>
           ) : (
-            <button className="btn btn-danger" onClick={() => setConfirmDiscard(true)}>
+            <button className="btn btn-danger mt-row" onClick={() => setConfirmDiscard(true)}>
               이 세션 버리기
             </button>
           )}

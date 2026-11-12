@@ -246,8 +246,8 @@ select {
   margin: var(--space-tight) 0 0;
 }
 
-/* <p>의 브라우저 기본 아래 여백(1em=13px)은 단계 밖이라 가까운 12px로 명시. div.row-sub는 0 */
-p.row-sub {
+/* <p>의 브라우저 기본 아래 여백(1em=13px)은 단계 밖이라 가까운 12px로 명시. div.row-sub는 0. :where()로 특이도를 낮춰 .mb-row 같은 유틸이 이긴다(QQ5) */
+:where(p).row-sub {
   margin-bottom: var(--space-group);
 }
 

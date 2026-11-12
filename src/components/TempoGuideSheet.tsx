@@ -226,8 +226,8 @@ export default function TempoGuideSheet({
       </p>
 
       <button
-        className="btn btn-primary"
-        style={{ marginTop: 12 }}
+        className="btn btn-primary mt-group"
+        
         onClick={() => {
           onDone(rep.reps)
           onClose()
@@ -240,8 +240,7 @@ export default function TempoGuideSheet({
         */}
         {pos.countIn !== null ? '취소' : `종료 — 약 ${rep.reps}회 기록 · 휴식 시작`}
       </button>
-      <div style={{ height: 8 }} />
-      <p className="row-sub">
+      <p className="row-sub mt-row">
         최대 {routineExercise.repMax}회에 닿으면 자동으로 기록하고 휴식이 시작됩니다.
         마지막 2~3회에서 리듬을 못 따라가기 시작하면 그게 세트 종료 신호입니다 (문서 13장) —
         그때는 먼저 종료하세요. 화면이 꺼지면 가이드도 멈춥니다 (iOS PWA 제약).

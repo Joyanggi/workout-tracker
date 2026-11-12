@@ -57,8 +57,8 @@ export default function RoutineListPanel({
               )}
               {!isActive && !isBundled && asking === null && (
                 <button
-                  className="btn btn-danger"
-                  style={{ marginLeft: 8 }}
+                  className="btn btn-danger ml-inline"
+                  
                   onClick={() => setPending({ id: r.id, kind: 'delete' })}
                 >
                   삭제
@@ -66,7 +66,7 @@ export default function RoutineListPanel({
               )}
             </div>
             {asking === 'use' && (
-              <div style={{ paddingBottom: 10 }}>
+              <div className="row-confirm">
                 <p className="row-sub">
                   루틴을 바꾸면 홈의 제안과 주간 목표가 이 루틴 기준이 됩니다. 지난 기록은 그대로 남지만, 이 루틴에 없는
                   Day·종목은 이름과 그룹 없이 보일 수 있습니다. 다시 바꾸면 원래대로 보입니다.
@@ -74,13 +74,13 @@ export default function RoutineListPanel({
                 <button className="btn" onClick={() => void run(() => activateRoutine(r.id))}>
                   바꾸기
                 </button>
-                <button className="btn" style={{ marginLeft: 8 }} onClick={() => setPending(null)}>
+                <button className="btn ml-inline" onClick={() => setPending(null)}>
                   취소
                 </button>
               </div>
             )}
             {asking === 'delete' && (
-              <div style={{ paddingBottom: 10 }}>
+              <div className="row-confirm">
                 <p className="row-sub">
                   이 루틴을 삭제합니다. 운동 기록은 지워지지 않지만, 이 루틴에만 있던 Day·종목의 기록은
                   이름과 그룹을 다시 볼 수 없게 됩니다. 되돌릴 수 없습니다.
@@ -91,7 +91,7 @@ export default function RoutineListPanel({
                 >
                   삭제
                 </button>
-                <button className="btn" style={{ marginLeft: 8 }} onClick={() => setPending(null)}>
+                <button className="btn ml-inline" onClick={() => setPending(null)}>
                   취소
                 </button>
               </div>
@@ -100,7 +100,7 @@ export default function RoutineListPanel({
         )
       })}
       {problem !== null && <p className="row-sub">{problem}</p>}
-      <button className="btn" style={{ marginTop: 10 }} disabled={openSession !== null} onClick={onNew}>
+      <button className="btn mt-row" disabled={openSession !== null} onClick={onNew}>
         ＋ 새 루틴 만들기
       </button>
       {openSession !== null && <p className="row-sub">{OPEN_SESSION_BLOCK.activate}</p>}

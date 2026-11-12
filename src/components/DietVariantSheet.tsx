@@ -41,7 +41,7 @@ export default function DietVariantSheet({
             점수는 같습니다 (물림이 이행률을 깎기 때문에 셋 다 허용됩니다).
           </p>
 
-          <div className="check-list" style={{ marginTop: 10 }}>
+          <div className="check-list mt-row">
             {variants.map((variant, index) => {
               const kcalDelta = variant.kcal - base.kcal
               const proteinDelta = variant.proteinG - base.proteinG
@@ -58,7 +58,7 @@ export default function DietVariantSheet({
                   <span className="check-box" aria-hidden="true">
                     {index === choice ? '✓' : ''}
                   </span>
-                  <span style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+                  <span className="stack-tight" style={{ flex: 1 }}>
                     <span className="row-title">
                       {variant.name} {variant.qty}
                     </span>
@@ -79,11 +79,10 @@ export default function DietVariantSheet({
             })}
           </div>
 
-          <p className="row-sub" style={{ marginTop: 10, whiteSpace: 'normal' }}>
+          <p className="row-sub mt-row" style={{ whiteSpace: 'normal' }}>
             고른 것이 <b>다음 날의 기본</b>이 됩니다. 이미 적어 둔 날의 기록은 바뀌지 않습니다.
           </p>
-          <div style={{ height: 8 }} />
-          <button className="btn" onClick={dismiss}>
+          <button className="btn mt-row" onClick={dismiss}>
             닫기
           </button>
         </>

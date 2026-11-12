@@ -51,29 +51,27 @@ export default function OpenSessionSheet({
             <div className="row-meta">{doneCount}세트</div>
           </div>
 
-          <p className="row-sub" style={{ marginTop: 8 }}>
+          <p className="row-sub mt-row">
             {hasRecords
               ? '새로 시작하기 전에 이 세션을 어떻게 할지 정해야 합니다.'
               : '기록된 세트가 없는 세션입니다.'}
           </p>
 
-          <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={onResume}>
+          <button className="btn btn-primary mt-group" onClick={onResume}>
             이어하기
           </button>
 
           {hasRecords && (
             <>
-              <div style={{ height: 8 }} />
-              <button className="btn" onClick={onFinishAndStart}>
+              <button className="btn mt-row" onClick={onFinishAndStart}>
                 마감하고 새로 시작 ({doneCount}세트 기록 유지)
               </button>
             </>
           )}
 
-          <div style={{ height: 8 }} />
           {confirmDiscard ? (
             <>
-              <p className="row-sub" style={{ color: 'var(--danger)' }}>
+              <p className="row-sub mt-row" style={{ color: 'var(--danger)' }}>
                 {hasRecords
                   ? `${doneCount}세트 기록이 삭제됩니다. 되돌릴 수 없습니다.`
                   : '이 세션을 삭제합니다.'}
@@ -88,13 +86,12 @@ export default function OpenSessionSheet({
               </div>
             </>
           ) : (
-            <button className="btn btn-danger" onClick={() => setConfirmDiscard(true)}>
+            <button className="btn btn-danger mt-row" onClick={() => setConfirmDiscard(true)}>
               버리고 새로 시작
             </button>
           )}
 
-          <div style={{ height: 8 }} />
-          <button className="btn" onClick={dismiss}>
+          <button className="btn mt-row" onClick={dismiss}>
             취소
           </button>
         </>

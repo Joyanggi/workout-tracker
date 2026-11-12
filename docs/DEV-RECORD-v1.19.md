@@ -508,3 +508,60 @@ QQ1은 `src/db`·`src/store`·기록 해석 규칙을 건드리지 않았다. `s
 - 375 폭 `home`·`session`·`settings`·`sheet-finish`에서 여백이 눈에 띄게 달라진 곳(카드 안쪽 14→16, 칩 3·9→4·8)과 시트 끝까지 스크롤, 버튼 높이 44px 유지.
 
 리뷰 반영(QQ4 반려 1): `.row-sub` 아래 여백을 요소별로 되돌림(`div` 0 · `p` 12px). `ui-check.mjs after --check` 여백 격자·여백 한 벌·정적 검사 통과, 접근성 실패는 session·sheet-food `label-content-name-mismatch` 기존 2건 그대로. 화면 검증자 확인 대상: history·settings·home 목록 줄(`.row` 안 `div.row-sub`)과 시트 안 `p.row-sub`(sheet-food 등)를 4c8f8dd after와 나란히.
+
+## QQ5. 인라인 여백을 클래스로
+
+### 범위
+
+| 커밋 | 바뀐 파일 | 비고 |
+|---|---|---|
+| (이 커밋) | `.tsx` 35개(`git show --stat` 기준) · `src/styles/space.css`(유틸 클래스) · `src/styles/global.css`(`:where(p).row-sub` 한 줄) · `src/lib/v119.test.ts` · `README.md` · 이 기록 | 시작 때 재계수: 인라인 스타일 273곳 중 여백 181곳(`astryx-inventory.mjs`). 끝: 여백 0곳. 남은 인라인은 여백 아닌 속성만 |
+
+유틸: `.mt-row·.mt-group·.mt-section·.mb-row·.mb-group·.ml-inline·.mr-inline·.ml-auto·.stack-tight`. 요소 CSS로 옮긴 것: `.label-flush`(카드 라벨 아래 0) · `.banner button.banner-dismiss`(`marginLeft: 0` 5곳) · `.update-prompt` · `.meal-note` · `.row-confirm` · `.day-exercises` · `.row.row-plain`.
+
+### 기록할 판단
+
+| 항목 | 내용 |
+|---|---|
+| 역할 배정 규칙 | `marginTop` 4·8·10 → `mt-row`, 12·14·16 → `mt-group`, 20 → `mt-section`. `marginBottom` ≤10 → `mb-row`, 그 위 → `mb-group`(`Onboarding.tsx:52`의 20도 `mb-group`). 같은 화면에서 일부러 다른 값으로 보이는 곳은 없어 모두 이 규칙으로 갈랐다(16이 `mt-group`이 된 곳은 시트 안 블록 사이: `AddExerciseSheet`·`FinishSheet`·`ExportPanel`·`SettingsScreen:313·364·388`) |
+| `marginLeft` 4·6 → `.ml-inline`(8) | 옆 간격이 단계 하나(8)로 통일된다. 숫자 칩·단위 앞 간격이 2~4px 넓어진다(화면 검증자 확인 항목) |
+| `:where(p).row-sub` | `p.row-sub { margin-bottom }`(0,1,1)이 `.mb-row`(0,1,0)를 이겨 `p.row-sub.mb-row`가 12px로 남았다. 선택자를 `:where(p)`로 낮춰 유틸이 이기게 했다(값 변화 없음) |
+| 빈 칸 `div` 25곳 | 24곳은 다음 형제의 클래스에 `mt-row`를 더하고 지웠다. 형제가 조건식인 곳(`FinishSheet`·`OpenSessionSheet`의 `confirmDiscard ? … : …`, `SettingsScreen` `resetStep`)은 양쪽 가지의 첫 요소에 `mt-row`. 주석이 끼인 `DietSlotSheet` 둘은 뒤의 `btn-row`에. `HomeScreen:530`(`height: 12`, 다음이 `<WeekDots>`라 className을 받지 않음)은 `<div className="mt-group">`로 감쌌다 |
+| 음수 여백 3곳 | `DayPickerSheet:72·82`(`marginTop: -4`)는 앞 라벨에 `.label-flush`(아래 0)를 주고 문단은 기본 위 4px로 두어 같은 간격(4)을 낸다. 남는 `marginBottom: 4`는 `.mb-row`(8). `HistoryScreen:102`(`margin: '-6px 0 12px'`)는 앞 달력 카드의 아래 12px가 그대로라 범례와의 간격이 6 → 12로 넓어진다(음수를 남기지 않는 규칙의 결과) — 화면 검증자 확인 |
+| `marginBottom: 0`(`WeekDots`·`HistoryScreen:116`·`HomeScreen` 셋) | 표에 없는 모양. 같은 일(라벨 아래 0)이라 `.label-flush` 하나로 |
+| `UpdatePrompt` `margin: 12` | `.update-prompt { margin: var(--space-group) }` |
+| `MealReminderPanel` `0 0 6px 28px` | `.meal-note { margin: 0 0 var(--space-row) 28px }` (6 → 8, 28은 체크 칸 폭 그대로) |
+| `padding` 4곳 | `RoutineListPanel` `paddingBottom: 10` 2곳 → `.row-confirm`(8). `SettingsScreen:208` → `.day-exercises`(`0 0 12px 4px`을 토큰으로), `:213` `padding: '6px 0'` → `.row.row-plain`(`4px 0`, `borderBottom: none`도 함께) |
+| `gap: 2` 4곳 | 4곳 모두 `.stack-tight`(gap 4)로. `flex: 1`·`textAlign`은 인라인에 남김. 목록의 `DietPlanSheet:70`·`DietSlotSheet:197`·`DietVariantSheet:61`·`SubstituteSheet:98-105`(여러 줄) |
+| 중복 `className` | 자동 변환이 `AnalyzeScreen:230-231`에 `className`을 두 번 만들었고 `tsc`가 잡았다. 하나의 템플릿 문자열로 합쳤다 |
+
+### PLAN 검증 항목 ↔ 확인
+
+| PLAN 검증 | 어디서 |
+|---|---|
+| `src/**/*.tsx`(테스트 제외) 인라인 여백 키 0건, 여러 줄 `style` 포함, 예외 목록 비움 | `v119.test.ts` `QQ5 — … 인라인 여백(margin·padding·gap) 키가 0건이다` · `…스캔 정규식이 여러 줄 style과 gap을 잡는다` |
+| 자식 없는 `<div style={{ height: N }} />` 0건 | `…빈 칸 <div style={{ height: N }} />이 0건이다` |
+| 유틸 이름 정합(추가) | `…유틸 클래스가 쓰이는 이름만 있다` |
+| `ui-check after --check` 전 장면 `여백 격자`·`여백 한 벌`(`카드 사이` 포함) | 실행 결과 아래 |
+
+### 결함 복원
+
+| 되살린 결함(⑬) | 실패한 테스트 | 원상복구 |
+|---|---|---|
+| `SubstituteSheet.tsx` 여러 줄 `style={{ flex: 1, gap: 2 }}` 되살리기 + `HomeScreen.tsx`에 `style={{ marginTop: 10 }}` 되살리기 | `QQ5 … 인라인 여백 키가 0건이다`가 `SubstituteSheet.tsx:97`과 `HomeScreen.tsx:530`을 모두 보고 | `cmp` 같음 |
+
+### 실행 결과
+
+- `npm test`: `Test Files  65 passed (65)` · `Tests  1599 passed (1599)`
+- `npm run build` 통과 · `node scripts/quality-scan.mjs --ci` → `[quality-scan] 통과`
+- `ui-check after --check`: 정적 검사·`여백 격자`·`여백 한 벌`(화면 좌우 16 · 카드 사이 12 · 시트 좌우 16)·`가로 넘침`·`유리` 전 장면 통과. 남은 실패는 `접근성` 둘(`session` 1건, `sheet-food` 10건 `label-content-name-mismatch`) — QQ2·QQ4 기록과 같은 기존 건이다.
+- `node scripts/argos-upload.mjs after`: `Argos 건너뜀: ARGOS_TOKEN 없음`
+
+### 하지 않은 것
+
+- 여백 아닌 인라인 스타일(`color`·`whiteSpace`·`fontSize` 등).
+- `docs/screenshots/v1.19/before|after/*.png` 작업 트리 변경은 커밋하지 않았다(화면 검증자가 다시 찍는다).
+
+### 화면 확인 목록
+
+- 전 장면. 특히 `marginLeft` 4·6 → 8로 넓어진 칩·단위 앞 간격, `HistoryScreen` 달력 아래 범례(6 → 12), 설정 루틴 Day 펼침 종목 줄(6 → 4), 세트 카드·분석·홈 `.ml-auto` 줄의 오른쪽 끝 정렬, 긴 종목 이름, 기록 0건, 시트 끝까지 스크롤.

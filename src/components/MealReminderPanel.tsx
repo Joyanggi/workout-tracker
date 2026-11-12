@@ -48,7 +48,7 @@ export default function MealReminderPanel({ plan }: { plan: DietPlan }) {
         반복되는 캘린더 일정으로 내보내고, <b>아이폰 캘린더가 울립니다.</b>
       </p>
 
-      <div style={{ marginTop: 10 }}>
+      <div className="mt-row">
         {slots.map((slot) => {
           const trainingOnly = isTrainingOnlySlot(plan, slot.id)
           return (
@@ -65,7 +65,7 @@ export default function MealReminderPanel({ plan }: { plan: DietPlan }) {
               </button>
               {/* 훈련일 전용 슬롯은 매일 반복이라 휴식일에도 울린다 — 고르기 전에 알린다 */}
               {trainingOnly && selected.includes(slot.id) && (
-                <p className="row-sub" style={{ margin: '0 0 6px 28px' }}>
+                <p className="row-sub meal-note">
                   휴식일에도 울립니다 (훈련일 전용 끼니인데 매일 반복입니다)
                 </p>
               )}
@@ -75,15 +75,15 @@ export default function MealReminderPanel({ plan }: { plan: DietPlan }) {
       </div>
 
       <button
-        className="btn btn-sm"
-        style={{ marginTop: 8 }}
+        className="btn btn-sm mt-row"
+        
         disabled={selected.length === 0}
         onClick={() => void onExport()}
       >
         📅 캘린더로 내보내기 ({selected.length}개)
       </button>
 
-      <p className="row-sub" style={{ marginTop: 8, whiteSpace: 'normal' }}>
+      <p className="row-sub mt-row" style={{ whiteSpace: 'normal' }}>
         시간을 바꿔 다시 내보냈다면 <b>캘린더에서 기존 알림을 지우고</b> 추가하세요 —
         아이폰은 같은 일정을 갱신하지 않고 하나 더 만들 수 있습니다.
       </p>

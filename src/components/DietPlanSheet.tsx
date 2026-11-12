@@ -44,7 +44,7 @@ export default function DietPlanSheet({
 
           {ahead === null ? (
             <>
-              <div className="check-list" style={{ marginTop: 8 }}>
+              <div className="check-list mt-row">
                 {listed.map((plan) => {
                   const { kcal, proteinG } = planTotals(plan)
                   /*
@@ -67,7 +67,7 @@ export default function DietPlanSheet({
                       <span className="check-box" aria-hidden="true">
                         {plan.id === currentPlanId ? '✓' : ''}
                       </span>
-                      <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <span className="stack-tight" style={{ flex: 1 }}>
                         <span className="row-title">{plan.name}</span>
                         <span className="row-sub">
                           {kcal.toLocaleString()}kcal · 단백질 {proteinG}g
@@ -82,10 +82,10 @@ export default function DietPlanSheet({
                   )
                 })}
               </div>
-              <p className="row-sub" style={{ marginTop: 10 }}>
+              <p className="row-sub mt-row">
                 고르면 <strong>오늘</strong>만 바뀝니다. 며칠을 미리 정하려면 아래를 쓰세요.
               </p>
-              <div className="btn-row" style={{ marginTop: 8 }}>
+              <div className="btn-row mt-row">
                 {listed
                   .filter((p) => p.id !== currentPlanId)
                   .map((p) => (
@@ -97,10 +97,10 @@ export default function DietPlanSheet({
             </>
           ) : (
             <>
-              <p className="row-sub" style={{ marginTop: 8 }}>
+              <p className="row-sub mt-row">
                 {listed.find((p) => p.id === ahead)?.name}을 <strong>내일부터 며칠</strong> 적용할까요?
               </p>
-              <div className="btn-row" style={{ marginTop: 8 }}>
+              <div className="btn-row mt-row">
                 {Array.from({ length: MAX_AHEAD }, (_, i) => i + 1).map((n) => (
                   <button
                     key={n}
@@ -114,19 +114,17 @@ export default function DietPlanSheet({
                   </button>
                 ))}
               </div>
-              <p className="row-sub" style={{ marginTop: 10 }}>
+              <p className="row-sub mt-row">
                 {LOW_KCAL_STREAK_WARN}일 이상 연속되면 경고가 뜹니다 — 루틴 문서 15장이 만회성
                 절식을 금지하기 때문입니다.
               </p>
-              <div style={{ height: 8 }} />
-              <button className="btn" onClick={() => setAhead(null)}>
+              <button className="btn mt-row" onClick={() => setAhead(null)}>
                 뒤로
               </button>
             </>
           )}
 
-          <div style={{ height: 8 }} />
-          <button className="btn" onClick={dismiss}>
+          <button className="btn mt-row" onClick={dismiss}>
             닫기
           </button>
         </>

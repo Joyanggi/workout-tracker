@@ -77,7 +77,7 @@ export default function WeightScaleSheet({
             이 종목의 머신 한 핀이 몇 kg인지. 증량 제안과 ± 버튼이 이 값을 따릅니다.
           </p>
 
-          <div className="segment" style={{ marginTop: 12 }}>
+          <div className="segment mt-group">
             <button aria-pressed={mode === 'step'} onClick={() => setMode('step')}>
               균일 간격
             </button>
@@ -88,7 +88,7 @@ export default function WeightScaleSheet({
 
           {mode === 'step' ? (
             <>
-              <div className="chip-row" style={{ marginTop: 12 }}>
+              <div className="chip-row mt-group">
                 {STEP_PRESETS.map((preset) => (
                   <button
                     key={preset}
@@ -102,8 +102,8 @@ export default function WeightScaleSheet({
               </div>
               <input
                 {...NO_AUTOFILL}
-                className="field"
-                style={{ marginTop: 10 }}
+                className="field mt-row"
+                
                 inputMode="decimal"
                 value={stepText}
                 onChange={(e) => setStepText(e.target.value)}
@@ -113,7 +113,7 @@ export default function WeightScaleSheet({
             </>
           ) : (
             <>
-              <p className="row-sub" style={{ marginTop: 12 }}>
+              <p className="row-sub mt-group">
                 머신에 적힌 핀 값을 순서 상관없이 나열하세요. 예: 5, 10, 15, 20, 25, 30, 35, 41, 47
               </p>
               <textarea
@@ -128,7 +128,7 @@ export default function WeightScaleSheet({
             </>
           )}
 
-          <p className="row-sub" style={{ marginTop: 10 }}>
+          <p className="row-sub mt-row">
             {error ? (
               <strong style={{ color: 'var(--warn)' }}>{error}</strong>
             ) : mode === 'ladder' && preview?.ladder ? (
@@ -140,11 +140,10 @@ export default function WeightScaleSheet({
             )}
           </p>
 
-          <button className="btn btn-primary" style={{ marginTop: 8 }} onClick={save} disabled={!preview}>
+          <button className="btn btn-primary mt-row" onClick={save} disabled={!preview}>
             저장
           </button>
-          <div style={{ height: 8 }} />
-          <div className="btn-row">
+          <div className="btn-row mt-row">
             <button
               className="btn"
               onClick={() => {

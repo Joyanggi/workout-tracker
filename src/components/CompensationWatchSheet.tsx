@@ -44,7 +44,7 @@ export default function CompensationWatchSheet({
             세트 중 이 신호가 보이면 무게가 과한 것입니다.
           </p>
 
-          <div className="check-list" style={{ marginTop: 12 }}>
+          <div className="check-list mt-group">
             {watch.notes.map((note) => (
               <div className="row" key={note}>
                 <div className="row-main">
@@ -56,7 +56,7 @@ export default function CompensationWatchSheet({
             ))}
           </div>
 
-          <p className="row-sub" style={{ marginTop: 12 }}>
+          <p className="row-sub mt-group">
             {canLower ? (
               <>
                 {scale.inverse ? '보조 +' : '한 단위 하향: '}
@@ -74,8 +74,8 @@ export default function CompensationWatchSheet({
           </p>
 
           <button
-            className="btn btn-primary"
-            style={{ marginTop: 8 }}
+            className="btn btn-primary mt-row"
+            
             disabled={!canLower}
             onClick={() => {
               onApply(lowered)
@@ -84,8 +84,7 @@ export default function CompensationWatchSheet({
           >
             {lowered}kg로 {scale.inverse ? '보조 늘리기' : '낮추기'}
           </button>
-          <div style={{ height: 8 }} />
-          <button className="btn" onClick={dismiss}>
+          <button className="btn mt-row" onClick={dismiss}>
             그대로 두기
           </button>
         </>

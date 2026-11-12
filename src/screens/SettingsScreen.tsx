@@ -120,14 +120,14 @@ export default function SettingsScreen({
             </button>
           ))}
         </div>
-        <p className="row-sub" style={{ marginTop: 10 }}>
+        <p className="row-sub mt-row">
           {PHASES.find((p) => p.value === currentPhase)?.desc}
         </p>
 
         {/* DESIGN.md §5.5 "각 Phase 조건 요약 표시" — 뭐가 남았는지 보이게 (T3) */}
         {readiness && readiness.to !== null && (
           <>
-            <div className="card-label" style={{ marginTop: 14 }}>
+            <div className="card-label mt-group">
               Phase {readiness.to} 전환 조건
             </div>
             {readiness.checks.map((c) => (
@@ -136,7 +136,7 @@ export default function SettingsScreen({
                   <div className="row-title" style={{ whiteSpace: 'normal' }}>
                     <span
                       aria-hidden="true"
-                      style={{ color: c.met ? 'var(--ok)' : 'var(--text-faint)', marginRight: 6 }}
+                      className="mr-inline" style={{ color: c.met ? 'var(--ok)' : 'var(--text-faint)' }}
                     >
                       {c.met ? '✓' : '○'}
                     </span>
@@ -149,8 +149,8 @@ export default function SettingsScreen({
             ))}
             {readiness.allMet && (
               <button
-                className="btn btn-sm btn-primary"
-                style={{ marginTop: 10 }}
+                className="btn btn-sm btn-primary mt-row"
+                
                 onClick={() => void setPhase(readiness.to as Phase)}
               >
                 Phase {readiness.to}로 전환
@@ -159,7 +159,7 @@ export default function SettingsScreen({
           </>
         )}
 
-        <p className="row-sub" style={{ marginTop: 10 }}>
+        <p className="row-sub mt-row">
           Phase 0에서도 더블 프로그레션 증량을 허용합니다 (v2.4 규칙). 전환은 조건이 충족돼도
           사용자가 직접 결정합니다 — 루틴 문서의 조건에 주관 판단이 섞여 있습니다.
         </p>
@@ -176,8 +176,8 @@ export default function SettingsScreen({
               </div>
               <div className="row-meta">v{bundle.routine.version}</div>
               <button
-                className="btn"
-                style={{ marginLeft: 8 }}
+                className="btn ml-inline"
+                
                 disabled={openSession !== null}
                 onClick={() => onEditRoutine('active')}
               >
@@ -205,12 +205,12 @@ export default function SettingsScreen({
                   </div>
                 </button>
                 {openDayId === day.id && (
-                  <div style={{ padding: '0 0 12px 4px' }}>
+                  <div className="day-exercises">
                     {day.exercises
                       .slice()
                       .sort((a, b) => a.plannedOrder - b.plannedOrder)
                       .map((ex) => (
-                        <div className="row" key={ex.exerciseId} style={{ borderBottom: 'none', padding: '6px 0' }}>
+                        <div className="row row-plain" key={ex.exerciseId}>
                           <div className="row-main">
                             <div className="row-title" style={{ fontSize: 14 }}>
                               {ex.plannedOrder}. {exerciseLabel(bundle.catalog, ex.exerciseId)}{' '}
@@ -272,8 +272,8 @@ export default function SettingsScreen({
           탭이 제스처이므로 여기서 컨텍스트를 연다 (iOS 제약).
         */}
         <button
-          className="btn btn-sm"
-          style={{ marginTop: 8 }}
+          className="btn btn-sm mt-row"
+          
           onClick={() => {
             unlockAudio()
             previewSignals()
@@ -286,8 +286,8 @@ export default function SettingsScreen({
           "템포 소리가 충분히 큰가"를 판단할 수 없다. 스펙은 `phaseTone`이 소유한다.
         */}
         <button
-          className="btn btn-sm"
-          style={{ marginTop: 8 }}
+          className="btn btn-sm mt-row"
+          
           onClick={() => {
             unlockAudio()
             // A그룹 한 사이클의 두 경계음을 그 간격대로 (올림 → 1초 뒤 내림)
@@ -299,7 +299,7 @@ export default function SettingsScreen({
         >
           🔊 템포 경계음 미리 듣기 (올림 → 내림)
         </button>
-        <p className="row-sub" style={{ marginTop: 8 }}>
+        <p className="row-sub mt-row">
           카운트다운 틱 · 종료 차임 · 템포 가이드 소리가 함께 조절됩니다.
           무음 스위치가 켜져 있으면 어떤 크기로도 소리가 나지 않습니다 (음악을 끊지 않기
           위한 맞바꿈 — README 참조).
@@ -310,7 +310,7 @@ export default function SettingsScreen({
           문제의 나머지 절반은 여기서만 풀린다. **기본 꺼짐** — G8의 회귀(음악이 끊긴다)가
           기기·iOS 버전에 따라 재현될 수 있고, 이 창에서는 어느 쪽인지 확인할 수 없다.
         */}
-        <div className="card-label" style={{ marginTop: 16 }}>
+        <div className="card-label mt-group">
           신호음이 음악을 뚫지 못할 때
         </div>
         <div className="segment">
@@ -324,7 +324,7 @@ export default function SettingsScreen({
             </button>
           ))}
         </div>
-        <p className="row-sub" style={{ marginTop: 8 }}>
+        <p className="row-sub mt-row">
           <b>음악 잠깐 줄이기</b>는 신호음이 나는 동안만 다른 앱 소리를 낮춥니다(iOS 16.4+).
           기기에 따라 <b>음악이 잠깐 멈추거나 무음 스위치를 무시</b>할 수 있습니다 —
           그렇게 동작하면 “섞어서 재생”으로 되돌리세요. 소리 크기를 최대로 해도 음악에
@@ -346,7 +346,7 @@ export default function SettingsScreen({
             </button>
           ))}
         </div>
-        <p className="row-sub" style={{ marginTop: 8 }}>
+        <p className="row-sub mt-row">
           세트 행의 ♩ 버튼으로 수축·이완 리듬을 <b>페이즈 경계음</b>과 링으로 안내합니다
           (A그룹 1-{aEccentricSec}초 · B그룹 3-1-1-1 · 코어 2-1-2, 루틴 문서 3장).
           호흡도 함께 표시됩니다 — 원리는 “힘쓸 때 내쉰다” 하나입니다.
@@ -361,7 +361,7 @@ export default function SettingsScreen({
           설정이 문서 범위 안에서만 움직인다. B그룹·코어는 열지 않는다: 그쪽 템포는
           속도가 아니라 감각 점수 체계의 전제이고, 문서에 그 근거까지 적혀 있다.
         */}
-        <div className="card-label" style={{ marginTop: 16 }}>
+        <div className="card-label mt-group">
           A그룹 내리는 속도
         </div>
         <div className="segment">
@@ -375,7 +375,7 @@ export default function SettingsScreen({
             </button>
           ))}
         </div>
-        <p className="row-sub" style={{ marginTop: 8 }}>
+        <p className="row-sub mt-row">
           문서 3장이 규정한 범위(1.5~2초, 기본 2) 안에서만 고를 수 있습니다. 통제를 유지하는
           것이 조건입니다 — 반동이 생기면 느린 쪽이 맞습니다. B그룹·코어는 감각 점수 체계의
           전제라 고정입니다. 레그 컬은 문서의 예외 행(1-1-2)을 따릅니다.
@@ -385,7 +385,7 @@ export default function SettingsScreen({
           카운트인 (2026-08-27). "3초는 자세 잡고 호흡 가다듬기에 짧다"가 실사용 피드백이고,
           기본을 5초로 올렸다 — 준비가 안 된 채 시작하면 첫 반복의 자세가 무너진다.
         */}
-        <div className="card-label" style={{ marginTop: 16 }}>
+        <div className="card-label mt-group">
           시작 전 준비 시간
         </div>
         <div className="segment">
@@ -399,7 +399,7 @@ export default function SettingsScreen({
             </button>
           ))}
         </div>
-        <p className="row-sub" style={{ marginTop: 8 }}>
+        <p className="row-sub mt-row">
           가이드를 연 뒤 첫 반복이 시작되기까지의 카운트다운입니다. 매 초 틱이 울리고,
           그동안 자세를 잡고 호흡을 가다듬습니다.
         </p>
@@ -500,15 +500,14 @@ export default function SettingsScreen({
         <button className="btn" onClick={() => void setOnboardingDone(false)}>
           온보딩 안내 다시 보기
         </button>
-        <div style={{ height: 8 }} />
         {resetStep === 0 && (
-          <button className="btn btn-danger" onClick={() => setResetStep(1)}>
+          <button className="btn btn-danger mt-row" onClick={() => setResetStep(1)}>
             모든 데이터 초기화
           </button>
         )}
         {resetStep === 1 && (
           <>
-            <p className="row-sub" style={{ color: 'var(--danger)' }}>
+            <p className="row-sub mt-row" style={{ color: 'var(--danger)' }}>
               세션 기록 {sessionCount}개와 설정이 모두 삭제됩니다. 되돌릴 수 없습니다.
             </p>
             <div className="btn-row">

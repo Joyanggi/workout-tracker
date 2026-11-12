@@ -125,15 +125,15 @@ export default function AnalyzeScreen({ bundle }: { bundle: RoutineBundle }) {
                   onClick={() => setSelected(k.recordKey)}
                 >
                   {nameOf(k.exerciseId)}
-                  <span style={{ opacity: 0.6, marginLeft: 4 }}>{k.dayId.toUpperCase()}</span>
+                  <span className="ml-inline" style={{ opacity: 0.6 }}>{k.dayId.toUpperCase()}</span>
                   {k.group === 'B' && (
-                    <span style={{ opacity: 0.6, marginLeft: 4 }}>· B</span>
+                    <span className="ml-inline" style={{ opacity: 0.6 }}>· B</span>
                   )}
                 </button>
               ))}
             </div>
 
-            <div className="segment" style={{ marginTop: 10 }}>
+            <div className="segment mt-row">
               {(['topLoad', 'volume', 'e1rm'] as const).map((m) => (
                 <button key={m} aria-pressed={metric === m} onClick={() => setMetric(m)}>
                   {{ topLoad: '무게×횟수', volume: '볼륨', e1rm: 'e1RM' }[m]}
@@ -142,11 +142,11 @@ export default function AnalyzeScreen({ bundle }: { bundle: RoutineBundle }) {
             </div>
 
             {trend.length < 2 ? (
-              <p className="row-sub" style={{ marginTop: 12 }}>
+              <p className="row-sub mt-group">
                 세션이 2개 이상 쌓이면 추이가 그려집니다 (현재 {trend.length}개).
               </p>
             ) : (
-              <div className="chart" style={{ marginTop: 12 }}>
+              <div className="chart mt-group">
                 <ResponsiveContainer width="100%" height={180}>
                   <LineChart data={trend} margin={{ top: 6, right: 10, bottom: 0, left: 0 }}>
                     <CartesianGrid stroke={C.line} vertical={false} />
@@ -187,7 +187,7 @@ export default function AnalyzeScreen({ bundle }: { bundle: RoutineBundle }) {
             )}
 
             {trend.length > 0 && (
-              <p className="row-sub" style={{ marginTop: 8 }}>
+              <p className="row-sub mt-row">
                 {nameOfKey(activeKey!)} · 최근 {trend[trend.length - 1].topWeight}kg ×{' '}
                 {trend[trend.length - 1].maxReps}회
                 {trend.some((p) => p.mode !== 'normal') && ' · 디로드/복귀 세션 포함'}
@@ -227,8 +227,7 @@ export default function AnalyzeScreen({ bundle }: { bundle: RoutineBundle }) {
                   <div className="srow-head">
                     <span className="mbar-name">{nameOfKey(key)}</span>
                     <span
-                      className={`chip${latest <= 1 ? ' chip-warn' : ''}`}
-                      style={{ marginLeft: 'auto' }}
+                      className={`chip ml-auto${latest <= 1 ? ' chip-warn' : ''}`}
                     >
                       {latest.toFixed(1)}
                     </span>
@@ -266,7 +265,7 @@ export default function AnalyzeScreen({ bundle }: { bundle: RoutineBundle }) {
             })}
 
             {sensory.weak.length > 0 && (
-              <div className="warn-box" style={{ marginTop: 12 }}>
+              <div className="warn-box mt-group">
                 <strong>계속 감각이 약한 종목</strong>
                 <br />
                 {sensory.weak
@@ -319,7 +318,7 @@ export default function AnalyzeScreen({ bundle }: { bundle: RoutineBundle }) {
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <p className="row-sub" style={{ marginTop: 8 }}>
+        <p className="row-sub mt-row">
           점선 = 주 {bundle.routine.rules.deloadMinSessionsPerWeek}회 목표. 초록 막대가 달성한 주입니다.
         </p>
       </div>
@@ -340,7 +339,7 @@ export default function AnalyzeScreen({ bundle }: { bundle: RoutineBundle }) {
               <div className="row-meta">{use.count}회</div>
             </div>
           ))}
-          <p className="row-sub" style={{ marginTop: 8 }}>
+          <p className="row-sub mt-row">
             자리가 자주 없는 종목입니다. 순서를 바꾸거나 루틴 구성을 다시 볼 근거가 됩니다.
           </p>
         </div>

@@ -58,7 +58,7 @@ export default function CompensationSheet({
             <p className="row-sub">이 종목에는 등록된 체크리스트가 없습니다. 직접 입력하세요.</p>
           )}
 
-          <div className="card-label" style={{ marginTop: 16 }}>
+          <div className="card-label mt-group">
             직접 입력
           </div>
           <input
@@ -73,13 +73,13 @@ export default function CompensationSheet({
             여기에 적으면 "보상작용 있음"으로 기록되고 다음 증량이 보류됩니다. 통증은 카드의 통증 칸에 적어 주세요.
           </p>
 
-          <p className="row-sub" style={{ marginTop: 12 }}>
+          <p className="row-sub mt-group">
             저장될 값: <strong style={{ color: hasCompensation(preview) ? 'var(--warn)' : 'var(--text-dim)' }}>{preview}</strong>
           </p>
 
           <button
-            className="btn btn-primary"
-            style={{ marginTop: 8 }}
+            className="btn btn-primary mt-row"
+            
             onClick={() => {
               onSave(preview)
               onClose()
@@ -87,8 +87,7 @@ export default function CompensationSheet({
           >
             저장
           </button>
-          <div style={{ height: 8 }} />
-          <div className="btn-row">
+          <div className="btn-row mt-row">
             {/*
               X9 — **지울 것이 있을 때만** 보인다. 이미 '없음'인 상태에서 "없음으로 비우기"는
               아무 일도 하지 않는 버튼이고, 그런 버튼이 있으면 자기 존재를 설명하지 못한다.

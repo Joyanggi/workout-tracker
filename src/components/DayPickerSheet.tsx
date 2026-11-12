@@ -35,17 +35,17 @@ export default function DayPickerSheet({
         <div className="row-title">
           {day.name}
           {day.id === suggestedDayId && (
-            <span className="chip chip-accent" style={{ marginLeft: 6 }}>
+            <span className="chip chip-accent ml-inline">
               제안
             </span>
           )}
           {day.id === pickedDayId && day.id !== suggestedDayId && (
-            <span className="chip" style={{ marginLeft: 6 }}>
+            <span className="chip ml-inline">
               선택
             </span>
           )}
           {day.isBuffer && (
-            <span className="chip chip-warn" style={{ marginLeft: 6 }}>
+            <span className="chip chip-warn ml-inline">
               완충
             </span>
           )}
@@ -68,25 +68,25 @@ export default function DayPickerSheet({
     <SheetFrame label="Day 선택" onClose={onClose}>
       {(dismiss) => (
         <>
-          <div className="card-label">오늘 할 운동</div>
-          <p className="row-sub" style={{ marginTop: -4, marginBottom: 4 }}>
+          <div className="card-label label-flush">오늘 할 운동</div>
+          <p className="row-sub mb-row">
             고르면 홈 카드가 바뀝니다. 시작은 시작 버튼으로.
           </p>
           {routine.days.map(renderDay)}
 
           {routine.fallbackDays.length > 0 && (
             <>
-              <div className="card-label" style={{ marginTop: 20 }}>
+              <div className="card-label label-flush mt-section">
                 하한 모드 · 30분
               </div>
-              <p className="row-sub" style={{ marginTop: -4, marginBottom: 4 }}>
+              <p className="row-sub mb-row">
                 시간이 없거나 컨디션이 나쁜 날. 기록은 정규 Day 라인에 이어서 남습니다.
               </p>
               {routine.fallbackDays.map(renderDay)}
             </>
           )}
 
-          <button className="btn" style={{ marginTop: 16 }} onClick={dismiss}>
+          <button className="btn mt-group" onClick={dismiss}>
             닫기
           </button>
         </>

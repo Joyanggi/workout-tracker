@@ -68,7 +68,7 @@ export default function ImportPanel() {
           <button className="btn btn-sm" onClick={() => void onPick()}>
             백업 파일 선택
           </button>
-          <p className="row-sub" style={{ marginTop: 8 }}>
+          <p className="row-sub mt-row">
             현재 데이터를 <strong>전부 교체</strong>합니다. 병합하지 않습니다.
           </p>
         </>
@@ -101,7 +101,7 @@ export default function ImportPanel() {
           </div>
 
           {!confirming ? (
-            <div className="btn-row" style={{ marginTop: 12 }}>
+            <div className="btn-row mt-group">
               <button className="btn btn-sm" onClick={() => setStaged(null)}>
                 취소
               </button>
@@ -111,7 +111,7 @@ export default function ImportPanel() {
             </div>
           ) : (
             <>
-              <p className="row-sub" style={{ marginTop: 12, color: 'var(--danger)' }}>
+              <p className="row-sub mt-group" style={{ color: 'var(--danger)' }}>
                 현재 기록이 모두 삭제되고 이 파일의 내용으로 대체됩니다. 되돌릴 수 없습니다.
               </p>
               <div className="btn-row">

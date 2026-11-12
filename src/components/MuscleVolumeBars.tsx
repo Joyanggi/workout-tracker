@@ -45,7 +45,7 @@ export default function MuscleVolumeBars({
           </div>
         )
       })}
-      <p className="row-sub" style={{ marginTop: 10 }}>
+      <p className="row-sub mt-row">
         {sessionCount < minSessionsToJudge
           ? `이번 주 ${sessionCount}회 — ${minSessionsToJudge}회부터 빈도 미달을 표시합니다`
           : '노란 뱃지 = 주 2회 노출이 기대되는데 아직 1회 이하'}

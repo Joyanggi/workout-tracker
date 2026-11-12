@@ -134,7 +134,7 @@ export default function FoodLogSheet({
 
           {draft ? (
             <>
-              <div className="card-label" style={{ marginTop: 8 }}>
+              <div className="card-label mt-row">
                 {draft.editingId ? '음식 수정' : '새 음식 등록'}
               </div>
               <input
@@ -147,14 +147,14 @@ export default function FoodLogSheet({
               />
               <input
                 {...NO_AUTOFILL}
-                className="field"
-                style={{ marginTop: 8 }}
+                className="field mt-row"
+                
                 value={draft.qty}
                 onChange={(e) => setDraft({ ...draft, qty: e.target.value })}
                 placeholder="분량 (예: 15cm, 1개)"
                 aria-label="분량"
               />
-              <div className="btn-row" style={{ marginTop: 8 }}>
+              <div className="btn-row mt-row">
                 <input
                   {...NO_AUTOFILL}
                   className="field"
@@ -180,7 +180,7 @@ export default function FoodLogSheet({
                   {problems.join(' · ')}
                 </p>
               )}
-              <div className="btn-row" style={{ marginTop: 8 }}>
+              <div className="btn-row mt-row">
                 <button className="btn" onClick={() => setDraft(null)}>
                   취소
                 </button>
@@ -211,7 +211,7 @@ export default function FoodLogSheet({
                 <p className="row-sub">먹은 시각을 먼저 골라 주세요</p>
               )}
               {draft.editingId && (
-                <div style={{ marginTop: 8 }}>
+                <div className="mt-row">
                   {confirmRemove ? (
                     <>
                       <p className="row-sub" style={{ color: 'var(--danger)' }}>
@@ -259,15 +259,15 @@ export default function FoodLogSheet({
               {last && <p className="row-sub">방금 추가: {last}</p>}
               <input
                 {...NO_AUTOFILL}
-                className="field"
-                style={{ marginTop: 8 }}
+                className="field mt-row"
+                
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="음식 검색"
                 aria-label="음식 검색"
               />
 
-              <div className="check-list" style={{ marginTop: 8, maxHeight: '40vh', overflowY: 'auto' }}>
+              <div className="check-list mt-row" style={{ maxHeight: '40vh', overflowY: 'auto' }}>
                 {shown.map((f) => (
                   <div className="diet-item-group" key={`${f.source}:${foodKey(f.name, f.qty)}`}>
                     <button
@@ -303,7 +303,7 @@ export default function FoodLogSheet({
             </>
           )}
 
-          <button className="btn" style={{ marginTop: 8 }} onClick={dismiss}>
+          <button className="btn mt-row" onClick={dismiss}>
             닫기
           </button>
         </>

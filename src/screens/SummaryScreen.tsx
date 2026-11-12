@@ -139,7 +139,7 @@ export default function SummaryScreen({
           </div>
         </div>
         {bestSet && (
-          <p className="row-sub" style={{ marginTop: 12 }}>
+          <p className="row-sub mt-group">
             최고 세트: {nameOf(bestSet.recordKey)} {bestSet.weight}kg × {bestSet.reps}회 (e1RM{' '}
             {e1rm(bestSet.weight, bestSet.reps).toFixed(1)}kg)
           </p>
@@ -154,7 +154,7 @@ export default function SummaryScreen({
               <div className="row-main">
                 <div className="row-title">
                   {nameOf(pr.recordKey)}
-                  <span className="chip chip-accent" style={{ marginLeft: 6 }}>
+                  <span className="chip chip-accent ml-inline">
                     {PR_LABEL[pr.kind]}
                   </span>
                 </div>
@@ -185,7 +185,7 @@ export default function SummaryScreen({
               </div>
             </div>
           ))}
-          <p className="row-sub" style={{ marginTop: 8 }}>
+          <p className="row-sub mt-row">
             다음 세션 프리필이 자동으로 {reverts.map((r) => `${r.to}kg`).join(' · ')}로 내려갑니다.
           </p>
         </div>
@@ -225,12 +225,12 @@ export default function SummaryScreen({
               <div className="row-title">
                 {entry.performedOrder}. {nameOf(entry.recordKey)}
                 {shift < 0 && (
-                  <span className="chip chip-accent" style={{ marginLeft: 6 }}>
+                  <span className="chip chip-accent ml-inline">
                     {-shift}칸 앞당김
                   </span>
                 )}
                 {shift > 0 && (
-                  <span className="chip" style={{ marginLeft: 6 }}>
+                  <span className="chip ml-inline">
                     {shift}칸 미룸
                   </span>
                 )}
@@ -262,7 +262,7 @@ export default function SummaryScreen({
               </div>
             </div>
           ))}
-          <p className="row-sub" style={{ marginTop: 8 }}>
+          <p className="row-sub mt-row">
             같은 종목이 계속 낮으면 무게·자세·기계를 바꿔볼 신호입니다.
           </p>
         </div>
