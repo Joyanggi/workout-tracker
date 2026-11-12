@@ -465,7 +465,7 @@ QQ1은 `src/db`·`src/store`·기록 해석 규칙을 건드리지 않았다. `s
 | 항목 | 내용 |
 |---|---|
 | 표 밖 변경 1: `button { padding-block: 0 }` | 브라우저 기본 버튼 위아래 1px가 `여백 격자`를 20여 장면에서 깨뜨렸다. 높이는 `min-height: 44px`가 지켜 그대로다. 좌우 기본 6px는 단계 안이라 둔다 |
-| 표 밖 변경 2: `.row-sub { margin: tight 0 group }` | `<p>`의 기본 아래 여백(1em = 13px)이 단계 밖이었다. 보이는 간격을 유지하려고 가까운 12px(`--space-group`)로 명시했다 |
+| 표 밖 변경 2: `.row-sub { margin: tight 0 0 }` + `p.row-sub { margin-bottom: group }` | `<p>`의 기본 아래 여백(1em = 13px)이 단계 밖이라 `<p>`만 12px(`--space-group`)로 명시했다. 처음엔 `.row-sub` 전체에 12px를 줘서 목록 줄 안 `div.row-sub`(원래 아래 0)가 12px 커졌다(리뷰 반려) — `div`는 0으로 되돌렸다. 위 4px는 `--space-tight`. 4c8f8dd `after/history.png`와 견줘 "이 달의 세션" 카드 아래 끝은 위 여백 3px 증가분만큼만 다르고 왼쪽 묶음·`row-meta`는 세로 가운데가 맞는다 |
 | 표 밖 변경 3: `.session-body` 좌우 12 → `--inset-screen` | 세션 화면 좌우만 12px라 `화면 좌우` 비교에 걸렸다. PLAN 표가 "화면 좌우(탭 화면·**세션**·요약·루틴 편집)"라 적은 대로 16으로 맞췄다. `.session-header`도 같은 값 |
 | `session-body` 아래 `96px` | 단계 밖이라 `48px + 48px`로 적고 이유 주석을 달았다(휴식 바 자리 값 그대로) |
 | 정적 검사 위치 | `ui-check.mjs`에 더하지 않고 `scripts/lib/ui-space.mjs`로 뺐다(순수 함수 + 장면 측정). `.css`가 vitest에서 빈 문자열이라(제약 3) vitest 스캔은 그 검사가 `ui-check`에 물려 있는지만 잠근다 |
@@ -506,3 +506,5 @@ QQ1은 `src/db`·`src/store`·기록 해석 규칙을 건드리지 않았다. `s
 ### 실기기·화면 확인 목록
 
 - 375 폭 `home`·`session`·`settings`·`sheet-finish`에서 여백이 눈에 띄게 달라진 곳(카드 안쪽 14→16, 칩 3·9→4·8)과 시트 끝까지 스크롤, 버튼 높이 44px 유지.
+
+리뷰 반영(QQ4 반려 1): `.row-sub` 아래 여백을 요소별로 되돌림(`div` 0 · `p` 12px). `ui-check.mjs after --check` 여백 격자·여백 한 벌·정적 검사 통과, 접근성 실패는 session·sheet-food `label-content-name-mismatch` 기존 2건 그대로. 화면 검증자 확인 대상: history·settings·home 목록 줄(`.row` 안 `div.row-sub`)과 시트 안 `p.row-sub`(sheet-food 등)를 4c8f8dd after와 나란히.

@@ -243,8 +243,12 @@ select {
 .row-sub {
   font-size: 13px;
   color: var(--text-dim);
-  /* <p>의 브라우저 기본 아래 여백(1em=13px)은 단계 밖이라 가까운 12px로 명시 */
-  margin: var(--space-tight) 0 var(--space-group);
+  margin: var(--space-tight) 0 0;
+}
+
+/* <p>의 브라우저 기본 아래 여백(1em=13px)은 단계 밖이라 가까운 12px로 명시. div.row-sub는 0 */
+p.row-sub {
+  margin-bottom: var(--space-group);
 }
 
 .row-meta {
