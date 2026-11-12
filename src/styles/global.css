@@ -530,7 +530,10 @@ select {
   margin: 0 auto;
   max-height: 88dvh;
   overflow-y: auto;
-  background: var(--surface);
+  background: var(--glass-sheet);
+  -webkit-backdrop-filter: var(--glass-sheet-filter);
+  backdrop-filter: var(--glass-sheet-filter);
+  border-top: 1px solid var(--glass-edge);
   border-top-left-radius: var(--r-lg);
   border-top-right-radius: var(--r-lg);
   padding: 8px 16px calc(var(--safe-b) + 20px);

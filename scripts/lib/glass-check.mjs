@@ -103,7 +103,8 @@ export const inPageGlassOn = () => {
       const r = el.getBoundingClientRect()
       const stack = document.elementsFromPoint(r.left + r.width / 2, r.top + r.height / 2)
       const upto = stack.slice(0, stack.indexOf(el))
-      const opaque = upto.filter((x) => g.bg(x).a > 0)
+      // 가운데 점이 입력칸 위면 칸 자체의 면(.astryx-text-input 등)은 의도한 불투명이다 — 시트 안쪽이 면을 칠하는 것이 아니다
+      const opaque = upto.filter((x) => g.bg(x).a > 0 && !x.matches('input, textarea, [class*="astryx-text-input"], [class*="astryx-number-input"]'))
       if (opaque.length > 0) bad.push(`${name} 안쪽이 면을 칠한다: ${opaque.map((x) => x.tagName.toLowerCase() + '.' + x.className.toString().split(' ')[0]).slice(0, 3).join(', ')}`)
     }
   }

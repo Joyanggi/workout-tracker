@@ -22,6 +22,13 @@ html[data-astryx-theme] {
   --glass-edge: var(--color-border);
 }
 
+/* 한 겹: 시트가 떠 있는 동안 아래 띠를 불투명한 면으로 바꿔 흐림이 맨 위 층(시트) 하나만 돌게 한다.
+   명시도 (0,2,0)이라 아래 끄기 규칙·위 Astryx 규칙과 순서에 상관없이 이긴다. */
+:root:has(.sheet-backdrop) {
+  --glass-bar: var(--glass-solid);
+  --glass-bar-filter: none;
+}
+
 /*
  * 유리 끄기. Astryx 규칙보다 뒤에 둔다. 순서를 바꾸면 Astryx 화면에서 유리가 안 꺼진다
  * (`html:root`와 `html[data-astryx-theme]`는 명시도가 같아 뒤에 있는 쪽이 이긴다).

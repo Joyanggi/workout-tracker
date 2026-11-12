@@ -200,3 +200,22 @@
     }
   }
 }
+
+/*
+ * Astryx 시트를 유리로 (v1.18 PP2). 색·흐림은 src/styles/glass.css의 토큰이다.
+ * `@astryxdesign/core@0.7.13`의 `BottomSheetPanel` 구조에 기대고 있다.
+ * 버전을 올리면 scripts/screenshots-glass.mjs --check의 `유리 켜짐`으로 다시 확인한다.
+ */
+@layer astryx-theme {
+  html[data-astryx-theme] .astryx-bottom-sheet {
+    background-color: var(--glass-sheet);
+    -webkit-backdrop-filter: var(--glass-sheet-filter);
+    backdrop-filter: var(--glass-sheet-filter);
+    border-block-start-color: var(--glass-edge);
+  }
+
+  /* 패널 안의 스크롤 영역이 표면색을 다시 칠하는 것을 끈다 (자식은 손잡이 aria-hidden과 스크롤 영역뿐) */
+  html[data-astryx-theme] .astryx-bottom-sheet > :not([aria-hidden='true']) {
+    background-color: transparent;
+  }
+}
