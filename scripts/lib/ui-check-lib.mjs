@@ -61,6 +61,41 @@ export const inPageMotionDurations = () => {
   return { ok: bad.length === 0, detail: bad.length ? bad.join(' · ') : `${n}개 0.01s 이하` }
 }
 
+/** 줄 안 버튼 (QQ6): 보이는 `.row > .btn`마다 폭이 줄 폭의 절반 미만, 높이 44px 이상, 글자 한 줄. 0개면 실패(아무것도 안 쟀다). */
+export const inPageRowButtons = () => {
+  const bad = []
+  let n = 0
+  for (const el of document.querySelectorAll('.row > .btn')) {
+    if (!window.__vis(el)) continue
+    n++
+    const row = el.parentElement.getBoundingClientRect()
+    const b = el.getBoundingClientRect()
+    const range = document.createRange()
+    range.selectNodeContents(el)
+    const lines = new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size
+    const why = []
+    if (b.width >= row.width / 2) why.push(`폭 ${Math.round(b.width)}px ≥ 줄 ${Math.round(row.width)}px의 절반`)
+    if (b.height < 44) why.push(`높이 ${Math.round(b.height)}px < 44`)
+    if (lines > 1) why.push(`글자 ${lines}줄`)
+    if (why.length) bad.push(`${el.textContent.trim()} (${why.join(', ')})`)
+  }
+  if (n === 0) return { ok: false, detail: '보이는 .row > .btn이 0개 — 검사가 아무것도 안 쟀다' }
+  return { ok: bad.length === 0, detail: bad.length ? bad.join(' · ') : `${n}개 통과` }
+}
+
+/** QQ6 정적 검사: global.css에서 .row > .btn이 .btn-sm과 같은 선택자 목록에 있고, 자기 규칙에 width: auto·flex-shrink: 0이 있다. */
+export function rowButtonStaticChecks(allCss) {
+  const text = Object.entries(allCss).filter(([p]) => p.endsWith('global.css')).map(([, t]) => t).join('\n').replace(/\/\*[\s\S]*?\*\//g, '')
+  const rules = [...text.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ sel: m[1].split(',').map((x) => x.trim()), body: m[2] }))
+  const shared = rules.some((r) => r.sel.includes('.btn-sm') && r.sel.includes('.row > .btn'))
+  const own = rules.filter((r) => r.sel.length === 1 && r.sel[0] === '.row > .btn')
+  const ownOk = own.length === 1 && /width:\s*auto/.test(own[0].body) && /flex-shrink:\s*0/.test(own[0].body)
+  return [
+    { name: '줄 안 버튼 선택자', ok: shared, detail: shared ? '.row > .btn이 .btn-sm 규칙에 있다' : '.row > .btn이 .btn-sm과 같은 선택자 목록에 없다' },
+    { name: '줄 안 버튼 폭', ok: ownOk, detail: ownOk ? 'width: auto · flex-shrink: 0' : '.row > .btn 규칙이 없거나 width: auto·flex-shrink: 0이 빠졌다' },
+  ]
+}
+
 /** 여백 격자: 계산된 padding·margin-top/bottom·gap이 0이거나 2px의 배수 */
 export const inPageSpacing = () => {
   const props = ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'marginTop', 'marginBottom', 'rowGap', 'columnGap']

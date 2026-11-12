@@ -952,7 +952,8 @@ select {
   text-align: center;
 }
 
-.btn-sm {
+.btn-sm,
+.row > .btn {
   padding: 8px 12px;
   font-size: 14px;
   /*
@@ -1635,6 +1636,12 @@ button.chip {
 
 .setup-edit .field {
   flex: 1;
+}
+
+/* QQ6 — 카드 줄(.row) 안의 버튼은 작은 버튼이다: 글자 폭만큼, 남는 폭은 .row-main이 쓴다. 누르는 높이 44px는 button 규칙이 지킨다 */
+.row > .btn {
+  width: auto;
+  flex-shrink: 0;
 }
 
 .setup-edit .btn-sm {

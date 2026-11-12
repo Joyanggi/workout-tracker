@@ -183,3 +183,35 @@ describe("QQ5 — 인라인 여백을 클래스로", () => {
     expect([...used].filter((c) => !known.has(c))).toEqual([])
   })
 })
+
+describe("QQ6 — 카드 줄 안의 버튼을 작게", () => {
+  // .css는 vitest에서 빈 문자열이라(제약 3) global.css 규칙은 ui-check 정적 검사(rowButtonStaticChecks)가 읽는다.
+  // 여기서는 그 검사가 규칙 두 개를 다 보고 ui-check에 물려 있는지, 화면 검사가 .row > .btn을 재는지를 잠근다.
+  const LIB = import.meta.glob("/scripts/lib/ui-check-lib.mjs", { query: "?raw", import: "default", eager: true }) as Record<string, string>
+  const code = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+  const lib = () => code(LIB["/scripts/lib/ui-check-lib.mjs"])
+
+  it("정적 검사가 .row > .btn이 .btn-sm과 같은 선택자 목록에 있는지 본다", () => {
+    expect(lib()).toContain("rowButtonStaticChecks")
+    expect(lib()).toMatch(/\.btn-sm/)
+    expect(lib()).toContain("'.row > .btn'")
+  })
+
+  it("정적 검사가 .row > .btn 규칙의 width: auto와 flex-shrink: 0을 본다", () => {
+    expect(lib()).toContain("width:\\s*auto")
+    expect(lib()).toContain("flex-shrink:\\s*0")
+  })
+
+  it("줄 안 버튼 검사가 폭 절반·높이 44·한 줄을 재고, 0개면 실패한다", () => {
+    expect(lib()).toContain("inPageRowButtons")
+    expect(lib()).toMatch(/row\.width \/ 2/)
+    expect(lib()).toMatch(/b\.height < 44/)
+    expect(lib()).toMatch(/n === 0\) return \{ ok: false/)
+  })
+
+  it("ui-check.mjs가 정적 검사와 줄 안 버튼 검사를 부른다", () => {
+    const text = code(SCRIPTS["/scripts/ui-check.mjs"])
+    expect(text).toMatch(/rowButtonStaticChecks\(allCss\)/)
+    expect(text).toMatch(/inPageRowButtons/)
+  })
+})

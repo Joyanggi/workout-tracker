@@ -37,7 +37,7 @@ import {
   staticChecks,
 } from './lib/glass-check.mjs'
 import { inPageLayout, spaceSetVerdicts, spaceStaticChecks } from './lib/ui-space.mjs'
-import { inPageMotionDurations, inPageSpacing, measurePress, motionStaticChecks, pressVerdict } from './lib/ui-check-lib.mjs'
+import { inPageMotionDurations, inPageRowButtons, inPageSpacing, measurePress, motionStaticChecks, pressVerdict, rowButtonStaticChecks } from './lib/ui-check-lib.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const BASE = '/workout-tracker/'
@@ -68,7 +68,7 @@ const settle = (page, ms = 600) => page.waitForTimeout(ms)
 const btn = (page, name) => page.getByRole('button', { name, exact: true })
 
 const ASTRYX_SCENES = new Set(['editor', 'line-sheet'])
-const COLUMNS = ['접근성', '눌림 반응', '움직임 줄이기', '여백 격자', '가로 넘침', '유리']
+const COLUMNS = ['접근성', '눌림 반응', '움직임 줄이기', '여백 격자', '가로 넘침', '줄 안 버튼', '유리']
 const rows = []
 const axeInfo = []
 const flows = [] // [이름, {ok, detail}] — 시트 닫기 흐름 (QQ3)
@@ -153,6 +153,9 @@ async function runChecks(page, scene) {
   cells['여백 격자'] = verdict(await page.evaluate(inPageSpacing))
   layouts[scene] = await page.evaluate(inPageLayout)
   cells['가로 넘침'] = verdict(await page.evaluate(inPageOverflow))
+  // 줄 안 버튼은 .row > .btn이 있는 장면(settings)에서만 잰다. 그 장면에서 0개면 실패
+  const rowBtns = await page.evaluate(() => document.querySelectorAll('.row > .btn').length)
+  cells['줄 안 버튼'] = rowBtns || scene === 'settings' ? verdict(await page.evaluate(inPageRowButtons)) : { status: '건너뜀', detail: '이 장면에 줄 안 버튼이 없다' }
   const hasLayers = await page.evaluate(() => window.__glass.layersOf(true).length > 0)
   cells['유리'] = await glassVerdict(page, scene, hasLayers)
   rows.push({ scene, cells })
@@ -381,13 +384,13 @@ function runStatic() {
   const read = (p) => readFileSync(join(ROOT, p), 'utf8')
   const hasGlass = existsSync(join(ROOT, 'src/styles/glass.css'))
   const allCss = readAllCss()
-  return [...staticChecks({ globalCss: read('src/styles/global.css'), axCss: read('src/ax/ax.css'), glassCss: hasGlass ? read('src/styles/glass.css') : null, allCss }), ...motionStaticChecks(allCss), ...spaceStaticChecks(allCss)]
+  return [...staticChecks({ globalCss: read('src/styles/global.css'), axCss: read('src/ax/ax.css'), glassCss: hasGlass ? read('src/styles/glass.css') : null, allCss }), ...motionStaticChecks(allCss), ...rowButtonStaticChecks(allCss), ...spaceStaticChecks(allCss)]
 }
 
 function printResults() {
   let failed = 0
   if (phase === 'after') {
-    console.log('\n정적 검사 (QQ1·QQ2·QQ4):')
+    console.log('\n정적 검사 (QQ1·QQ2·QQ4·QQ6):')
     for (const c of runStatic()) {
       console.log(`- ${c.ok ? '통과' : '실패'} ${c.name}: ${c.detail}`)
       if (!c.ok) failed++

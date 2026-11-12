@@ -565,3 +565,41 @@ QQ1은 `src/db`·`src/store`·기록 해석 규칙을 건드리지 않았다. `s
 ### 화면 확인 목록
 
 - 전 장면. 특히 `marginLeft` 4·6 → 8로 넓어진 칩·단위 앞 간격, `HistoryScreen` 달력 아래 범례(6 → 12), 설정 루틴 Day 펼침 종목 줄(6 → 4), 세트 카드·분석·홈 `.ml-auto` 줄의 오른쪽 끝 정렬, 긴 종목 이름, 기록 0건, 시트 끝까지 스크롤.
+
+## QQ6. 카드 줄 안의 버튼을 작게
+
+### 범위
+
+| 커밋 | 바뀐 파일 | 비고 |
+|---|---|---|
+| (이 커밋) | `src/styles/global.css`(`.btn-sm` 선택자에 `.row > .btn` + 새 규칙 `width: auto; flex-shrink: 0`) · `scripts/ui-check.mjs`·`scripts/lib/ui-check-lib.mjs`(`줄 안 버튼` 열 + 정적 검사) · `src/lib/v119.test.ts` · 이 기록 | `.tsx` 변경 없음. 테스트 4개 추가(describe `QQ6`) |
+
+`.row > .btn`에 걸리는 버튼(시작 때 PLAN의 `grep` 재실행): `SettingsScreen.tsx:179` 활성 루틴 `편집` · `RoutineListPanel.tsx:51` `이 루틴 쓰기` · `RoutineListPanel.tsx:~60` `삭제`. 이 셋뿐이다(나머지 `.btn`은 `.row` 밖이거나 이미 `.btn-sm`).
+
+### PLAN 검증 항목 ↔ 확인
+
+| PLAN 검증 | 어디서 |
+|---|---|
+| 스캔: `.row > .btn`이 `.btn-sm` 선택자 목록에 있고 `width: auto`·`flex-shrink: 0` | `.css`가 vitest에서 빈 문자열이라(제약 3) `ui-check` 정적 검사 `rowButtonStaticChecks`(`줄 안 버튼 선택자`·`줄 안 버튼 폭`)가 읽는다. `v119.test.ts`는 `QQ6 …` 4개로 그 검사가 두 규칙을 다 보고, 화면 검사가 폭 절반·높이 44·한 줄·0개 실패를 재며, `ui-check.mjs`에 물려 있음을 잠근다 |
+| `줄 안 버튼` 화면 검사(`--check`), `settings`에서 최소 1개 | `inPageRowButtons` — `settings`: `줄 안 버튼 통과` |
+| before(옛 앱)에서 `settings`가 `줄 안 버튼` 실패 | 아래 |
+
+before(QQ6 CSS 전 앱, `--only=settings --check`): `| settings | 통과 | 통과 | 건너뜀 | 통과 | 통과 | 실패 | 통과 |` · `실패 settings · 줄 안 버튼: 편집 (폭 184px ≥ 줄 324px의 절반)`
+
+### 결함 복원
+
+| 되살린 결함(⑯) | 실패한 검사 | 원상복구 |
+|---|---|---|
+| `.row > .btn` 규칙과 `.btn-sm` 선택자의 `.row > .btn` 지움 | `ui-check` 정적 `줄 안 버튼 선택자`·`줄 안 버튼 폭` + `settings`의 `줄 안 버튼`(편집 184px). PLAN은 `v119` 스캔 실패라 적었으나 CSS는 vitest에서 읽히지 않아 같은 스캔이 ui-check 정적 검사로 옮겨 갔다(`v119.test.ts` 쪽은 검사 함수가 있는지만 본다) | `cmp` 같음 |
+
+### 실행 결과
+
+- `npm test`: `Test Files  65 passed (65)` · `Tests  1603 passed (1603)` · `npm run build` 통과 · `quality-scan` 통과
+- `ui-check after --check --only=settings`: 정적 검사 전부 통과, `줄 안 버튼` 통과(편집 폭 글자만큼)
+- `node scripts/argos-upload.mjs after`: `Argos 건너뜀: ARGOS_TOKEN 없음`
+- `git rev-list --count main..HEAD`: 커밋 전 16
+
+### 하지 않은 것 / 화면 확인 목록
+
+- `docs/screenshots/v1.19/before|after/*.png` 변경은 커밋하지 않았다(화면 검증자가 다시 찍는다).
+- 화면 확인: `settings` 375 폭, 세션이 열린 `편집` 비활성, 활성 아닌 루틴의 `이 루틴 쓰기`·`삭제`가 한 줄·줄바꿈 없음, `이 루틴 쓰기` 확인 상태.
