@@ -111,11 +111,25 @@ axe `serious`·`critical`(color-contrast 제외) — `before`에 이미 있는 �
 - `session`: `label-content-name-mismatch` 1건 (`button[aria-label="자리 없음 — 대체운동 고르기"]`)
 - `sheet-food`: `label-content-name-mismatch` 10건 (`button[aria-label="반숙란 3개 추가"]` 등)
 
+유리 칸의 상세(`--check` 출력 `상세:`에 장면마다 찍힌다. `내용은 불투명 건너뜀`은 그 장면에 해당 요소가 없다는 뜻, `탭바 자리`는 홈 장면 4곳에서만, `시트 비침`은 시트 장면에서만):
+
+| 장면 | 유리 켜짐 · 내용은 불투명 · 한 겹 · 글자 대비 · 투명도 줄이기 · 대비 증가 · 탭바 자리/시트 비침 |
+|---|---|
+| home · home-end · home-resume | 통과 · 건너뜀 · 통과 · 통과 · 통과 · 통과 · 탭바 자리 통과 |
+| sheet-home · sheet-finish · sheet-timer · sheet-food · line-sheet | (불투명은 sheet-home만 건너뜀) 나머지 통과 · 시트 비침 통과 |
+| session · session-rest · history · history-detail · analyze · diet · settings · settings-end | 불투명은 history·analyze만 건너뜀, 나머지 전부 통과 (탭바 자리·시트 비침 칸 없음) |
+
 ### 결함 복원
 
 | 되살린 결함 | 실패한 테스트 | 원상복구 |
 |---|---|---|
 | `argos-upload.mjs`에 `--token` 인자 추가 | `v119 QQ0 argos-upload.mjs는 토큰을 명령줄(--token)로 넘기지 않는다` | `cp` 백업에서 되돌리고 `cmp` 같음 |
+
+### 리뷰 반영 (반려 1·2)
+
+- 1) `glassVerdict`가 `screenshots-glass.mjs`와 같은 방식(CDP `Emulation.setEmulatedMedia`)으로 투명도 줄이기·대비 증가·탭바 자리를 더한다. 표 결과는 이전과 같다(전부 통과).
+- 제약: CDP 미디어 흉내를 한 번 걸었다 풀면 `line-sheet`(Astryx)의 글자 대비가 1.6:1로 잘못 잴 수 있다 → 글자 대비는 흉내를 걸기 전에 잰다.
+- 2) `measurePress` 기본 대기를 160ms 고정에서 `--duration-fast`(계산값, 읽지 못하면 175ms) + 20ms로 바꿨다. `home`은 그대로 `변화 없음`으로 실패한다.
 
 ### 실행 결과
 

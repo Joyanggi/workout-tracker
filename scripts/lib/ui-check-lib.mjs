@@ -86,10 +86,19 @@ export const inPageSpacing = () => {
 
 /**
  * 눌림 반응 (Node에서 page로 돈다).
- * 가운데 점에 mouse.move → down → 한 프레임 + holdMs 뒤 스타일 비교 → 요소 밖으로 끌고 나가 up → 원래대로 돌아왔는지.
+ * 가운데 점에 mouse.move → down → holdMs(기본: --duration-fast + 한 프레임) 뒤 스타일 비교 → 요소 밖으로 끌고 나가 up → 원래대로 돌아왔는지.
  * `opts.skipClass`가 있으면 그 클래스를 가진 요소는 센다(건너뛰지 않는다). 돌려주는 것: { changed: [...], same: [...], stuck: [...], transformed: [...] }
  */
-export async function measurePress(page, holdMs = 160) {
+export async function measurePress(page, holdMs) {
+  // 전이가 끝나도록 Astryx --duration-fast(175ms) + 한 프레임(약 16ms) 이상 기다린다. 계산된 값을 읽고, 못 읽으면 175ms
+  if (holdMs === undefined) {
+    const fastMs = await page.evaluate(() => {
+      const v = getComputedStyle(document.documentElement).getPropertyValue('--duration-fast').trim()
+      const n = parseFloat(v)
+      return Number.isFinite(n) ? (v.endsWith('ms') ? n : n * 1000) : 175
+    })
+    holdMs = Math.ceil(fastMs) + 20
+  }
   const targets = await page.evaluate(inPagePressTargets)
   const same = []
   const stuck = []

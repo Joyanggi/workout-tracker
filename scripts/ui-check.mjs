@@ -22,10 +22,12 @@ import { preview } from 'vite'
 import {
   freePort,
   inPageContentOpaque,
+  inPageGlassOff,
   inPageGlassOn,
   inPageOneLayer,
   inPageOverflow,
   inPageSheetShow,
+  inPageTabbarSpot,
   inPageTextContrast,
   installScript,
 } from './lib/glass-check.mjs'
@@ -60,22 +62,45 @@ const shots = []
 
 const verdict = (r) => (r.skip ? { status: '건너뜀', detail: r.detail } : { status: r.ok ? '통과' : '실패', detail: r.detail })
 
-async function glassVerdict(page, hasLayers) {
+const TAB_SCENES = new Set(['home', 'home-end', 'home-resume', 'home-resume-end'])
+const COVER_SCENES = new Set(['home-end', 'home-resume-end'])
+
+/** CDP로 미디어 기능을 흉내 낸다. 다크 고정이라 color-scheme도 같이 넣는다 (screenshots-glass.mjs와 같은 방식) */
+async function emulate(cdp, feature) {
+  const features = [{ name: 'prefers-color-scheme', value: 'dark' }]
+  if (feature) features.push(feature)
+  await cdp.send('Emulation.setEmulatedMedia', { features })
+}
+
+async function glassVerdict(page, scene, hasLayers) {
   if (!hasLayers) return null
-  const parts = [
-    ['유리 켜짐', inPageGlassOn],
-    ['내용은 불투명', inPageContentOpaque],
-    ['한 겹', inPageOneLayer],
-    ['글자 대비', inPageTextContrast],
-  ]
-  const sheetUp = await page.evaluate(() => window.__glass.sheetOf() !== null)
-  if (sheetUp) parts.push(['시트 비침', inPageSheetShow])
-  const bad = []
-  for (const [name, fn] of parts) {
-    const r = await page.evaluate(fn)
-    if (!r.skip && !r.ok) bad.push(`${name}: ${r.detail}`)
+  const parts = [] // [이름, 결과]
+  const run = async (name, fn, arg) => parts.push([name, await page.evaluate(fn, arg)])
+  await run('유리 켜짐', inPageGlassOn)
+  await run('내용은 불투명', inPageContentOpaque)
+  await run('한 겹', inPageOneLayer)
+  await run('글자 대비', inPageTextContrast) // 미디어 흉내를 걸기 전에 잰다
+  const cdp = await page.context().newCDPSession(page)
+  for (const [name, feature, value] of [
+    ['투명도 줄이기', 'prefers-reduced-transparency', 'reduce'],
+    ['대비 증가', 'prefers-contrast', 'more'],
+  ]) {
+    await emulate(cdp, { name: feature, value })
+    await settle(page, 150)
+    const r = await page.evaluate(inPageGlassOff, `${feature}: ${value}`)
+    // 이 Chromium이 흉내를 못 내면 규칙을 잴 수 없다 → 건너뜀
+    parts.push([name, r.matches ? r : { skip: true, detail: `${feature} 흉내가 안 먹는다(matchMedia false)` }])
+    await emulate(cdp, null)
+    await settle(page, 150)
   }
-  return { status: bad.length ? '실패' : '통과', detail: bad.join(' / ') || `${parts.length}개 통과` }
+  await cdp.detach()
+  if (await page.evaluate(() => window.__glass.sheetOf() !== null)) await run('시트 비침', inPageSheetShow)
+  if (TAB_SCENES.has(scene)) await run('탭바 자리', inPageTabbarSpot, COVER_SCENES.has(scene))
+  const bad = parts.filter(([, r]) => !r.skip && !r.ok).map(([n, r]) => `${n}: ${r.detail}`)
+  const skipped = parts.filter(([, r]) => r.skip).map(([n, r]) => `${n} 건너뜀(${r.detail})`)
+  const ran = parts.filter(([, r]) => !r.skip).length
+  const marks = parts.map(([n, r]) => `${n} ${r.skip ? '건너뜀' : r.ok ? '통과' : '실패'}`)
+  return { status: bad.length ? '실패' : '통과', detail: bad.join(' / ') || `${ran}개 통과${skipped.length ? ' · ' + skipped.join(', ') : ''}`, marks }
 }
 
 async function runChecks(page, scene) {
@@ -110,7 +135,7 @@ async function runChecks(page, scene) {
   cells['여백 격자'] = verdict(await page.evaluate(inPageSpacing))
   cells['가로 넘침'] = verdict(await page.evaluate(inPageOverflow))
   const hasLayers = await page.evaluate(() => window.__glass.layersOf(true).length > 0)
-  cells['유리'] = await glassVerdict(page, hasLayers)
+  cells['유리'] = await glassVerdict(page, scene, hasLayers)
   rows.push({ scene, cells })
 }
 
@@ -276,6 +301,7 @@ function printResults() {
     for (const c of COLUMNS) {
       const cell = r.cells[c]
       if (!cell) continue
+      if (c === '유리' && cell.marks) lines.push(`- 유리 ${r.scene}: ${cell.marks.join(' · ')}`)
       if (cell.status === '실패') {
         failed++
         lines.push(`- 실패 ${r.scene} · ${c}: ${cell.detail}`)
