@@ -23,6 +23,8 @@
     "zustand": "^4.5.5"
   },
   "devDependencies": {
+    "@argos-ci/cli": "6.11.0",
+    "@axe-core/playwright": "4.14.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^4.3.4",
