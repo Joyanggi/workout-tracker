@@ -2,25 +2,30 @@
 /**
  * 화면 스크린샷 + 모양·흐름 검사 (PLAN v1.17 OO0).
  *
- * 사용: node scripts/screenshots.mjs <before|after> [--check]
- *   before  바꾸기 전 화면. 다크만 저장한다(라이트는 다크와 바이트로 같은지 보고 버린다)
+ * 사용: node scripts/screenshots.mjs <before|after> [--check] [--ver v1.18] [--webkit]
+ *   before  바꾸기 전 화면. 다크를 저장하고, 라이트는 다크와 다를 때만 저장한다
  *   after   바꾼 뒤 화면. 다크·라이트 둘 다 저장한다
- *   --check 장면마다 모양 검사를 재서 표로 찍고, 하나라도 어기면 종료 코드 1.
+ *   --check 장면마다 모양 검사를 재서 표로 찍고, 깨짐이 하나라도 있으면 종료 코드 1.
  *           after면 이어서 흐름 검사도 돈다(스크린샷 없이 판정만)
+ *   --ver   저장 폴더 docs/screenshots/<ver>/. 없으면 package.json 버전의 앞 두 자리(v1.17)
+ *   --webkit Chromium 대신 WebKit(iOS Safari와 같은 엔진 계열)으로 찍는다. 파일 이름 끝에 -webkit
  *
- * 브라우저: `npx playwright install chromium` (레포에 넣지 않는다, CI는 받지 않는다).
+ * 깨짐(종료 코드 1)은 넘침·잘림·겹침·가림과 iOS 확대를 부르는 입력 글자(16px 미만)만이다.
+ * 크기(탭 영역, 버튼 높이)는 재서 '참고'로만 찍는다. 숫자 기준은 두지 않는다(docs/DESIGN.md 9절).
+ *
+ * 브라우저: `npx playwright install chromium` (WebKit은 `webkit`). 레포에 넣지 않는다, CI는 받지 않는다.
+ * 화면 검증자(agents/SCREEN-CHECKER.md)가 이 스크립트를 쓰고, 바뀐 화면이 장면에 없으면 장면을 더한다.
  * 요소는 글자와 aria-label로만 고른다 → 문구가 같으면 같은 스크립트가 전·후에 모두 돈다.
  */
 import { execSync } from 'node:child_process'
-import { mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync, rmSync, existsSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { chromium, devices } from 'playwright'
+import { chromium, devices, webkit } from 'playwright'
 import { preview } from 'vite'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
-const OUT = join(ROOT, 'docs', 'screenshots', 'v1.17')
 const BASE = '/workout-tracker/'
 const LONG_NAME = '스크린샷용 아주 긴 이름의 인클라인 덤벨 벤치 프레스 변형'
 
@@ -30,6 +35,15 @@ if (phase !== 'before' && phase !== 'after') {
   process.exit(2)
 }
 const CHECK = flags.includes('--check')
+const WEBKIT = flags.includes('--webkit')
+const verAt = flags.indexOf('--ver')
+const VER = verAt >= 0 ? flags[verAt + 1] : 'v' + JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version.split('.').slice(0, 2).join('.')
+if (!/^v\d+\.\d+$/.test(VER ?? '')) {
+  console.error(`--ver는 v1.18 모양이어야 한다: ${VER}`)
+  process.exit(2)
+}
+const OUT = join(ROOT, 'docs', 'screenshots', VER)
+const ENGINE = WEBKIT ? '-webkit' : ''
 
 // ───────────────────────── 기기 ─────────────────────────
 const IPHONE = { ...devices['iPhone 14'] }
@@ -250,6 +264,8 @@ const inPageResetScroll = () => {
 
 // ───────────────────────── 검사 실행 ─────────────────────────
 const CHECK_COLUMNS = ['가로 넘침', '제목 한 줄', '머리 줄', '글자 잘림', '입력 글자', '마지막 줄', '탭 영역', '버튼 높이']
+/** 재서 찍기만 하고 실패로 세지 않는 칸. 크기는 숫자 기준이 아니라 화면 검증자와 실기기에서 판단한다 */
+const INFO_ONLY = new Set(['탭 영역', '버튼 높이'])
 const results = [] // { scene, vp, scheme, cells: {col: {ok, detail}|null} }
 
 async function runChecks(page, scene, vp, scheme, kind) {
@@ -270,20 +286,22 @@ async function runChecks(page, scene, vp, scheme, kind) {
 }
 
 function printResults() {
-  const mark = (c) => (c === null ? '·' : !c.ok ? '✗' : c.warn > 0 ? `주의 ${c.warn}` : '✓')
+  const mark = (c, col) => (c === null ? '·' : !c.ok ? (INFO_ONLY.has(col) ? '참고' : '✗') : c.warn > 0 ? `주의 ${c.warn}` : '✓')
   console.log(`\n| 장면 | 폭 | 모드 | ${CHECK_COLUMNS.join(' | ')} |`)
   console.log(`|---|---|---|${CHECK_COLUMNS.map(() => '---').join('|')}|`)
   for (const r of results) {
-    console.log(`| ${r.scene} | ${r.vp} | ${r.scheme} | ${CHECK_COLUMNS.map((c) => mark(r.cells[c])).join(' | ')} |`)
+    console.log(`| ${r.scene} | ${r.vp} | ${r.scheme} | ${CHECK_COLUMNS.map((c) => mark(r.cells[c], c)).join(' | ')} |`)
   }
   const fails = results.flatMap((r) =>
-    CHECK_COLUMNS.filter((c) => r.cells[c] && !r.cells[c].ok).map((c) => `- ${r.scene} ${r.vp} ${r.scheme} · ${c}: ${r.cells[c].detail}`),
+    CHECK_COLUMNS.filter((c) => !INFO_ONLY.has(c) && r.cells[c] && !r.cells[c].ok).map((c) => `- ${r.scene} ${r.vp} ${r.scheme} · ${c}: ${r.cells[c].detail}`),
   )
   if (fails.length > 0) console.log(`\n실패 상세:\n${fails.join('\n')}`)
   const warns = results.flatMap((r) =>
-    CHECK_COLUMNS.filter((c) => r.cells[c]?.ok && r.cells[c].warn > 0).map((c) => `- ${r.scene} ${r.vp} ${r.scheme} · ${c}: ${r.cells[c].detail}`),
+    CHECK_COLUMNS.filter((c) => r.cells[c] && (INFO_ONLY.has(c) ? !r.cells[c].ok || r.cells[c].warn > 0 : r.cells[c].ok && r.cells[c].warn > 0)).map(
+      (c) => `- ${r.scene} ${r.vp} ${r.scheme} · ${c}: ${r.cells[c].detail}`,
+    ),
   )
-  if (warns.length > 0) console.log(`\n주의 상세(실패 아님, 실기기 확인):\n${warns.join('\n')}`)
+  if (warns.length > 0) console.log(`\n참고 상세(실패 아님. 화면 검증자가 보고 판단하고, 애매하면 실기기 목록으로):\n${warns.join('\n')}`)
   return fails.length
 }
 
@@ -517,7 +535,7 @@ execSync('npm run build', { cwd: ROOT, stdio: 'ignore' })
 const port = await freePort()
 runContext.port = port
 const server = await preview({ root: ROOT, preview: { port, strictPort: true, host: 'localhost' }, logLevel: 'silent' })
-const browser = await chromium.launch()
+const browser = await (WEBKIT ? webkit : chromium).launch()
 let exitCode = 0
 try {
   mkdirSync(OUT, { recursive: true })
@@ -532,26 +550,22 @@ try {
   }
 
   // 저장
-  const file = (s) => join(OUT, `${phase}-${s.name}-${s.scheme}${s.tag}.png`)
+  const file = (s) => join(OUT, `${phase}-${s.name}-${s.scheme}${s.tag}${ENGINE}.png`)
   for (const s of shots.dark) writeFileSync(file(s), s.buf)
   if (phase === 'after') {
     for (const s of shots.light) writeFileSync(file(s), s.buf)
   } else {
-    // before: 다크 고정이라 라이트와 같아야 한다. 같지 않으면 스크립트가 틀린 것이다
+    // before: 라이트가 다크와 바이트로 같으면(다크 고정 화면) 저장하지 않는다
     for (const l of shots.light) {
       const d = shots.dark.find((x) => x.name === l.name && x.tag === l.tag)
-      if (!d || !d.buf.equals(l.buf)) {
-        console.error(`✗ before 라이트가 다크와 다르다: ${l.name}${l.tag}`)
-        writeFileSync(file(l), l.buf) // 눈으로 볼 수 있게 남긴다
-        exitCode = 1
-      }
+      if (!d || !d.buf.equals(l.buf)) writeFileSync(file(l), l.buf)
       else {
         const p = file(l)
         if (existsSync(p)) rmSync(p)
       }
     }
   }
-  console.log(`스크린샷 ${shots.dark.length + (phase === 'after' ? shots.light.length : 0)}장 → docs/screenshots/v1.17/`)
+  console.log(`스크린샷 → docs/screenshots/${VER}/ (${WEBKIT ? 'WebKit' : 'Chromium'})`)
 
   if (CHECK) {
     const failed = printResults()

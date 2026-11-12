@@ -21,9 +21,11 @@
 | 역할 | 에이전트 | 모델 | effort | 작업 트리 |
 |---|---|---|---|---|
 | 구현자 | claude | sonnet | medium | 새 작업 트리 `fix-<이슈 번호>` |
+| 화면 검증자 | claude | sonnet | medium | 구현자의 작업 트리. 화면 변경이 있을 때만 (COORDINATOR.md 3절) |
 | 리뷰어 | claude | opus | medium | 구현자의 작업 트리 (경로로 지정) |
 
 리뷰어 effort를 medium으로 낮춘 것은 diff가 작아서다. 반려 규칙(COORDINATOR.md 3·4절)은 같다.
+화면 검증 spec은 COORDINATOR.md 2절의 것에서 `<PLAN 파일>의 <작업 ID>`를 `이슈 #<번호>`로, 보고서 이름을 `screen-check-fix-<번호>.md`로 바꿔 쓴다.
 
 ## 3. spec
 
