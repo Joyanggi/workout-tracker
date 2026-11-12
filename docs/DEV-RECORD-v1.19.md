@@ -448,3 +448,61 @@ QQ1은 `src/db`·`src/store`·기록 해석 규칙을 건드리지 않았다. `s
 ### 사람 확인 필요
 
 - 실기기 ⑤: 막을 누르거나 `닫기`를 누르면 시트가 내려가며 닫히는지, 닫히는 중 저장 버튼이 안 눌리는지, 키보드가 올라온 채 막을 눌러도 닫히는지(`sheet-food`).
+
+## QQ4. 여백 토큰 한 벌 (CSS)
+
+### 범위
+
+| 커밋 | 바뀐 파일 | 비고 |
+|---|---|---|
+| (이 커밋) | `src/styles/space.css`(새) · `src/styles/index.css` · `src/styles/global.css` · `src/ax/ax.css` · `scripts/ui-check.mjs` · `scripts/lib/ui-space.mjs`(새) · `src/lib/v119.test.ts` · `README.md` · 이 기록 | `.tsx` 무변경. `npm test` 65파일/1595테스트 |
+
+토큰 값(Astryx 단계에서 고름): `tight 4 < row 8 < group 12 ≤ card 12 < section 20` · `inline 8` · `inset-screen 16` · `inset-card 16`.
+`.card`·`.screen`·`.sheet`·`.session-body`·`.session-header`·`.ax-screen`의 좌우, `.screen-title/.screen-sub/.card-label/.card`의 위아래가 토큰을 쓴다. `global.css` 나머지 여백 값 중 단계 밖(1·3·5·9·10·14·18px)은 가까운 단계로 옮겼다(1→2, 3→4, 5→4, 9→8, 10→8, 14→12, 18→16).
+
+### 기록할 판단
+
+| 항목 | 내용 |
+|---|---|
+| 표 밖 변경 1: `button { padding-block: 0 }` | 브라우저 기본 버튼 위아래 1px가 `여백 격자`를 20여 장면에서 깨뜨렸다. 높이는 `min-height: 44px`가 지켜 그대로다. 좌우 기본 6px는 단계 안이라 둔다 |
+| 표 밖 변경 2: `.row-sub { margin: tight 0 group }` | `<p>`의 기본 아래 여백(1em = 13px)이 단계 밖이었다. 보이는 간격을 유지하려고 가까운 12px(`--space-group`)로 명시했다 |
+| 표 밖 변경 3: `.session-body` 좌우 12 → `--inset-screen` | 세션 화면 좌우만 12px라 `화면 좌우` 비교에 걸렸다. PLAN 표가 "화면 좌우(탭 화면·**세션**·요약·루틴 편집)"라 적은 대로 16으로 맞췄다. `.session-header`도 같은 값 |
+| `session-body` 아래 `96px` | 단계 밖이라 `48px + 48px`로 적고 이유 주석을 달았다(휴식 바 자리 값 그대로) |
+| 정적 검사 위치 | `ui-check.mjs`에 더하지 않고 `scripts/lib/ui-space.mjs`로 뺐다(순수 함수 + 장면 측정). `.css`가 vitest에서 빈 문자열이라(제약 3) vitest 스캔은 그 검사가 `ui-check`에 물려 있는지만 잠근다 |
+| `시트 좌우` 측정 | Astryx 시트는 1px 테두리가 있어 `clientLeft`를 빼고 잰다(테두리는 여백이 아니다) |
+
+### PLAN 검증 항목 ↔ 확인
+
+| PLAN 검증 | 어디서 |
+|---|---|
+| `space.css`가 `index.css`에 `layer(legacy)`로 import | 정적 검사 `space.css가 index.css에 layer(legacy)로 import` + vitest `ui-check 정적 검사가 space.css의 layer(legacy) import를 확인한다` |
+| `global.css` 여백 값이 전부 Astryx 단계 | 정적 검사 `global.css 여백 값이 전부 Astryx 단계` (단계 밖 0건) |
+| 틀 좌우가 `var(--inset-` | 정적 검사 `.screen·.ax-screen·.card·.sheet의 좌우 여백이 var(--inset-)` + vitest `…여백 값의 Astryx 단계·--inset- 사용·토큰 순서를 모두 본다` |
+| 토큰 순서 | 정적 검사 `space.css 토큰 여덟 개가 단계 안이고 tight < row < group ≤ card < section` (4<8<12≤12<20) |
+| 전 장면 `여백 격자` 통과 | `ui-check after --check`: 20장면 전부 `여백 격자` 통과 |
+| `여백 한 벌` 화면 좌우 | 8장면 모두 x=16 |
+| `여백 한 벌` 카드 사이 | 6장면 모두 12px (QQ5로 미루지 않아도 됨) |
+| `여백 한 벌` 시트 좌우 | `sheet-finish`·`sheet-home`·`sheet-food`·`line-sheet` 모두 16 |
+
+### 결함 복원
+
+| 되살린 결함 | 실패한 검사 | 원상복구 |
+|---|---|---|
+| ⑭ `.card`의 `padding`을 `14px`로 | 정적 `여백 값이 단계 안`(126행 14px) · 정적 `var(--inset-)`(.card) | `cmp` 같음 |
+| ⑮ `.ax-screen` 좌우를 `20px`로 | 정적 `.ax-screen 좌우가 --inset-screen` · `여백 한 벌 · 화면 좌우`(home 16 · editor 20) | `cmp` 같음 |
+
+### 실행 결과
+
+- `npm test`: `Test Files  65 passed (65)` · `Tests  1595 passed (1595)`
+- `npm run build` 통과 · `node scripts/quality-scan.mjs --ci` → `[quality-scan] 통과`
+- `ui-check after --check`: 정적 검사 전부 통과, `여백 격자`·`가로 넘침`·`유리` 전 장면 통과. 남은 실패는 QQ2 기록의 `접근성` 둘(`session` 1건, `sheet-food` 9건 — `label-content-name-mismatch`, QQ4와 무관)
+- `git rev-list --count main..HEAD`: 11 (이 커밋 포함)
+
+### 하지 않은 것
+
+- `.tsx` 인라인 여백(QQ5).
+- `docs/screenshots/v1.19/before/*.png` 작업 트리 변경(QQ0 이전부터)과 `ui-check`가 덮은 `after/*.png`는 커밋하지 않았다(`after`는 화면 검증자가 다시 찍는다).
+
+### 실기기·화면 확인 목록
+
+- 375 폭 `home`·`session`·`settings`·`sheet-finish`에서 여백이 눈에 띄게 달라진 곳(카드 안쪽 14→16, 칩 3·9→4·8)과 시트 끝까지 스크롤, 버튼 높이 44px 유지.

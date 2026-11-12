@@ -109,3 +109,29 @@ describe("QQ3 — 시트 틀 하나", () => {
     expect(calls).toEqual([1])
   })
 })
+
+describe("QQ4 — 여백 토큰 한 벌", () => {
+  // .css는 vitest에서 빈 문자열이라(제약 3) space.css의 import·값은 ui-check 정적 검사가 읽는다.
+  // 여기서는 그 검사가 빠지지 않고 ui-check에 물려 있는지를 잠근다.
+  const LIB = import.meta.glob("/scripts/lib/ui-space.mjs", { query: "?raw", import: "default", eager: true }) as Record<string, string>
+  const code = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+
+  it("ui-check 정적 검사가 space.css의 layer(legacy) import를 확인한다", () => {
+    const text = code(LIB["/scripts/lib/ui-space.mjs"])
+    expect(text).toContain("space\\.css")
+    expect(text).toContain("layer\\(legacy\\)")
+  })
+
+  it("ui-check 정적 검사가 여백 값의 Astryx 단계·--inset- 사용·토큰 순서를 모두 본다", () => {
+    const text = code(LIB["/scripts/lib/ui-space.mjs"])
+    expect(text).toMatch(/STEPS = new Set\(\[0, 2, 4, 6, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48\]\)/)
+    expect(text).toContain("var\\(--inset-")
+    expect(text).toMatch(/t\['space-tight'\] < t\['space-row'\]/)
+  })
+
+  it("ui-check.mjs가 정적 검사와 여백 한 벌 비교를 부른다", () => {
+    const text = code(SCRIPTS["/scripts/ui-check.mjs"])
+    expect(text).toMatch(/spaceStaticChecks\(allCss\)/)
+    expect(text).toMatch(/spaceSetVerdicts\(layouts\)/)
+  })
+})

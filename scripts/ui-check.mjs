@@ -36,6 +36,7 @@ import {
   installScript,
   staticChecks,
 } from './lib/glass-check.mjs'
+import { inPageLayout, spaceSetVerdicts, spaceStaticChecks } from './lib/ui-space.mjs'
 import { inPageMotionDurations, inPageSpacing, measurePress, motionStaticChecks, pressVerdict } from './lib/ui-check-lib.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -72,6 +73,7 @@ const rows = []
 const axeInfo = []
 const flows = [] // [이름, {ok, detail}] — 시트 닫기 흐름 (QQ3)
 const shots = []
+const layouts = {} // 장면 -> inPageLayout() (QQ4 여백 한 벌)
 
 const verdict = (r) => (r.skip ? { status: '건너뜀', detail: r.detail } : { status: r.ok ? '통과' : '실패', detail: r.detail })
 
@@ -149,6 +151,7 @@ async function runChecks(page, scene) {
   await page.emulateMedia({ reducedMotion: null })
   // 여백 격자·가로 넘침
   cells['여백 격자'] = verdict(await page.evaluate(inPageSpacing))
+  layouts[scene] = await page.evaluate(inPageLayout)
   cells['가로 넘침'] = verdict(await page.evaluate(inPageOverflow))
   const hasLayers = await page.evaluate(() => window.__glass.layersOf(true).length > 0)
   cells['유리'] = await glassVerdict(page, scene, hasLayers)
@@ -378,13 +381,13 @@ function runStatic() {
   const read = (p) => readFileSync(join(ROOT, p), 'utf8')
   const hasGlass = existsSync(join(ROOT, 'src/styles/glass.css'))
   const allCss = readAllCss()
-  return [...staticChecks({ globalCss: read('src/styles/global.css'), axCss: read('src/ax/ax.css'), glassCss: hasGlass ? read('src/styles/glass.css') : null, allCss }), ...motionStaticChecks(allCss)]
+  return [...staticChecks({ globalCss: read('src/styles/global.css'), axCss: read('src/ax/ax.css'), glassCss: hasGlass ? read('src/styles/glass.css') : null, allCss }), ...motionStaticChecks(allCss), ...spaceStaticChecks(allCss)]
 }
 
 function printResults() {
   let failed = 0
   if (phase === 'after') {
-    console.log('\n정적 검사 (QQ1·QQ2):')
+    console.log('\n정적 검사 (QQ1·QQ2·QQ4):')
     for (const c of runStatic()) {
       console.log(`- ${c.ok ? '통과' : '실패'} ${c.name}: ${c.detail}`)
       if (!c.ok) failed++
@@ -406,6 +409,13 @@ function printResults() {
     }
   }
   if (lines.length) console.log(`\n상세:\n${lines.join('\n')}`)
+  if (rows.length) {
+    console.log('\n여백 한 벌 (장면 사이 비교):')
+    for (const c of spaceSetVerdicts(layouts)) {
+      if (!c.ok) failed++
+      console.log(`- ${c.ok ? '통과' : '실패'} 여백 한 벌 · ${c.name}: ${c.detail}`)
+    }
+  }
   for (const [name, r] of flows) {
     if (!r.ok) failed++
     console.log(`- 흐름 ${r.ok ? '통과' : '실패'} ${name}: ${r.detail}`)
