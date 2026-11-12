@@ -270,3 +270,101 @@ QQ1은 `src/db`·`src/store`·기록 해석 규칙을 건드리지 않았다. `s
 
 - 실기기 ①②③⑤⑥⑧(PLAN "실기기 확인") — 폰에서 `compare/` 세 벌과 함께 본다. 특히 ②: 탭바 뒤 글자가 번지는지(목표)·또렷한지(안 그려짐)·안 보이는지.
 - Argos는 QQ0 결과 그대로(`ARGOS_TOKEN` 없음).
+
+---
+
+## QQ2. 움직임 토큰 + 눌림 반응 + 시트 들어오는 움직임 + 동작 줄이기
+
+### 범위
+
+| 파일 | 바뀐 것 |
+|---|---|
+| `src/styles/motion.css` (새) | 토큰 여섯(`--motion-fast` 125ms·`--motion-medium` 300ms·`--ease-enter`·`--ease-leave`·`--press-scale` 0.98·`--press-overlay`), 눌림 기본 규칙 하나, 알약·버튼 무리(크기 + 덮개), 띠 안 무리(안쪽 글자만 옅게), 시트·막 키프레임(`sheet-enter`·`scrim-enter`), `prefers-reduced-motion` 블록 |
+| `src/styles/index.css` | `motion.css`를 `glass.css` 다음에 `layer(legacy)`로 |
+| `src/styles/global.css` | 옛 `fade-in`·`slide-up` 키프레임과 두 `animation:` 줄 삭제(다른 곳에서 안 쓴다) |
+| `src/main.tsx` | `document`에 빈 수동 `touchstart` 처리기 |
+| `scripts/lib/ui-check-lib.mjs` | `motionStaticChecks`(정적 검사 다섯) 추가 · `inPagePressTargets`가 옛 `data-uic` 번호를 먼저 지움 · 눌림 스타일에 `childOpacity` 추가 · 시트 길이 검사는 legacy `.sheet`·`.sheet-backdrop`만 |
+| `scripts/ui-check.mjs` | 정적 검사에 `motionStaticChecks` 이어 붙임 · 시트 길이 검사가 `skip`이면 실패로 세지 않음 |
+| `src/lib/v119.test.ts` | describe `QQ2` 1개(스캔) |
+| `README.md` | "iOS · PWA"에 눌림·움직임 항목 |
+
+테스트 65 파일 / 1586개(QQ1 때 1585 → +1).
+
+### 설계에서 어긋난 곳과 이유
+
+- **띠 안 무리는 기본 규칙의 제외 목록에 넣었다.** PLAN은 "덮어쓰며 `background-image: none`"이라고 했지만, 같은 결과를 제외로 얻으면 `none`이 그 요소 자신의 배경 이미지를 지우는 일이 없다. 제외: `.tabbar button` `.resume-strip` `.rest-dismiss` `.session-minimize` `.back-link`.
+- **띠 안 눌림 검사.** 탭바·재개 스트립은 버튼 자신이 아니라 안쪽 요소의 `opacity`가 바뀐다 → `inPagePressStyle`에 `childOpacity`를 더해 검사가 본다.
+- **QQ0 도구 결함을 고쳤다.** 같은 페이지에서 장면을 이어 재면 앞 장면이 남긴 `data-uic` 번호가 남아 `querySelector`가 엉뚱한 요소를 집었다(전체 실행에서만 `home-end`·`sheet-*`·`settings-end`가 `변화 없음`으로 실패, 단독 실행은 통과). 호출 시작에 옛 번호를 지운다.
+- **Astryx 시트의 움직임 줄이기는 검사 밖.** `line-sheet`에서 `.astryx-bottom-sheet`가 0.2s를 남겼다. Astryx가 자기 `reduced-motion` 규칙 65개로 정하는 부분이라 `ax.css`를 건드리지 않았고, 검사는 legacy `.sheet`·`.sheet-backdrop`만 잰다(PLAN QQ2의 규칙도 legacy 시트뿐). 폰에서 Astryx 시트가 거슬리면 새 작업.
+- **움직임 줄이기에서 `transform: none`.** `--press-scale: 1`만으로는 계산값이 `matrix(1,…)`이라 검사가 크기 변화로 센다 → 블록에서 무리의 `:active` 변형을 `none`으로 둔다.
+
+### 테스트·검사 이름과 PLAN 검증 대응
+
+| PLAN 검증 | 어디서 |
+|---|---|
+| `main.tsx`에 `touchstart`·`passive: true` | `v119.test.ts` `QQ2 — 눌림·움직임` |
+| 기본 규칙 `:where(button, [role=button])` + `.ax-screen`·`astryx-`·`.stepper` 제외 | 정적 검사 두 줄 |
+| `prefers-reduced-motion` 있음 | 정적 검사 |
+| 시트·막 키프레임이 `opacity`를 안 움직임 | 정적 검사(`sheet-enter`·`scrim-enter`) |
+| `will-change` 0건 | 정적 검사(5개 파일) |
+| 전 장면 `눌림 반응`·`움직임 줄이기` | 아래 표 |
+| 기존 테스트 수정 없이 통과 | `timerOwnership`·`useRestTimer`·`polish`·`uiConsistency` 4파일 68개 통과 |
+
+### `after --check` 표 (복사)
+
+```
+- 통과 눌림 기본 규칙: :where(button, [role=button]):active 하나
+- 통과 기본 규칙에 Astryx(.ax-screen·astryx-)·.stepper 제외
+- 통과 motion.css에 prefers-reduced-motion
+- 통과 .sheet·.sheet-backdrop 키프레임이 opacity를 움직이지 않는다: sheet-enter · scrim-enter
+- 통과 src/**/*.css에 will-change 0건: 5개 파일 0건
+
+| 장면 | 접근성 | 눌림 반응 | 움직임 줄이기 | 여백 격자 | 가로 넘침 | 유리 |
+| home | 통과 | 통과 | 건너뜀 | 실패 | 통과 | 통과 |
+| home-end | 통과 | 통과 | 건너뜀 | 실패 | 통과 | 통과 |
+| sheet-home | 통과 | 통과 | 통과 | 실패 | 통과 | 통과 |
+| session | 실패 | 통과 | 건너뜀 | 실패 | 통과 | 통과 |
+| home-resume | 통과 | 통과 | 건너뜀 | 실패 | 통과 | 통과 |
+| session-rest | 통과 | 통과 | 건너뜀 | 실패 | 통과 | 통과 |
+| sheet-finish | 통과 | 통과 | 통과 | 실패 | 통과 | 통과 |
+| sheet-timer | 통과 | 통과 | 통과 | 실패 | 통과 | 통과 |
+| summary | 통과 | 통과 | 건너뜀 | 실패 | 통과 | · |
+| history · history-detail · analyze · diet | 통과 | 통과 | 건너뜀 | 실패 | 통과 | 통과 |
+| sheet-food | 실패 | 통과 | 통과 | 실패 | 통과 | 통과 |
+| settings · settings-end | 통과 | 통과 | 건너뜀 | 실패 | 통과 | 통과 |
+| editor | 통과 | 건너뜀 | 건너뜀 | 통과 | 통과 | · |
+| line-sheet | 통과 | 건너뜀 | 통과 | 통과 | 통과 | 통과 |
+```
+
+남은 실패: `여백 격자`는 QQ4·QQ5 몫. `접근성`의 `session`(`label-content-name-mismatch` 1건)·`sheet-food`(10건)는 QQ2가 만든 것이 아니다(이 작업은 `aria-label`을 건드리지 않았다). 시트 장면에서 막이 다 칠해진 뒤 `유리 켜짐`·`시트 비침` 통과(위 표의 `유리` 칸).
+
+### 결함 복원
+
+| 되살린 결함 | 실패한 검사 | 원상복구 |
+|---|---|---|
+| ⑥ `main.tsx`의 `touchstart` 줄 삭제 | `v119` QQ2 스캔 | `cp` 백업 + `cmp` |
+| ⑦ 눌림 기본 규칙 삭제 | 정적 `눌림 기본 규칙` + `home` `눌림 반응`(`.card.today-card` 변화 없음, 1/9) | 〃 |
+| ⑦-2 기본 규칙에서 Astryx 제외 삭제 | 정적 `Astryx·.stepper 제외` | 〃 |
+| ⑧ `prefers-reduced-motion` 블록 이름 바꿔 끔 | 정적 `prefers-reduced-motion` + `sheet-home` `움직임 줄이기`(`sheet 0.3s` · `닫기` 크기 변화) | 〃 |
+| ⑨ 막 키프레임을 `opacity`로 | 정적 `키프레임이 opacity를 움직이지 않는다` | 〃 |
+| `will-change` 한 줄 추가 | 정적 `will-change 0건` | 〃 |
+
+### 과거 판정 불변
+
+`git diff --stat main..HEAD -- src/db src/store` 출력 비어 있음. QQ2는 `src/lib`에 `v119.test.ts` 한 파일만 고쳤다(기존 파일에 describe 추가).
+
+### 실행 결과
+
+- `npm test`: `Test Files  65 passed (65)` · `Tests  1586 passed (1586)`
+- `npm run build` 통과 · `node scripts/quality-scan.mjs --ci` → `[quality-scan] 통과`
+- `git rev-list --count main..HEAD` → 6 (이 커밋 포함)
+
+### 하지 않은 것
+
+- 비활성 버튼 경계: `sheet-finish`의 비활성 버튼 장면 없음(검사가 `disabled`를 빼므로 따로 못 쟀다) — 장면 없음.
+- 움직임 줄이기로 `session-rest`를 2초 간격 두 번 찍어 채움 폭 비교: 하지 않았다. `.rest-bar` 진행 채움(`global.css`의 `transform 0.25s linear`)은 `motion.css`의 줄이기 블록에 들어 있지 않다(소스로 확인).
+- `--press-shot` 눌림 스크린샷: 화면 검증자 몫.
+
+### 사람 확인 필요
+
+- 실기기 ④⑤⑦: 버튼을 누르면 바로 반응하는지(iOS `:active`와 빈 `touchstart` 처리기), 목록 스크롤 때 눌린 채 남지 않는지, 시트가 아래에서 올라오는지·버벅이지 않는지, 동작 줄이기에서 작아지지 않고 올라오지 않는지.

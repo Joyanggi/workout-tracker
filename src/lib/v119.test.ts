@@ -34,3 +34,13 @@ describe("QQ1 — 유리 재료", () => {
     expect(text).toMatch(/row-title">유리</)
   })
 })
+
+const MAIN = import.meta.glob("/src/main.tsx", { query: "?raw", import: "default", eager: true }) as Record<string, string>
+
+describe("QQ2 — 눌림·움직임", () => {
+  it("main.tsx가 document에 빈 수동 touchstart 처리기를 단다 (iOS :active)", () => {
+    const text = MAIN["/src/main.tsx"]
+    expect(text).toMatch(/document\.addEventListener\('touchstart'/)
+    expect(text).toMatch(/passive: true/)
+  })
+})

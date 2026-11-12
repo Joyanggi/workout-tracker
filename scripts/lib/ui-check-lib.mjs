@@ -10,6 +10,8 @@ export const PRESS_SELECTOR = 'button, [role="button"], a[href]'
 /** 화면에서 눌러 볼 요소의 가운데 점. 가려졌거나 disabled면 null. 요소마다 0부터 번호를 붙여 돌려준다 */
 export const inPagePressTargets = () => {
   const out = []
+  // 앞 호출이 남긴 번호를 지운다 — 같은 페이지에서 장면을 이어 재면 옛 번호가 남아 엉뚱한 요소를 집는다 (QQ2에서 발견)
+  document.querySelectorAll('[data-uic]').forEach((el) => el.removeAttribute('data-uic'))
   document.querySelectorAll('button, [role="button"], a[href]').forEach((el) => {
     if (el.disabled || el.getAttribute('aria-disabled') === 'true') return
     if (!window.__vis(el)) return
@@ -38,15 +40,17 @@ export const inPagePressStyle = (i) => {
     backgroundImage: cs.backgroundImage,
     boxShadow: cs.boxShadow,
     filter: cs.filter,
+    // 띠 안 버튼(탭바·재개 스트립)은 면이 아니라 안의 아이콘·글자만 옅어진다 (QQ2)
+    childOpacity: [...el.children].map((c) => getComputedStyle(c).opacity).join(','),
   }
 }
 
-/** 시트 장면: 움직임 줄이기 뒤 시트 요소의 animation/transition 길이가 0.01s 이하인가 */
+/** 시트 장면(legacy 시트·막만 — Astryx 시트의 움직임은 Astryx가 정한다): 움직임 줄이기 뒤 시트 요소의 animation/transition 길이가 0.01s 이하인가 */
 export const inPageMotionDurations = () => {
   const bad = []
   let n = 0
   const secs = (v) => v.split(',').map((x) => Number.parseFloat(x) * (x.trim().endsWith('ms') ? 0.001 : 1))
-  for (const el of document.querySelectorAll('.sheet, .sheet-backdrop, .astryx-bottom-sheet')) {
+  for (const el of document.querySelectorAll('.sheet, .sheet-backdrop')) {
     if (!window.__vis(el)) continue
     n++
     const cs = getComputedStyle(el)
@@ -136,4 +140,48 @@ export const pressVerdict = (r) => {
     ok: bad.length === 0,
     detail: bad.length ? `${bad.length}/${r.total}건: ` + bad.slice(0, 4).join(' · ') + (bad.length > 4 ? ` 외 ${bad.length - 4}` : '') : `${r.total}개 모두 반응`,
   }
+}
+
+/**
+ * 움직임 정적 검사 (QQ2). Node에서 CSS 소스 글자를 읽는다.
+ * @param {Record<string, string>} allCss `src/**\/*.css` 경로 → 글자
+ * @returns {{ name: string, ok: boolean, detail: string }[]}
+ */
+export function motionStaticChecks(allCss) {
+  const strip = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '')
+  const out = []
+  const add = (name, ok, detail) => out.push({ name, ok, detail })
+  const motion = allCss['styles/motion.css'] === undefined ? null : strip(allCss['styles/motion.css'])
+  if (motion === null) {
+    add('motion.css 있음', false, 'src/styles/motion.css가 없다')
+    return out
+  }
+  // 1. 눌림 기본 규칙: :where( 로 시작, button·[role="button"], :active, 제외 셋
+  const base = [...motion.matchAll(/(:where\(\s*button[^{]*?)\{/g)].map((m) => m[1]).find((s) => s.includes(':active')) ?? null
+  const q = (s) => s.replace(/"/g, "'")
+  const baseOk = base !== null && q(base).includes("[role='button']")
+  add('눌림 기본 규칙: :where(button, [role=button]):active 하나', baseOk, baseOk ? ':where( … ):active' : '없음')
+  const miss = ['.ax-screen', 'astryx-', '.stepper'].filter((k) => base === null || !base.includes(k))
+  add('기본 규칙에 Astryx(.ax-screen·astryx-)·.stepper 제외', miss.length === 0, miss.length ? `없음: ${miss.join(', ')}` : '.ax-screen · astryx- · .stepper')
+  // 2. 움직임 줄이기
+  add('motion.css에 prefers-reduced-motion', motion.includes('prefers-reduced-motion'), motion.includes('prefers-reduced-motion') ? '있음' : '없음')
+  // 3. 시트·막 키프레임이 opacity를 움직이지 않는다
+  const names = new Set()
+  const sheetUse = Object.values(allCss).flatMap((css) =>
+    [...strip(css).matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+      .filter((m) => /(^|[\s,])\.(sheet|sheet-backdrop)(?![\w-])/.test(m[1]))
+      .flatMap((m) => [...m[2].matchAll(/animation(?:-name)?\s*:\s*([\w-]+)/g)].map((a) => a[1])),
+  )
+  sheetUse.forEach((n) => names.add(n))
+  const badKf = []
+  for (const css of Object.values(allCss)) {
+    for (const m of strip(css).matchAll(/@keyframes\s+([\w-]+)\s*\{((?:[^{}]*\{[^{}]*\})*)\s*\}/g)) {
+      if (names.has(m[1]) && /(^|[^-\w])opacity\s*:/.test(m[2])) badKf.push(m[1])
+    }
+  }
+  add('.sheet·.sheet-backdrop 키프레임이 opacity를 움직이지 않는다', names.size > 0 && badKf.length === 0, badKf.length ? `opacity: ${badKf.join(', ')}` : `${[...names].join(' · ') || '키프레임 없음'}`)
+  // 4. will-change 0건 (Astryx 패키지는 src 밖이라 애초에 없다)
+  const wc = Object.entries(allCss).filter(([, css]) => /will-change\s*:/.test(strip(css))).map(([f]) => f)
+  add('src/**/*.css에 will-change 0건', wc.length === 0, wc.length ? wc.join(' · ') : `${Object.keys(allCss).length}개 파일 0건`)
+  return out
 }

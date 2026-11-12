@@ -1,0 +1,120 @@
+/*
+ * 움직임·눌림을 정하는 한 곳 (v1.19 QQ2). 길이·곡선·눌림 크기는 아래 토큰, 눌림 규칙은 아래 둘이다.
+ * 값은 `@astryxdesign/theme-neutral@0.7.13`에서 옮겨 적었다. legacy 화면은 Astryx CSS를 읽지 않아서(헬스장 경로)
+ * 변수를 참조할 수 없다. Astryx 버전을 올리면 이 값을 다시 맞춘다. 값을 옮겨 적는 것은 이 파일 하나뿐이다.
+ * 움직이는 속성은 transform·opacity·background-color뿐이다. will-change는 쓰지 않는다(흐림 기준을 끊는다 — WebKit 289149).
+ */
+:root {
+  /* theme-neutral --duration-fast / --duration-medium */
+  --motion-fast: 125ms;
+  --motion-medium: 300ms;
+  /* core --ease-entrance / --ease-exit */
+  --ease-enter: cubic-bezier(0.24, 1, 0.4, 1);
+  --ease-leave: cubic-bezier(0.3, 0, 0.6, 0.6);
+  /* core Button.tsx 눌림 크기 */
+  --press-scale: 0.98;
+  /* theme-neutral 다크 --color-overlay-pressed (#ffffff1A) */
+  --press-overlay: rgba(255, 255, 255, 0.1);
+}
+
+/*
+ * 눌림 — 기본 규칙 하나 + 덮어쓰는 무리 둘. 클래스 목록으로 버튼을 다 찍지 않는다.
+ * 기본: 모든 legacy 버튼에 면 위 덮개(배경 이미지라 배경색을 갈아 끼우지 않는다). 눌릴 때는 전환 없이 바로, 뗄 때만 돌아온다.
+ * 제외: Astryx 화면·부품(자기 눌림이 있다), 스테퍼 −·+ (JS 누름 클래스 stepper-btn-pressed를 쓴다),
+ *       띠 안 버튼(유리 면에 덧칠하면 면 색이 바뀐다 — 아래 둘째 무리가 글자만 옅게 한다).
+ */
+:where(button, [role='button']):active:not(:disabled):not([aria-disabled='true']):not(
+    :where(
+        .ax-screen *,
+        [class*='astryx-'],
+        [class*='astryx-'] *,
+        .stepper button,
+        .tabbar button,
+        .resume-strip,
+        .rest-dismiss,
+        .session-minimize,
+        .back-link
+      )
+  ) {
+  background-image: linear-gradient(var(--press-overlay), var(--press-overlay));
+}
+
+/* 알약·버튼 (덮어씀): 테두리나 면이 있는 독립된 버튼은 덮개에 더해 작아진다. 뗄 때만 돌아오도록 전환은 눌리지 않은 쪽에 건다 */
+.btn,
+.pill,
+.chip,
+.chip-btn,
+.diet-chip,
+.rest-btn,
+.session-end,
+.segment button {
+  transition: transform var(--motion-fast) var(--ease-leave);
+}
+:is(.btn, .pill, .chip, .chip-btn, .diet-chip, .rest-btn, .session-end, .segment button):active:not(:disabled):not([aria-disabled='true']) {
+  transform: scale(var(--press-scale));
+  transition: none;
+}
+
+/* 띠 안 (덮어씀): 덮개 없이 아이콘·글자만 옅게. 뗄 때만 돌아온다 */
+.tabbar button > *,
+.resume-strip > * {
+  transition: opacity var(--motion-fast) var(--ease-leave);
+}
+.tabbar button:active:not(:disabled) > *,
+.resume-strip:active:not(:disabled) > * {
+  opacity: 0.55;
+  transition: none;
+}
+.session-minimize,
+.back-link {
+  transition: opacity var(--motion-fast) var(--ease-leave);
+}
+.session-minimize:active:not(:disabled),
+.back-link:active:not(:disabled) {
+  opacity: 0.55;
+  transition: none;
+}
+
+/* 시트가 들어오는 움직임: 화면 아래 밖에서 올라온다. 막은 opacity가 아니라 배경색을 투명 → --glass-scrim으로
+   (opacity가 1보다 작은 조상은 시트의 흐림을 끊는다) */
+.sheet {
+  animation: sheet-enter var(--motion-medium) var(--ease-enter);
+}
+.sheet-backdrop {
+  animation: scrim-enter var(--motion-medium) var(--ease-enter);
+}
+@keyframes sheet-enter {
+  from { transform: translateY(100%); }
+}
+@keyframes scrim-enter {
+  from { background-color: transparent; }
+}
+
+/* 움직임 줄이기: 크기 변화와 올라오는 움직임을 끈다. 눌림 덮개·투명도는 남는다(눌렸다는 것은 계속 보인다).
+   휴식 바 진행 채움·타이머 링은 시간이 흐르는 것을 보여 주는 정보라 그대로 둔다. */
+@media (prefers-reduced-motion: reduce) {
+  html:root {
+    --press-scale: 1;
+  }
+  :is(.btn, .pill, .chip, .chip-btn, .diet-chip, .rest-btn, .session-end, .segment button):active:not(:disabled):not([aria-disabled='true']) {
+    transform: none;
+  }
+  .sheet,
+  .sheet-backdrop {
+    animation-duration: 0.01ms;
+  }
+  .btn,
+  .pill,
+  .chip,
+  .chip-btn,
+  .diet-chip,
+  .rest-btn,
+  .session-end,
+  .segment button,
+  .tabbar button > *,
+  .resume-strip > *,
+  .session-minimize,
+  .back-link {
+    transition-duration: 0.01ms;
+  }
+}

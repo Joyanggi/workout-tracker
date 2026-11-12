@@ -521,7 +521,6 @@ select {
   background: var(--glass-scrim);
   display: flex;
   align-items: flex-end;
-  animation: fade-in 0.15s ease-out;
 }
 
 .sheet {
@@ -536,7 +535,6 @@ select {
   border-top-left-radius: var(--r-lg);
   border-top-right-radius: var(--r-lg);
   padding: 8px 16px calc(var(--safe-b) + 20px);
-  animation: slide-up 0.2s ease-out;
 }
 
 .sheet-grip {
@@ -552,13 +550,7 @@ select {
   text-align: left;
 }
 
-@keyframes fade-in {
-  from { opacity: 0; }
-}
-
-@keyframes slide-up {
-  from { transform: translateY(12px); }
-}
+/* 시트·막이 들어오는 움직임은 motion.css */
 
 /* ─── 홈 오늘 카드 ─────────────────────────────────────── */
 

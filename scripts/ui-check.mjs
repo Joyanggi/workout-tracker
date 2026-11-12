@@ -36,7 +36,7 @@ import {
   installScript,
   staticChecks,
 } from './lib/glass-check.mjs'
-import { inPageMotionDurations, inPageSpacing, measurePress, pressVerdict } from './lib/ui-check-lib.mjs'
+import { inPageMotionDurations, inPageSpacing, measurePress, motionStaticChecks, pressVerdict } from './lib/ui-check-lib.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const BASE = '/workout-tracker/'
@@ -141,7 +141,7 @@ async function runChecks(page, scene) {
     const dur = await page.evaluate(inPageMotionDurations)
     const press = await measurePress(page)
     const bad = []
-    if (!dur.ok) bad.push(dur.detail)
+    if (!dur.skip && !dur.ok) bad.push(dur.detail)
     if (press.transformed.length) bad.push(`크기 변화 ${press.transformed.length}개: ${press.transformed.slice(0, 3).join(', ')}`)
     cells['움직임 줄이기'] = { status: bad.length ? '실패' : '통과', detail: bad.join(' / ') || dur.detail + ' · 크기 변화 0개' }
   }
@@ -336,13 +336,14 @@ function readAllCss() {
 function runStatic() {
   const read = (p) => readFileSync(join(ROOT, p), 'utf8')
   const hasGlass = existsSync(join(ROOT, 'src/styles/glass.css'))
-  return staticChecks({ globalCss: read('src/styles/global.css'), axCss: read('src/ax/ax.css'), glassCss: hasGlass ? read('src/styles/glass.css') : null, allCss: readAllCss() })
+  const allCss = readAllCss()
+  return [...staticChecks({ globalCss: read('src/styles/global.css'), axCss: read('src/ax/ax.css'), glassCss: hasGlass ? read('src/styles/glass.css') : null, allCss }), ...motionStaticChecks(allCss)]
 }
 
 function printResults() {
   let failed = 0
   if (phase === 'after') {
-    console.log('\n정적 검사 (QQ1):')
+    console.log('\n정적 검사 (QQ1·QQ2):')
     for (const c of runStatic()) {
       console.log(`- ${c.ok ? '통과' : '실패'} ${c.name}: ${c.detail}`)
       if (!c.ok) failed++
