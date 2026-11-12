@@ -7,7 +7,7 @@
 
 지정받은 역할 파일을 먼저 읽고 따른다.
 설계자 `agents/DESIGNER.md` · 설계 검토자 `agents/PLAN-REVIEWER.md` · 구현자 `agents/IMPLEMENTER.md` ·
-리뷰어 `agents/REVIEWER.md` · 지휘자 `agents/COORDINATOR.md` · 규칙 정비자 `agents/RULES-KEEPER.md` · 품질 관리자 `agents/QUALITY-KEEPER.md` (사람용 지도: `agents/README.md`)
+화면 검증자 `agents/SCREEN-CHECKER.md` · 리뷰어 `agents/REVIEWER.md` · 지휘자 `agents/COORDINATOR.md` · 규칙 정비자 `agents/RULES-KEEPER.md` · 품질 관리자 `agents/QUALITY-KEEPER.md` (사람용 지도: `agents/README.md`)
 
 역할이 없으면 일반 대화다. 코드를 고치기 전에 무엇을 바꿀지 먼저 말한다.
 
@@ -42,7 +42,8 @@
 
 ## 문서
 
-- `README.md` "핵심 설계 결정": 지금 동작의 명세. `docs/DESIGN.md`는 v1.0 당시 설계라 지금과 다를 수 있다.
+- `README.md` "핵심 설계 결정": 지금 동작의 명세. `docs/DESIGN.md`는 v1.0 당시 설계라 지금과 다를 수 있다 (9절 UI 방향만은 지금 기준).
+- `docs/INCIDENTS.md`: 문제 대장. 규칙 메모의 키와 막은 방법. 규칙 정비자만 고친다.
 - 요청: GitHub 이슈(개선·새 기능·구조 변경 양식)나 `docs/FIELD-REPORT-*.md`. 지휘자가 기획을 받으면 이슈로 만든다(`agents/coordinator/INTAKE.md`).
 - `docs/PLAN-*.md`: 설계서. 설계자만 쓴다.
 - `docs/DEV-RECORD-*.md`: 구현 기록. 맨 위에 "이 환경에서 확인된 제약" 목록이 있다. 구현자가 쓴다.

@@ -16,6 +16,8 @@ describe('token-usage: 역할 가리기', () => {
     ['CLAUDE.md와 agents/PLAN-REVIEWER.md를 읽고 검토해', '설계 검토자'],
     ['agents/IMPLEMENTER.md를 읽고 LL2를 구현해', '구현자'],
     ['agents/REVIEWER.md를 읽고 이 브랜치를 리뷰해. 기준: agents/QUALITY-KEEPER.md 2·3절', '리뷰어'],
+    ['agents/SCREEN-CHECKER.md를 읽고 docs/PLAN-v1.18.md의 PP1 화면을 검증해.', '화면 검증자'],
+    ['agents/REVIEWER.md를 읽고 PP1 기준으로 리뷰해.\n화면은 .reports/screen-check-PP1.md의 판정과 스크린샷을 근거로 본다.', '리뷰어'],
     ['agents/QUALITY-KEEPER.md를 읽고 품질 정리해', '품질 관리자'],
     ['agents/RULES-KEEPER.md를 읽고 규칙 정비해', '규칙 정비자'],
     ['오늘 날씨 어때', '기타'],

@@ -28,6 +28,7 @@ export const ROLES = [
   ['DESIGNER', '설계자'],
   ['PLAN-REVIEWER', '설계 검토자'],
   ['IMPLEMENTER', '구현자'],
+  ['SCREEN-CHECKER', '화면 검증자'],
   ['REVIEWER', '리뷰어'],
   ['QUALITY-KEEPER', '품질 관리자'],
   ['RULES-KEEPER', '규칙 정비자'],
