@@ -1,7 +1,7 @@
 # 개발·테스트 내역 (검토용) — v1.18 (PP)
 
 
-> PLAN-v1.18의 구현 기록. PP0부터 쓴다 (PP1·PP2는 해당 작업 때 덧붙인다).
+> PLAN-v1.18의 구현 기록. PP0 → PP1 → PP2 순서로 쓴다. 맨 끝 "배포 영향"·"실기기 확인"이 사람이 볼 것이다.
 
 ## 이 환경에서 확인된 제약 (누적 — v1.17 목록을 이어받는다)
 
@@ -47,6 +47,10 @@
 20. **새로 확인 (PP0 라운드):** vitest의 `.css` 읽기 결과(`?inline`)는 PP1에서 `glass.css`를 만든 뒤 확인한다. PP0은 CSS를 건드리지 않아 아직 모른다.
     → **PP1에서 확인:** `?inline`도 **빈 문자열**이다(`global.css`·`glass.css`·`index.css` 길이 0). 그래서 CSS 규칙 검사는 `screenshots-glass.mjs --check`의 정적 검사만 두고, `v118.test.ts`에는 `.tsx` 스캔만 둔다.
 21. **새로 확인 (PP0 라운드):** Windows에서 Python으로 파일을 읽고 쓰면 CRLF가 된다(제약 17과 같다). 이번에도 스크립트 세 개가 CRLF로 바뀌어 `sed -i 's/\r$//'`로 되돌렸다. 파일 편집은 Edit 도구로 한다.
+
+22. **새로 확인 (PP2 라운드):** 이 환경의 Playwright WebKit(Windows)은 `backdrop-filter`를 **그리지 않는다.** `after-*-webkit.png`에서 탭바·재개 스트립·시트 뒤의 글자가 흐려지지 않고 또렷하게 비친다(`after-home-resume-webkit.png`, `after-sheet-finish-webkit.png`). 계산된 스타일은 값을 갖고 있다. 그래서 WebKit 스크린샷은 "반투명, 흐림 없음"일 때의 모습이지 iOS Safari의 모습이 아니다. 흐림이 실제로 그려지는지는 Chromium 스크린샷과 실기기로만 본다.
+23. **새로 확인 (PP2 라운드):** Astryx 입력칸(`TextInput`·`NumberInput`)의 면을 칠하는 것은 `input`이 아니라 감싸는 `div.astryx-text-input`이고 **알파 1**이다. 루틴 편집 시트의 `내용은 불투명`이 처음부터 통과했고(23·19·21개), PLAN이 예비로 둔 `ax.css`의 입력칸 규칙은 **넣지 않았다.**
+24. **새로 확인 (PP2 라운드):** `screenshots.mjs`의 `--check` 장면 폭 375에서 시트 가운데 점이 입력칸 위에 떨어지면 `유리 켜짐`이 "안쪽이 면을 칠한다: div.astryx-text-input"로 거짓 실패했다. 입력칸 자체의 면은 의도한 불투명이라 `glass-check.mjs`가 `input`·`textarea`·`astryx-text-input`·`astryx-number-input`을 이 검사에서 센다고 하지 않게 고쳤다(스크롤 영역이 면을 칠하는 결함은 그대로 잡힌다 — 결함 복원 ⑤).
 
 ---
 
@@ -205,3 +209,137 @@ PP0은 테스트 묶음을 새로 만들지 않았다(검사 도구 자체가 �
 - 세션 종류 칩(`복귀`·`디로드`) 장면은 찍지 않았다.
 - `after-*-webkit.png`는 PP2 뒤 한 번에 찍는다.
 - 실기기 확인 ①~⑩은 PP2 뒤 기록 커밋에 모은다.
+
+---
+
+## PP2. 바텀시트 + "한 겹" 규칙
+
+### 범위
+
+| 항목 | 내용 |
+|---|---|
+| 고친 파일 | `src/styles/global.css`(`.sheet`: `--glass-sheet`·`--glass-sheet-filter`·`border-top: --glass-edge`), `src/styles/glass.css`(`:root:has(.sheet-backdrop)` 한 겹 규칙, 끄기 규칙 앞), `src/ax/ax.css`(`astryx-theme` 레이어: 패널 유리 + 안쪽 스크롤 영역 투명), `src/lib/v118.test.ts`(describe `PP2`, 테스트 2) |
+| 도구 | `scripts/screenshots.mjs`(시트 장면에 `유리 켜짐`·`내용은 불투명`·`시트 비침`. `glass-check.mjs` 함수를 그대로 부른다, `after`에서만), `scripts/lib/glass-check.mjs`(제약 24) |
+| 스크린샷 | `after-*` 갱신 + `after-*-webkit` + `after-*-w375`, `compare/` 6장(0.86·0.72·0.60 × `sheet-finish`·`sheet-home`), `editor/` 24장(다크·라이트, 375 포함) |
+| 마크업 | 무변경(`.tsx` 0줄). `src/ax/index.tsx` 무변경 |
+| 커밋 | `d7a2c8a` (파일 54개 = 코드·도구 6 + 스크린샷 48) |
+
+값은 PLAN대로다: 시트 알파 0.72(비교는 `compare/`에 남겼을 뿐 고르지 않았다). Astryx 규칙의 `72%`는 PP1이 `glass.css`에 이미 넣었다. PLAN과 다르게 한 곳은 없다. PLAN이 예비로 둔 Astryx 입력칸 규칙과 `72%` → `94%` 규칙은 필요하지 않아 넣지 않았다(제약 23, 아래 "구현 중에 확인한 것").
+
+### PLAN 검증 항목 대응
+
+| PLAN 항목 | 테스트·증거 |
+|---|---|
+| 시트 14개 전부 `className="sheet"` | `v118.test.ts` "sheet-backdrop을 쓰는 시트 파일 14개 전부가 className=\"sheet\"를 가진다" (14개를 센다) |
+| Astryx `Sheet`가 `BottomSheet`에 `className`·`style`·`xstyle`을 안 넘김 | `v118.test.ts` "ax/index.tsx의 Sheet가 BottomSheet에 className·style·xstyle을 넘기지 않는다" |
+| `after --check` 열 장면 통과, 종료 코드 0 | 아래 표. 시트 장면에서 `유리 켜짐`·`한 겹`·`내용은 불투명`·`시트 비침` 0.112·`글자 대비` 통과 |
+| `screenshots.mjs after --check --out editor` 통과 | 모양 검사 여덟 + 흐름 검사 넷 통과, 종료 코드 0. 유리 검사 셋도 통과 |
+| `line-sheet`·`picker-sheet`·`picker-form` 다크·라이트 커밋 | `docs/screenshots/v1.18/editor/` |
+| 경계: 시트 위에 시트 | 흐름 검사 `시트 교체` 통과 |
+| 경계: 키보드가 올라온 시트·시트 안 스크롤 | `picker-form`·`picker-sheet`·`sheet-finish`·`line-sheet-end` 통과 |
+| 경계: 시트를 닫은 직후 아래 띠의 유리가 돌아온다 | 별도 장면으로는 재지 않았다. `sheet-finish`는 `session-rest` 다음 장면이고 `한 겹` 규칙이 `:has(.sheet-backdrop)`라 시트가 사라지면 같은 규칙이 풀린다는 것이 근거다(실기기 ⑦에서 본다) |
+
+`after --check` (원문 `.reports/pp2-after-check.txt`, git 제외) — 종료 코드 0:
+
+| 장면 | 유리 켜짐 | 내용은 불투명 | 한 겹 | 투명도 줄이기 | 대비 증가 | 글자 대비 | 시트 비침 | 탭바 자리 | 가로 넘침 |
+|---|---|---|---|---|---|---|---|---|---|
+| home·home-end | 통과 | 건너뜀 | 통과 | 통과 | 통과 | 통과 | · | 통과 | 통과 |
+| home-resume·home-resume-end | 통과 | 건너뜀 | 통과 | 통과 | 통과 | 통과 | · | 통과 | 통과 |
+| session·session-scrolled·session-rest | 통과 | 통과 | 통과 | 통과 | 통과 | 통과 | · | · | 통과 |
+| sheet-home | 통과 | 건너뜀(입력칸 없음) | 통과 | 통과 | 통과 | 통과 | 통과 | · | 통과 |
+| sheet-finish·sheet-timer | 통과 | 통과 | 통과 | 통과 | 통과 | 통과 | 통과 | · | 통과 |
+
+정적 검사 다섯 전부 통과(`blur(` 0건 · `backdrop-filter` 12건 모두 `var(--glass-…)` · 규칙 어휘 · 끄기 `@media`에 대비 증가 · 두 블록 같음). `시트 비침`은 세 장면 모두 시트 α0.72 · 막 α0.6 → **0.112**. 글자 대비 최소: `sheet-home`·`sheet-finish`·`sheet-timer` 4.75:1.
+
+루틴 편집 시트(`editor`) 유리 검사 — Chromium, 전부 통과:
+
+| 시트 | 폭·모드 | 유리 켜짐 | 내용은 불투명 | 시트 비침(값만 찍는다) |
+|---|---|---|---|---|
+| line-sheet · line-sheet-end · picker-sheet · picker-form | 390 다크 | ✓ | ✓ (23·23·19·21개) | α0.72 · 막 α0.8 → 0.056 |
+| 같은 넷 | 390 라이트 | ✓ | ✓ | α0.72 · 막 α0.5 → 0.140 |
+| line-sheet | 375 다크·라이트 | ✓ | ✓ (23개) | 0.056 · 0.140 |
+
+PLAN 예상대로 Astryx 다크는 5.6%만 비친다(막 0.8 — 범위 제외), 라이트는 14%다. 흐름 검사 `시트 교체`·`바깥 탭`·`편집 → 뒤로 → 고르기`·`긴 검색어` 통과. `탭 영역` 주의(44px 미만 36px 버튼 등)는 v1.17 기록과 같은 참고 항목이다.
+
+빌드 출력(`dist/assets/index-*.css`): `--glass-sheet` 10곳 · `:has(.sheet-backdrop)` 1 · `prefers-reduced-transparency` 1 · `prefers-contrast` 1 · `-webkit-backdrop-filter` 6 · 접두사 없는 `backdrop-filter` 선언 5(그 파일에 두 쓰임이 다 남아 있다. 값이 전부 토큰인지는 `after --check`의 정적 검사 12건이 본다).
+
+### 결함 복원
+
+PLAN 번호 그대로(PP1에서 한 ①③⑥⑦⑧⑩⑪은 PP1 절). 파일은 `cp`로 백업하고 되돌린 뒤 `cmp`가 같음을 확인했다. 끝에 `git status`로 의도 밖 변경이 없음을 봤다.
+
+| # | 되살린 결함 | 실패한 검사·테스트 | 원상복구 |
+|---|---|---|---|
+| ② | `:root:has(.sheet-backdrop)` 선택자를 안 맞게 바꿈(규칙 삭제와 같다) | 시트 3장면 `한 겹` 실패: `sheet+tabbar` 겹침(sheet-home 5점) | `cmp` 같음 |
+| ④ | `.sheet`의 `background`를 `var(--surface)`로 | 시트 3장면 `유리 켜짐`("sheet 배경 알파 1")·`시트 비침` 실패 | 같음 |
+| ⑤ | `ax.css`의 `background-color: transparent;`를 불투명 면으로 | `line-sheet`·`picker-*`의 `유리 켜짐`("안쪽이 면을 칠한다") 실패, 종료 코드 1 | 같음 |
+| ⑨ | `.field`의 `background`를 `transparent`로 | `sheet-finish`의 `내용은 불투명`("textarea.field 비침 1") 실패 | 같음 |
+| ⑫ | `--glass-sheet` 알파 0.86 | 시트 3장면 `시트 비침` 실패(0.056) | 같음 |
+| ⑬ | `@supports not` 블록에서 `--glass-sheet-filter: none` 삭제 | 정적 `끄기 두 블록 선언 같음` 실패 | 같음 |
+| 스캔 ㉠ | `FinishSheet.tsx`의 `className="sheet"`를 `sheet2`로 | `v118` PP2 시트 14개 테스트 실패 | 같음 |
+| 스캔 ㉡ | `ax/index.tsx`의 `BottomSheet`에 `style={{ height: 300 }}` | `v118` PP2 Astryx `Sheet` 테스트 실패 | 같음 |
+
+⑤는 `ax.css`의 `background-color: transparent;` 줄을 전부 바꿔 돌렸다(그 파일에 해당 줄이 이 규칙 하나가 아니었다). 의도한 결함이 잡혔고 되돌린 파일은 백업과 같다. ②는 PLAN의 "규칙 삭제" 대신 선택자를 안 맞게 바꿨다(같은 결과).
+
+### 구현 중에 확인한 것 (사람·리뷰어가 볼 것)
+
+- **눈으로 본 유리:** Chromium `after-sheet-finish.png`에서 시트 아래쪽에 뒤 카드의 주황 버튼이 아주 옅게 번져 보인다. 윗부분은 거의 안 보인다. 비침 11%라 불투명 시트와 큰 차이가 없다 — **"이 값에서 유리는 눈에 거의 안 보인다"**가 정직한 평가다. 사람이 `compare/`를 보고 정한다. 시트 안 글자·입력칸·버튼은 또렷하다.
+- **WebKit 스크린샷은 흐림이 없다**(제약 22). 시트 뒤 글자가 또렷이 보이는 것은 이 WebKit이 `backdrop-filter`를 안 그리기 때문이다. iOS에서는 흐려질 것으로 기대하지만 확인한 것이 아니다 → 실기기 ⑦.
+- **Astryx 시트(라이트):** `editor/after-line-sheet-light.png`에서 위쪽 손잡이 근처 약 70px이 흰색에서 시트 색으로 사라지는 띠로 보인다. 계산된 스타일·`--check`에는 안 잡힌다. 원인은 확인하지 않았다(안쪽 스크롤 영역 위쪽의 그림자일 가능성). 규칙을 더하지 않았다 — 실기기 ⑦에서 거슬리면 새 작업.
+- **움직임:** legacy 막의 `fade-in` 0.15초 동안 시트에 뒤가 안 비치다가 끝나면서 비치는 "툭"은 판단하지 않았다(PLAN대로 실기기 ⑦).
+- 시트가 뜬 화면에서 아래 띠가 불투명이 되는 것(한 겹)은 `sheet-home`·`sheet-finish`의 `한 겹` 통과와 결함 복원 ②로 확인했다.
+
+### 과거 판정 불변 확인
+
+① `git diff --stat main..HEAD -- src` (실행 출력 복사). `.tsx` 0줄, `src/lib/`는 새 테스트 파일뿐이고 `src/db/`·`src/store/`·`src/screens/`·`src/components/`·`src/ax/index.tsx`는 바뀌지 않았다:
+
+```
+ src/ax/ax.css         | 19 +++++++++++
+ src/lib/v118.test.ts  | 41 +++++++++++++++++++++++
+ src/styles/glass.css  | 55 +++++++++++++++++++++++++++++++
+ src/styles/global.css | 91 ++++++++++++++++++++++++++++++++++-----------------
+ src/styles/index.css  |  1 +
+ 5 files changed, 177 insertions(+), 30 deletions(-)
+```
+
+PLAN이 적은 다섯 파일(`glass.css`·`index.css`·`global.css`·`ax.css`·`v118.test.ts`)만 보인다.
+② 골든 테스트(`v113`~`v117`)와 `polish`·`timerOwnership`·`useRestTimer`가 수정 없이 통과한다(아래 `npm test`).
+③ 바뀌는 것은 PLAN "과거 판정 불변" 표가 전부다. 기록·판정·내보내기·백업·설정·localStorage에 새 키도 새 판정도 없다.
+
+### 실행 결과
+
+| 항목 | 결과 |
+|---|---|
+| `npm test` | `Test Files  63 passed (63)` · `Tests  1571 passed (1571)` |
+| `npm run build` | `✓ built in 8.43s` |
+| `node scripts/quality-scan.mjs --ci` | `[quality-scan] 통과` |
+| `git rev-list --count main..HEAD` | 4 (PP0·PP1·PP2·기록·버전) |
+
+### 배포 영향 (PR 본문 맨 위에도 넣는다)
+
+- 탭바가 떠 있는 캡슐이 되고, 탭바·재개 스트립·세션 상단 바·휴식 바·바텀시트가 반투명 유리가 된다. 기록·판정·내보내기·백업은 그대로다.
+- 아이폰은 "투명도 줄이기"를 웹앱에 알려주지 않는다. 유리를 끄려면 "대비 증가"를 켠다.
+- 농도·흐림을 고칠 자리는 `src/styles/glass.css` 한 파일이다. 시트 농도 비교는 `docs/screenshots/v1.18/compare/`(0.86 · 0.72 · 0.60).
+- 세션을 최소화했을 때 탭 화면의 아래 여백이 52px 늘어난다(재개 스트립이 마지막 내용을 덮던 것을 고쳤다).
+- 폰에서 볼 것: 아래 "사람 확인 필요".
+- PR 본문은 `Refs #41`(닫지 않는다 — 끝 기준 1의 세션 화면 Astryx 이전이 남는다).
+- `package.json` 버전 **1.18.0**.
+
+### 사람 확인 필요 (실기기, 홈 화면 앱)
+
+① 탭바 캡슐이 홈 인디케이터 위에 뜨고 좌우·아래로 내용이 비친다. 탭 다섯이 엄지로 잘 눌린다.
+② 홈을 끝까지 내렸을 때, 세션을 최소화해 재개 스트립이 떠 있을 때(다른 탭도 한 번) 마지막 내용이 안 가려진다.
+③ 세션 화면 스크롤 시 카드가 상단 바 뒤로 흐려져 지나가고 Day 이름·경과 시간·세트 수가 읽힌다.
+④ 휴식 바의 남은 시간·진행 채움이 읽히고 끝났을 때 초록이 보인다. 주황 `세트 완료` 버튼이 휴식 바 바로 뒤에 오도록 스크롤했을 때 채움 위 작은 글자가 읽힌다(진행 채움은 `글자 대비`에 안 잡힌다).
+⑤ 세션 화면을 빠르게 스크롤해도 끊기지 않는다.
+⑥ 시트(`종료`·`휴식 타이머`·대체·템포 가이드, 식단의 먹은 것 추가)를 여닫을 때 버벅이지 않는다. 루틴 편집 시트를 손가락으로 끌어내릴 때도 같다.
+⑦ 시트 뒤가 흐리게 비친다(또렷하면 안 된다. **불투명해 보이면** PLAN "되돌리기"의 "시트가 유리로 안 보인다" — 위에 적었듯 이 값에서 눈에 거의 안 보일 수 있다). 시트가 올라온 직후 비침이 "툭" 바뀌지 않는다. 시트 안 숫자·입력칸이 또렷하다. 루틴 편집 시트는 라이트에서 비치고 다크에서는 거의 안 비치는 것이 정상이다. 라이트 Astryx 시트 위쪽의 흰 띠가 거슬리지 않는다. 시트를 닫으면 아래 띠의 유리가 돌아온다.
+⑧ `설정 → 손쉬운 사용 → 디스플레이 및 텍스트 크기 → 대비 증가`를 켜면 유리가 전부 불투명해진다.
+⑨ `투명도 줄이기`는 켜도 안 바뀌는 것이 정상이다.
+⑩ 저전력 모드에서 ⑤⑥을 한 번 더.
+추가: `rest-bar-done`·`resume-rest-done`·세션 종류 칩(`복귀`·`디로드`) 장면은 찍지 못했다(PP1 "하지 않은 것") → 폰에서 한 번씩 본다.
+
+### 하지 않은 것
+
+- 시트를 닫은 직후 아래 띠가 돌아오는 것을 별도 장면으로 재지 않았다(위 표).
+- WebKit에서 흐림이 그려지는지는 이 환경에서 못 본다(제약 22).
+- 범위 제외 항목(막 농도, 시트 띄우기, legacy 시트의 Astryx 이전)은 건드리지 않았다.
