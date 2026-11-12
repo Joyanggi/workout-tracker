@@ -336,7 +336,7 @@ QQ1은 `src/db`·`src/store`·기록 해석 규칙을 건드리지 않았다. `s
 | line-sheet | 통과 | 건너뜀 | 통과 | 통과 | 통과 | 통과 |
 ```
 
-남은 실패: `여백 격자`는 QQ4·QQ5 몫. `접근성`의 `session`(`label-content-name-mismatch` 1건)·`sheet-food`(10건)는 QQ2가 만든 것이 아니다(이 작업은 `aria-label`을 건드리지 않았다). 시트 장면에서 막이 다 칠해진 뒤 `유리 켜짐`·`시트 비침` 통과(위 표의 `유리` 칸).
+남은 실패: `여백 격자`는 QQ4·QQ5 몫. `접근성`의 `session`(`label-content-name-mismatch` 1건)·`sheet-food`(1건, 노드 10개)는 QQ2가 만든 것이 아니다(이 작업은 `aria-label`을 건드리지 않았다). 시트 장면에서 막이 다 칠해진 뒤 `유리 켜짐`·`시트 비침` 통과(위 표의 `유리` 칸).
 
 ### 결함 복원
 
@@ -362,8 +362,19 @@ QQ1은 `src/db`·`src/store`·기록 해석 규칙을 건드리지 않았다. `s
 ### 하지 않은 것
 
 - 비활성 버튼 경계: `sheet-finish`의 비활성 버튼 장면 없음(검사가 `disabled`를 빼므로 따로 못 쟀다) — 장면 없음.
-- 움직임 줄이기로 `session-rest`를 2초 간격 두 번 찍어 채움 폭 비교: 하지 않았다. `.rest-bar` 진행 채움(`global.css`의 `transform 0.25s linear`)은 `motion.css`의 줄이기 블록에 들어 있지 않다(소스로 확인).
 - `--press-shot` 눌림 스크린샷: 화면 검증자 몫.
+
+### 리뷰 반영
+
+- 휴식 바 진행 채움이 움직임 줄이기에서도 움직이는지 쟀다(`reducedMotion: 'reduce'`, `matchMedia` 일치 확인, `session-rest`에서 2초 간격 두 번). `.rest-progress`:
+
+| 시점 | `transform` | 폭 |
+|---|---|---|
+| 첫 번째 | `matrix(0, 0, 0, 1, 0, 0)` | 0px |
+| 2초 뒤 | `matrix(0.0133333, 0, 0, 1, 0, 0)` | 5.2px |
+
+  두 값이 다르다 → 줄이기에서도 채움이 움직인다(PLAN 경계 충족). 스크린샷 `.reports/qq2-rest-reduce-1.png`·`-2.png`, 측정 스크립트 `.reports/qq2-rest-motion.mjs`(`.reports`는 git 무시).
+- `남은 실패`의 `sheet-food` 접근성을 1건(규칙 1개, 노드 10개)으로 맞췄다. `.reports/qq2-after-check.log`의 `sheet-food: serious·critical 1건`, QQ1 절, 화면 검증 보고(1건)와 같다.
 
 ### 사람 확인 필요
 
