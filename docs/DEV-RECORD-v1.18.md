@@ -45,6 +45,7 @@
 18. **새로 확인 (PP0 라운드):** Chromium의 CDP `Emulation.setEmulatedMedia`로 `prefers-reduced-transparency: reduce`와 `prefers-contrast: more`가 **둘 다 먹는다**(흉내 뒤 `matchMedia`가 `true`). 그래서 `투명도 줄이기`·`대비 증가` 검사는 건너뛰지 않고 실제로 잰다. 이 호출은 Playwright가 건 `prefers-color-scheme`을 덮으므로 `features`에 다크를 같이 넣는다.
 19. **새로 확인 (PP0 라운드):** WebKit(Playwright webkit v2388, WebKit 27.2)은 `npx playwright install webkit`으로 받아졌고 Windows에서 `before-*-webkit.png` 열 장이 찍힌다. 흐림이 실제로 그려지는지는 PP1·PP2 뒤 `after-*-webkit.png`에서 본다(지금 앱은 시트가 불투명이라 가릴 것이 없다).
 20. **새로 확인 (PP0 라운드):** vitest의 `.css` 읽기 결과(`?inline`)는 PP1에서 `glass.css`를 만든 뒤 확인한다. PP0은 CSS를 건드리지 않아 아직 모른다.
+    → **PP1에서 확인:** `?inline`도 **빈 문자열**이다(`global.css`·`glass.css`·`index.css` 길이 0). 그래서 CSS 규칙 검사는 `screenshots-glass.mjs --check`의 정적 검사만 두고, `v118.test.ts`에는 `.tsx` 스캔만 둔다.
 21. **새로 확인 (PP0 라운드):** Windows에서 Python으로 파일을 읽고 쓰면 CRLF가 된다(제약 17과 같다). 이번에도 스크립트 세 개가 CRLF로 바뀌어 `sed -i 's/\r$//'`로 되돌렸다. 파일 편집은 Edit 도구로 한다.
 
 ---
@@ -128,3 +129,79 @@ PP0은 테스트 묶음을 새로 만들지 않았다(검사 도구 자체가 �
 
 - 위 "검사를 PLAN 문장에서 구현한 방식"의 첫 둘(`내용은 불투명`의 알파 누적, `글자 대비`의 시트 면 글자만)은 PLAN 문장을 그대로 따르면 `before`에서 PLAN이 예상하지 못한 실패가 나서 한 해석이다. 틀렸으면 알려 달라.
 - `sheet-timer`의 눌린 칩 안 `기본` 라벨(`.row-sub`가 주황 면 위 1.11:1)은 앱의 기존 문제다. 이 PLAN의 범위 밖이라 고치지 않았다.
+
+---
+
+## PP1. 유리 토큰 + 떠 있는 띠 넷
+
+### 범위
+
+| 항목 | 내용 |
+|---|---|
+| 새 파일 | `src/styles/glass.css`(토큰 8 + Astryx 규칙 + 끄기 `@media`·`@supports not`), `src/lib/v118.test.ts`(describe `PP1`, 테스트 1) |
+| 고친 파일 | `src/styles/global.css`(띠 넷이 토큰을 읽음 · 탭바 캡슐 · 알약 · 스트립 캡슐 · 아래 여백 · `.rest-bar-done` 그라디언트), `src/styles/index.css`(`@import './glass.css'`), `README.md`(핵심 설계 결정 항목 + Limitations 한 줄), `scripts/screenshots-glass.mjs`(`--width=<px>` 플래그, 375px 경계 확인용) |
+| 마크업 | 무변경(`.tsx` 0줄) |
+| 스크린샷 | `docs/screenshots/v1.18/after-<장면>.png` 10장 |
+
+### PLAN 검증 항목 대응
+
+| PLAN 항목 | 테스트·증거 |
+|---|---|
+| `.ts(x)`에 `backdrop-filter` 없음 | `v118.test.ts` "앱 코드(테스트 제외)에 backdropFilter·WebkitBackdropFilter·backdrop-filter가 없다" |
+| `?inline` 읽기 | 빈 문자열 → 제약 20 갱신, 정적 검사만 |
+| `--check` 장면 통과 | 아래 표 (원문 `.reports/pp1-after-check.txt`, git 제외) |
+| 빌드 출력 | 아래 |
+| 경계 375px | `after --check --width=375`: `home`·`home-resume`·`session` 전 검사 통과. 탭 다섯 글자 잘림 없음(`탭바 자리` 44px·`가로 넘침` 통과). `after-*-w375.png`는 저장하지 않았다 |
+| 기존 테스트 무수정 | `polish`·`timerOwnership`·`useRestTimer`·골든 수정 없이 통과 |
+
+`after --check` (종료 코드 1 — 정적 검사 `:has(` 없음과 시트 장면 실패는 PP2 몫):
+
+| 장면 | 유리 켜짐 | 내용은 불투명 | 한 겹 | 투명도 줄이기 | 대비 증가 | 글자 대비 | 시트 비침 | 탭바 자리 | 가로 넘침 |
+|---|---|---|---|---|---|---|---|---|---|
+| home | 통과 | 건너뜀 | 통과 | 통과 | 통과 | 통과 | · | 통과 | 통과 |
+| home-end | 통과 | 건너뜀 | 통과 | 통과 | 통과 | 통과 | · | 통과 | 통과 |
+| home-resume | 통과 | 건너뜀 | 통과 | 통과 | 통과 | 통과 | · | 통과 | 통과 |
+| home-resume-end | 통과 | 건너뜀 | 통과 | 통과 | 통과 | 통과 | · | 통과 | 통과 |
+| session | 통과 | 통과 | 통과 | 통과 | 통과 | 통과 | · | · | 통과 |
+| session-scrolled | 통과 | 통과 | 통과 | 통과 | 통과 | 통과 | · | · | 통과 |
+| session-rest | 통과 | 통과 | 통과 | 통과 | 통과 | 통과 | · | · | 통과 |
+| sheet-home·finish·timer | 실패 | (건너뜀·통과) | 통과 | 통과 | 통과 | 통과 | 실패 | · | 통과 |
+
+글자 대비 최소: 탭 화면 4.61:1, 세션 화면 5.11:1(PLAN 계산 4.5 이상). `투명도 줄이기`는 Chromium이 흉내를 받아서(제약 18) 실제로 쟀고 통과했다.
+정적 검사: `blur(` 0건 · `backdrop-filter` 8건 모두 `var(--glass-…)` · 끄기 `@media`에 대비 증가 포함 · 두 블록 같음 → 통과. `glass.css 규칙 어휘`만 `:has(` 없음으로 실패 — PP2의 "한 겹" 규칙이 넣는다.
+
+빌드 출력: `dist/assets/index-*.css`에서 `--glass-bar` 19곳 · `prefers-reduced-transparency` 1 · `prefers-contrast` 1 · `-webkit-backdrop-filter` 5 · 접두사 없는 `backdrop-filter` 5(esbuild가 한쪽을 지우지 않았다).
+
+### 결함 복원 (원문 `.reports/pp1-defects.txt`)
+
+| # | 되살린 결함 | 실패한 검사 | 원상복구 |
+|---|---|---|---|
+| ① | 끄기 `@media`에서 `(prefers-contrast: more)` 삭제 | 정적 `끄기 @media에 대비 증가 포함` | `cmp` 같음 |
+| ③ | `--glass-bar` 알파 0.5 | `home`·`home-end`·`home-resume-end`의 `글자 대비`(2.37~2.95:1) | 같음 |
+| ⑥ | `.resume-strip`의 `bottom`을 옛 식으로 | `home-resume-end`의 `탭바 자리` 겹침(스트립 아래 788 · 탭바 위 780) | 같음 |
+| ⑦ | `TabBar.tsx` `<nav>`에 `style={{ backdropFilter }}` | `v118` PP1 스캔 실패(1 failed) | 같음 |
+| ⑧ | `.rest-bar`에 `backdrop-filter: blur(20px)` 리터럴 | 정적 `blur( 리터럴 0건`·`값이 var(--glass-…)` | 같음 |
+| ⑩ | `.tabbar button`의 `color`를 `--text-faint`로 | `home`의 `글자 대비`(3.81:1 / 3.62:1 — PLAN 예상과 같다) | 같음 |
+| ⑪ | `.app:has(.resume-strip) .screen` 규칙 삭제 | `home-resume-end`의 `탭바 자리` 가림(8px) | 같음 |
+| ⑬ | `@supports not` 블록에서 `--glass-sheet-filter: none` 삭제 | 정적 `끄기 두 블록 선언 같음` | 같음 |
+
+②④⑤⑨⑫는 시트(PP2) 몫이다. 복원은 PLAN 번호 그대로이고, 끝에 `cmp`로 `global.css`·`glass.css`·`TabBar.tsx`가 백업과 같음을 확인했다.
+
+### 과거 판정 불변
+
+`git diff --stat main..HEAD -- src`는 `src/styles/glass.css`·`index.css`·`global.css`·`src/lib/v118.test.ts`만 보인다(`.tsx` 0줄). 골든 테스트 수정 없이 통과.
+
+### 실행 결과
+
+| 항목 | 결과 |
+|---|---|
+| `npm test` | `Test Files  63 passed (63)` · `Tests  1569 passed (1569)` |
+| `npm run build` | 통과 |
+| `node scripts/quality-scan.mjs --ci` | `[quality-scan] 통과` |
+
+### 하지 않은 것
+
+- `rest-bar-done`(타이머를 짧게 돌려 끝난 상태)와 재개 스트립 `resume-rest-done`의 경계 장면은 찍지 않았다 → 실기기 확인으로 넘긴다.
+- 세션 종류 칩(`복귀`·`디로드`) 장면은 찍지 않았다.
+- `after-*-webkit.png`는 PP2 뒤 한 번에 찍는다.
+- 실기기 확인 ①~⑩은 PP2 뒤 기록 커밋에 모은다.

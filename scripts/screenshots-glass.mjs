@@ -40,7 +40,7 @@ const VER = 'v1.18'
 
 const [phase, ...flags] = process.argv.slice(2)
 if (phase !== 'before' && phase !== 'after') {
-  console.error('사용: node scripts/screenshots-glass.mjs <before|after> [--check] [--engine=webkit] [--sheet-alpha=<값>]')
+  console.error('사용: node scripts/screenshots-glass.mjs <before|after> [--check] [--engine=webkit] [--sheet-alpha=<값>] [--width=<px>]')
   process.exit(2)
 }
 const flagValue = (name) => flags.find((f) => f.startsWith(`--${name}=`))?.slice(name.length + 3)
@@ -60,7 +60,8 @@ const OUT_DIR = ALPHA !== undefined ? join(OUT, 'compare') : OUT
 
 const IPHONE = { ...devices['iPhone 14'] }
 delete IPHONE.defaultBrowserType // 엔진은 아래에서 고른다. 터치·모바일·pointer: coarse는 그대로 켜진다
-const DEVICE = { ...IPHONE, viewport: { width: 390, height: 844 } }
+const WIDTH = Number(flagValue('width') ?? 390) // 경계 확인용(375 = iPhone SE). 파일 이름 뒤에 -w<폭>이 붙는다
+const DEVICE = { ...IPHONE, viewport: { width: WIDTH, height: 844 } }
 
 const settle = (page, ms = 600) => page.waitForTimeout(ms)
 const btn = (page, name) => page.getByRole('button', { name, exact: true })
@@ -151,7 +152,7 @@ function printResults(staticRows) {
 }
 
 // ───────────────────────── 장면 ─────────────────────────
-const suffix = ENGINE === 'webkit' ? '-webkit' : ''
+const suffix = (ENGINE === 'webkit' ? '-webkit' : '') + (WIDTH !== 390 ? `-w${WIDTH}` : '')
 const shots = []
 
 async function shoot(page, name) {

@@ -1,0 +1,48 @@
+/*
+ * 유리의 재료를 정하는 한 곳 (v1.18). 화면 쪽 CSS와 Astryx 시트는 이 토큰만 읽는다.
+ * 농도·흐림을 고치려면 여기만 고친다. `.tsx`에는 backdrop-filter를 적지 않는다.
+ * 카드·입력칸·세트 행은 유리로 만들지 않는다(읽어야 하는 내용은 묻히면 안 된다).
+ */
+:root {
+  --glass-bar: rgba(22, 22, 26, 0.78);
+  --glass-bar-filter: saturate(180%) blur(20px);
+  /* 시트 뒤에는 어두운 막(0.6)이 이미 깔려 있어 띠보다 옅게 둔다 (PP2에서 쓴다) */
+  --glass-sheet: rgba(22, 22, 26, 0.72);
+  --glass-sheet-filter: saturate(180%) blur(20px);
+  --glass-edge: rgba(255, 255, 255, 0.14);
+  --glass-pill: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
+  --glass-solid: #16161a;
+}
+
+/* Astryx 화면은 폰의 라이트/다크를 따른다: 색을 Astryx 토큰에서 만든다. */
+html[data-astryx-theme] {
+  --glass-solid: var(--color-background-surface);
+  --glass-sheet: color-mix(in srgb, var(--color-background-surface) 72%, transparent);
+  --glass-edge: var(--color-border);
+}
+
+/*
+ * 유리 끄기. Astryx 규칙보다 뒤에 둔다. 순서를 바꾸면 Astryx 화면에서 유리가 안 꺼진다
+ * (`html:root`와 `html[data-astryx-theme]`는 명시도가 같아 뒤에 있는 쪽이 이긴다).
+ * iOS Safari는 prefers-reduced-transparency를 모른다 → 대비 증가(prefers-contrast)가 둘째 신호다.
+ * 아래 두 블록의 선언은 글자 그대로 같게 둔다(scripts/lib/glass-check.mjs가 본다).
+ */
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  html:root {
+    --glass-bar: var(--glass-solid);
+    --glass-sheet: var(--glass-solid);
+    --glass-bar-filter: none;
+    --glass-sheet-filter: none;
+  }
+}
+
+/* 흐림을 못 그리는 브라우저에서는 반투명만 남으면 글자가 묻히므로 같이 끈다 */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html:root {
+    --glass-bar: var(--glass-solid);
+    --glass-sheet: var(--glass-solid);
+    --glass-bar-filter: none;
+    --glass-sheet-filter: none;
+  }
+}
