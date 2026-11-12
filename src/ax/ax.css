@@ -204,7 +204,7 @@
 /*
  * Astryx 시트를 유리로 (v1.18 PP2). 색·흐림은 src/styles/glass.css의 토큰이다.
  * `@astryxdesign/core@0.7.13`의 `BottomSheetPanel` 구조에 기대고 있다.
- * 버전을 올리면 scripts/screenshots-glass.mjs --check의 `유리 켜짐`으로 다시 확인한다.
+ * 버전을 올리면 `node scripts/screenshots.mjs after --check --ver v1.18 --out editor`(Astryx 시트 장면)로 다시 확인한다.
  */
 @layer astryx-theme {
   html[data-astryx-theme] .astryx-bottom-sheet {

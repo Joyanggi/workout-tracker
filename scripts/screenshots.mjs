@@ -20,12 +20,11 @@
  */
 import { execSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync, rmSync, existsSync } from 'node:fs'
-import { createServer } from 'node:net'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, devices, webkit } from 'playwright'
 import { preview } from 'vite'
-import { inPageContentOpaque, inPageGlassOn, inPageInstall, inPageSheetShow } from './lib/glass-check.mjs'
+import { freePort, inPageContentOpaque, inPageGlassOn, inPageOverflow, inPageSheetShow, installScript } from './lib/glass-check.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const BASE = '/workout-tracker/'
@@ -66,31 +65,7 @@ const VIEWPORTS = [
 const SCENES_375 = new Set(['editor-full', 'line-sheet'])
 
 // ───────────────────────── 서버 ─────────────────────────
-function freePort() {
-  return new Promise((resolve, reject) => {
-    const s = createServer()
-    s.once('error', reject)
-    s.listen(0, () => {
-      const { port } = s.address()
-      s.close(() => resolve(port))
-    })
-  })
-}
-
 // ───────────────────────── 모양 검사 (브라우저 안에서 도는 함수들) ─────────────────────────
-/** 가로 넘침 */
-const inPageOverflow = () => ({
-  ok: document.documentElement.scrollWidth <= innerWidth,
-  detail: `scrollWidth ${document.documentElement.scrollWidth} > ${innerWidth}`,
-})
-
-/** 보이는 요소만 (크기 1px 이하·display none·visibility hidden은 뺀다) */
-const inPageVisibleDef = (el) => {
-  const cs = getComputedStyle(el)
-  const r = el.getBoundingClientRect()
-  return cs.display !== 'none' && cs.visibility !== 'hidden' && r.width > 1 && r.height > 1
-}
-
 /** 제목 한 줄 · 머리 줄 */
 const inPageHeader = () => {
   const leaf = (text) =>
@@ -347,8 +322,8 @@ async function runContext(browser, vp, scheme, store) {
   const only375 = vp.tag === '-375'
   const ctx = await browser.newContext({ ...vp.device, locale: 'ko-KR', colorScheme: scheme, serviceWorkers: 'block' })
   const page = await ctx.newPage()
-  await page.addInitScript(`(${inPageInstall})()`)
-  await page.addInitScript(`window.__vis = ${inPageVisibleDef}; window.__scrollEnd = (sheet) => (${inPageScrollSheetToEndDef})(sheet)`)
+  await page.addInitScript(installScript())
+  await page.addInitScript(`window.__scrollEnd = (sheet) => (${inPageScrollSheetToEndDef})(sheet)`)
   const url = `http://localhost:${runContext.port}${BASE}`
   await page.goto(url)
 

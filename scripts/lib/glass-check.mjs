@@ -6,10 +6,33 @@
  * - `staticChecks`는 Node에서 CSS 소스 글자를 읽어 규칙이 있는지 본다(vitest는 .css를 빈 문자열로 읽는다).
  * - 판정 모양은 모두 `{ ok, detail }`. 하위 항목이 있으면 `{ ok, detail, parts: [{ name, ok, detail }] }`.
  */
+import { createServer } from 'node:net'
 
 /** 유리 층 선택자. 시트는 따로 */
 export const BAR_SELECTOR = '.tabbar, .resume-strip, .session-header, .rest-bar'
 export const SHEET_SELECTOR = '.sheet, .astryx-bottom-sheet'
+
+/** 보이는 요소만 (크기 1px 이하·display none·visibility hidden은 뺀다). 판정은 여기 한 곳. 페이지에는 window.__vis로 깔린다 */
+export const inPageVisibleDef = (el) => {
+  const cs = getComputedStyle(el)
+  const r = el.getBoundingClientRect()
+  return cs.display !== 'none' && cs.visibility !== 'hidden' && r.width > 1 && r.height > 1
+}
+
+/** addInitScript에 넘길 글: window.__vis와 window.__glass를 함께 깐다 */
+export const installScript = () => `window.__vis = ${inPageVisibleDef}; (${inPageInstall})()`
+
+/** 빈 포트 하나 (Node) */
+export function freePort() {
+  return new Promise((resolve, reject) => {
+    const s = createServer()
+    s.once('error', reject)
+    s.listen(0, () => {
+      const { port } = s.address()
+      s.close(() => resolve(port))
+    })
+  })
+}
 
 /** 색 도우미를 페이지에 깐다 (addInitScript 또는 evaluate로 한 번) */
 export const inPageInstall = () => {
@@ -59,11 +82,7 @@ export const inPageInstall = () => {
     const v = cs.backdropFilter && cs.backdropFilter !== '' ? cs.backdropFilter : cs.webkitBackdropFilter
     return v && v !== '' ? v : 'none'
   }
-  const visible = (el) => {
-    const cs = getComputedStyle(el)
-    const r = el.getBoundingClientRect()
-    return cs.display !== 'none' && cs.visibility !== 'hidden' && r.width > 1 && r.height > 1
-  }
+  const visible = (el) => window.__vis(el)
   const fmt = (c) => `rgba(${Math.round(c.r)},${Math.round(c.g)},${Math.round(c.b)},${(+c.a.toFixed(3))})`
   const cssVar = (name) => parse(getComputedStyle(document.documentElement).getPropertyValue(name))
   const sheetOf = () => [...document.querySelectorAll('.sheet, .astryx-bottom-sheet')].find(visible) ?? null

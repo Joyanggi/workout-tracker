@@ -16,7 +16,6 @@
  */
 import { execSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { createServer } from 'node:net'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, devices, webkit } from 'playwright'
@@ -25,7 +24,8 @@ import {
   inPageGlassOff,
   inPageGlassOn,
   inPageContentOpaque,
-  inPageInstall,
+  installScript,
+  freePort,
   inPageOneLayer,
   inPageOverflow,
   inPageSheetShow,
@@ -65,17 +65,6 @@ const DEVICE = { ...IPHONE, viewport: { width: WIDTH, height: 844 } }
 
 const settle = (page, ms = 600) => page.waitForTimeout(ms)
 const btn = (page, name) => page.getByRole('button', { name, exact: true })
-
-function freePort() {
-  return new Promise((resolve, reject) => {
-    const s = createServer()
-    s.once('error', reject)
-    s.listen(0, () => {
-      const { port } = s.address()
-      s.close(() => resolve(port))
-    })
-  })
-}
 
 // ───────────────────────── 검사 ─────────────────────────
 const COLUMNS = ['유리 켜짐', '내용은 불투명', '한 겹', '투명도 줄이기', '대비 증가', '글자 대비', '시트 비침', '탭바 자리', '가로 넘침']
@@ -165,7 +154,7 @@ async function runScenes(browser, port) {
   const ctx = await browser.newContext({ ...DEVICE, locale: 'ko-KR', colorScheme: 'dark', serviceWorkers: 'block' })
   const page = await ctx.newPage()
   const cdp = ENGINE === 'webkit' ? null : await ctx.newCDPSession(page)
-  await page.addInitScript(`(${inPageInstall})()`)
+  await page.addInitScript(installScript())
   await page.goto(`http://localhost:${port}${BASE}`)
   if (ALPHA !== undefined) await page.addStyleTag({ content: `:root { --glass-sheet: rgba(22, 22, 26, ${ALPHA}) }` })
 
