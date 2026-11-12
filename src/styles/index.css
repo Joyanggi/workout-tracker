@@ -5,3 +5,4 @@
  */
 @layer reset, legacy, astryx-base, astryx-theme;
 @import './global.css' layer(legacy);
+@import './glass.css' layer(legacy);

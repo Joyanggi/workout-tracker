@@ -7,6 +7,7 @@
  *   after   바꾼 뒤 화면. 다크·라이트 둘 다 저장한다
  *   --check 장면마다 모양 검사를 재서 표로 찍고, 깨짐이 하나라도 있으면 종료 코드 1.
  *           after면 이어서 흐름 검사도 돈다(스크린샷 없이 판정만)
+ *   --out   저장 폴더를 docs/screenshots/<--ver>/<out>/으로 한 겹 더 판다(예: editor). 없으면 바로 그 폴더
  *   --ver   저장 폴더 docs/screenshots/<ver>/. 없으면 package.json 버전의 앞 두 자리(v1.17)
  *   --webkit Chromium 대신 WebKit(iOS Safari와 같은 엔진 계열)으로 찍는다. 파일 이름 끝에 -webkit
  *
@@ -19,11 +20,11 @@
  */
 import { execSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync, rmSync, existsSync } from 'node:fs'
-import { createServer } from 'node:net'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, devices, webkit } from 'playwright'
 import { preview } from 'vite'
+import { freePort, inPageContentOpaque, inPageGlassOn, inPageOverflow, inPageSheetShow, installScript } from './lib/glass-check.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const BASE = '/workout-tracker/'
@@ -42,7 +43,13 @@ if (!/^v\d+\.\d+$/.test(VER ?? '')) {
   console.error(`--ver는 v1.18 모양이어야 한다: ${VER}`)
   process.exit(2)
 }
-const OUT = join(ROOT, 'docs', 'screenshots', VER)
+const outAt = flags.findIndex((f) => f === '--out' || f.startsWith('--out='))
+const OUT_SUB = outAt < 0 ? '' : flags[outAt].includes('=') ? flags[outAt].split('=')[1] : flags[outAt + 1]
+if (outAt >= 0 && !/^[\w-]+$/.test(OUT_SUB ?? '')) {
+  console.error(`--out은 폴더 이름 하나여야 한다: ${OUT_SUB}`)
+  process.exit(2)
+}
+const OUT = join(ROOT, 'docs', 'screenshots', VER, OUT_SUB)
 const ENGINE = WEBKIT ? '-webkit' : ''
 
 // ───────────────────────── 기기 ─────────────────────────
@@ -58,31 +65,7 @@ const VIEWPORTS = [
 const SCENES_375 = new Set(['editor-full', 'line-sheet'])
 
 // ───────────────────────── 서버 ─────────────────────────
-function freePort() {
-  return new Promise((resolve, reject) => {
-    const s = createServer()
-    s.once('error', reject)
-    s.listen(0, () => {
-      const { port } = s.address()
-      s.close(() => resolve(port))
-    })
-  })
-}
-
 // ───────────────────────── 모양 검사 (브라우저 안에서 도는 함수들) ─────────────────────────
-/** 가로 넘침 */
-const inPageOverflow = () => ({
-  ok: document.documentElement.scrollWidth <= innerWidth,
-  detail: `scrollWidth ${document.documentElement.scrollWidth} > ${innerWidth}`,
-})
-
-/** 보이는 요소만 (크기 1px 이하·display none·visibility hidden은 뺀다) */
-const inPageVisibleDef = (el) => {
-  const cs = getComputedStyle(el)
-  const r = el.getBoundingClientRect()
-  return cs.display !== 'none' && cs.visibility !== 'hidden' && r.width > 1 && r.height > 1
-}
-
 /** 제목 한 줄 · 머리 줄 */
 const inPageHeader = () => {
   const leaf = (text) =>
@@ -264,6 +247,9 @@ const inPageResetScroll = () => {
 
 // ───────────────────────── 검사 실행 ─────────────────────────
 const CHECK_COLUMNS = ['가로 넘침', '제목 한 줄', '머리 줄', '글자 잘림', '입력 글자', '마지막 줄', '탭 영역', '버튼 높이']
+/** 시트 장면에서만 재는 유리 검사(PLAN v1.18 PP2). 함수는 scripts/lib/glass-check.mjs 것을 그대로 쓴다 */
+const GLASS_COLUMNS = ['유리 켜짐', '내용은 불투명', '시트 비침']
+CHECK_COLUMNS.push(...GLASS_COLUMNS)
 /** 재서 찍기만 하고 실패로 세지 않는 칸. 크기는 숫자 기준이 아니라 화면 검증자와 실기기에서 판단한다 */
 const INFO_ONLY = new Set(['탭 영역', '버튼 높이'])
 const results = [] // { scene, vp, scheme, cells: {col: {ok, detail}|null} }
@@ -278,6 +264,13 @@ async function runChecks(page, scene, vp, scheme, kind) {
     cells['글자 잘림'] = await page.evaluate(inPageClip)
     cells['입력 글자'] = await page.evaluate(inPageInputFont)
     if (kind === 'sheet') cells['마지막 줄'] = await page.evaluate(inPageLastRow)
+    if (kind === 'sheet' && phase === 'after') {
+      const [on, opaque, show] = [inPageGlassOn, inPageContentOpaque, inPageSheetShow]
+      for (const [col, fn] of [['유리 켜짐', on], ['내용은 불투명', opaque], ['시트 비침', show]]) {
+        const r = await page.evaluate(fn)
+        cells[col] = r.skip ? { ok: true, warn: 0, skip: true, detail: r.detail } : { ok: r.ok, warn: 0, detail: r.detail, info: r.info }
+      }
+    }
     cells['탭 영역'] = await page.evaluate(inPageTapArea, kind === 'sheet')
     if (phase === 'after') cells['버튼 높이'] = await page.evaluate(inPageButtonHeight)
     await page.evaluate(inPageResetScroll)
@@ -286,7 +279,7 @@ async function runChecks(page, scene, vp, scheme, kind) {
 }
 
 function printResults() {
-  const mark = (c, col) => (c === null ? '·' : !c.ok ? (INFO_ONLY.has(col) ? '참고' : '✗') : c.warn > 0 ? `주의 ${c.warn}` : '✓')
+  const mark = (c, col) => (c === null ? '·' : c.skip ? '건너뜀' : !c.ok ? (INFO_ONLY.has(col) ? '참고' : '✗') : c.warn > 0 ? `주의 ${c.warn}` : '✓')
   console.log(`\n| 장면 | 폭 | 모드 | ${CHECK_COLUMNS.join(' | ')} |`)
   console.log(`|---|---|---|${CHECK_COLUMNS.map(() => '---').join('|')}|`)
   for (const r of results) {
@@ -301,6 +294,8 @@ function printResults() {
       (c) => `- ${r.scene} ${r.vp} ${r.scheme} · ${c}: ${r.cells[c].detail}`,
     ),
   )
+  const glassValues = results.flatMap((r) => GLASS_COLUMNS.filter((c) => r.cells[c]).map((c) => `- ${r.scene} ${r.vp} ${r.scheme} · ${c}: ${r.cells[c].detail}`))
+  if (glassValues.length > 0) console.log(`\n유리 검사 값(시트 비침은 Astryx 시트에서 값만 찍는다):\n${glassValues.join('\n')}`)
   if (warns.length > 0) console.log(`\n참고 상세(실패 아님. 화면 검증자가 보고 판단하고, 애매하면 실기기 목록으로):\n${warns.join('\n')}`)
   return fails.length
 }
@@ -327,7 +322,8 @@ async function runContext(browser, vp, scheme, store) {
   const only375 = vp.tag === '-375'
   const ctx = await browser.newContext({ ...vp.device, locale: 'ko-KR', colorScheme: scheme, serviceWorkers: 'block' })
   const page = await ctx.newPage()
-  await page.addInitScript(`window.__vis = ${inPageVisibleDef}; window.__scrollEnd = (sheet) => (${inPageScrollSheetToEndDef})(sheet)`)
+  await page.addInitScript(installScript())
+  await page.addInitScript(`window.__scrollEnd = (sheet) => (${inPageScrollSheetToEndDef})(sheet)`)
   const url = `http://localhost:${runContext.port}${BASE}`
   await page.goto(url)
 
@@ -565,7 +561,7 @@ try {
       }
     }
   }
-  console.log(`스크린샷 → docs/screenshots/${VER}/ (${WEBKIT ? 'WebKit' : 'Chromium'})`)
+  console.log(`스크린샷 → docs/screenshots/${VER}/${OUT_SUB ? OUT_SUB + '/' : ''} (${WEBKIT ? 'WebKit' : 'Chromium'})`)
 
   if (CHECK) {
     const failed = printResults()
