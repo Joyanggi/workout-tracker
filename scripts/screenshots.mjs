@@ -7,6 +7,7 @@
  *   after   바꾼 뒤 화면. 다크·라이트 둘 다 저장한다
  *   --check 장면마다 모양 검사를 재서 표로 찍고, 깨짐이 하나라도 있으면 종료 코드 1.
  *           after면 이어서 흐름 검사도 돈다(스크린샷 없이 판정만)
+ *   --out   저장 폴더를 docs/screenshots/<--ver>/<out>/으로 한 겹 더 판다(예: editor). 없으면 바로 그 폴더
  *   --ver   저장 폴더 docs/screenshots/<ver>/. 없으면 package.json 버전의 앞 두 자리(v1.17)
  *   --webkit Chromium 대신 WebKit(iOS Safari와 같은 엔진 계열)으로 찍는다. 파일 이름 끝에 -webkit
  *
@@ -42,7 +43,13 @@ if (!/^v\d+\.\d+$/.test(VER ?? '')) {
   console.error(`--ver는 v1.18 모양이어야 한다: ${VER}`)
   process.exit(2)
 }
-const OUT = join(ROOT, 'docs', 'screenshots', VER)
+const outAt = flags.findIndex((f) => f === '--out' || f.startsWith('--out='))
+const OUT_SUB = outAt < 0 ? '' : flags[outAt].includes('=') ? flags[outAt].split('=')[1] : flags[outAt + 1]
+if (outAt >= 0 && !/^[\w-]+$/.test(OUT_SUB ?? '')) {
+  console.error(`--out은 폴더 이름 하나여야 한다: ${OUT_SUB}`)
+  process.exit(2)
+}
+const OUT = join(ROOT, 'docs', 'screenshots', VER, OUT_SUB)
 const ENGINE = WEBKIT ? '-webkit' : ''
 
 // ───────────────────────── 기기 ─────────────────────────
@@ -565,7 +572,7 @@ try {
       }
     }
   }
-  console.log(`스크린샷 → docs/screenshots/${VER}/ (${WEBKIT ? 'WebKit' : 'Chromium'})`)
+  console.log(`스크린샷 → docs/screenshots/${VER}/${OUT_SUB ? OUT_SUB + '/' : ''} (${WEBKIT ? 'WebKit' : 'Chromium'})`)
 
   if (CHECK) {
     const failed = printResults()
