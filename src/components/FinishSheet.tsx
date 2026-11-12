@@ -6,6 +6,7 @@ import { compensationEntriesOf } from '../lib/compensationWatch'
 import type { RoutineBundle } from '../lib/useRoutine'
 import { useSessionStore } from '../store/session'
 import { NO_AUTOFILL } from '../lib/inputProps'
+import { SheetFrame } from './SheetFrame'
 
 /**
  * 세션 종료 (DESIGN.md §5.2).
@@ -70,119 +71,120 @@ export default function FinishSheet({
   }
 
   return (
-    <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="세션 종료">
-        <div className="sheet-grip" />
-        <div className="card-label">세션 종료</div>
-        {adjustLine && <p className="row-sub">{adjustLine}</p>}
+    <SheetFrame label="세션 종료" onClose={onClose}>
+      {(dismiss) => (
+        <>
+          <div className="card-label">세션 종료</div>
+          {adjustLine && <p className="row-sub">{adjustLine}</p>}
 
-        {incomplete.length > 0 && (
-          <div className="warn-box">
-            <strong>손대지 않은 종목 {incomplete.length}개</strong>
-            <br />
-            {incomplete.map((e) => nameOf(e.recordKey)).join(', ')}
-            <br />
-            그대로 종료하면 기록되지 않습니다.
-          </div>
-        )}
-        {partial.length > 0 && (
-          <p className="row-sub">
-            세트가 남은 종목: {partial.map((p) => `${nameOf(p.recordKey)} ${p.done}/${p.rows}`).join(' · ')}
-          </p>
-        )}
-        {/* 이번 세션 보상작용 (T11). 루틴 문서 13장 — 보이면 무게가 과한 것 */}
-        {compensated.length > 0 && (
-          <p className="row-sub">
-            보상작용 기록:{' '}
-            {compensated.map((c) => `${nameOf(c.recordKey)} — ${c.note}`).join(' · ')}
-          </p>
-        )}
-
-        <div className="card-label" style={{ marginTop: 16 }}>
-          유산소 (선택)
-        </div>
-        <div className="pill-row">
-          {CARDIO_TYPES.map((t) => t.name).map((t) => (
-            <button
-              key={t}
-              className={`pill${cardioType === t ? ' pill-on' : ''}`}
-              onClick={() => setCardioType(cardioType === t ? null : t)}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-        {cardioType && (
-          <div className="btn-row" style={{ marginTop: 8 }}>
-            <input
-              {...NO_AUTOFILL}
-              className="field"
-              inputMode="numeric"
-              value={minutes}
-              onChange={(e) => setMinutes(e.target.value)}
-              aria-label="유산소 시간(분)"
-              placeholder="분"
-            />
-            <input
-              {...NO_AUTOFILL}
-              className="field"
-              value={cardioNote}
-              onChange={(e) => setCardioNote(e.target.value)}
-              aria-label="유산소 강도"
-              placeholder={intensityHintFor(cardioType)}
-            />
-          </div>
-        )}
-
-        <div className="card-label" style={{ marginTop: 16 }}>
-          메모 (선택)
-        </div>
-        <textarea
-          {...NO_AUTOFILL}
-          className="field"
-          rows={2}
-          value={note}
-          onChange={(e) => setLocalNote(e.target.value)}
-          placeholder="컨디션, 특이사항"
-        />
-
-        <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => void submit()}>
-          기록 마치기
-        </button>
-        <div style={{ height: 8 }} />
-        <button className="btn" onClick={onClose}>
-          계속하기
-        </button>
-
-        {/*
-          기록이 있어도 버릴 수 있어야 한다. 이전에는 !anyDone 조건이라, 세트를 하나
-          체크한 뒤 "잘못된 Day였다"고 깨달으면 버릴 수도 마칠 수도 없는 상태가 됐다.
-          (Day 변경은 기록 탭에서 가능하지만 진행 중 세션은 기록 탭에 없다)
-          기록이 있을 때는 세트 수를 보여주고 확인을 한 단계 더 받는다.
-        */}
-        <div style={{ height: 8 }} />
-        {confirmDiscard ? (
-          <>
-            <p className="row-sub" style={{ color: 'var(--danger)' }}>
-              {anyDone
-                ? `${doneCount}세트 기록이 삭제됩니다. 되돌릴 수 없습니다.`
-                : '이 세션을 삭제합니다.'}
-            </p>
-            <div className="btn-row">
-              <button className="btn" onClick={() => setConfirmDiscard(false)}>
-                취소
-              </button>
-              <button className="btn btn-danger" onClick={() => void discard().then(onDiscarded)}>
-                정말 버리기
-              </button>
+          {incomplete.length > 0 && (
+            <div className="warn-box">
+              <strong>손대지 않은 종목 {incomplete.length}개</strong>
+              <br />
+              {incomplete.map((e) => nameOf(e.recordKey)).join(', ')}
+              <br />
+              그대로 종료하면 기록되지 않습니다.
             </div>
-          </>
-        ) : (
-          <button className="btn btn-danger" onClick={() => setConfirmDiscard(true)}>
-            이 세션 버리기
+          )}
+          {partial.length > 0 && (
+            <p className="row-sub">
+              세트가 남은 종목: {partial.map((p) => `${nameOf(p.recordKey)} ${p.done}/${p.rows}`).join(' · ')}
+            </p>
+          )}
+          {/* 이번 세션 보상작용 (T11). 루틴 문서 13장 — 보이면 무게가 과한 것 */}
+          {compensated.length > 0 && (
+            <p className="row-sub">
+              보상작용 기록:{' '}
+              {compensated.map((c) => `${nameOf(c.recordKey)} — ${c.note}`).join(' · ')}
+            </p>
+          )}
+
+          <div className="card-label" style={{ marginTop: 16 }}>
+            유산소 (선택)
+          </div>
+          <div className="pill-row">
+            {CARDIO_TYPES.map((t) => t.name).map((t) => (
+              <button
+                key={t}
+                className={`pill${cardioType === t ? ' pill-on' : ''}`}
+                onClick={() => setCardioType(cardioType === t ? null : t)}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+          {cardioType && (
+            <div className="btn-row" style={{ marginTop: 8 }}>
+              <input
+                {...NO_AUTOFILL}
+                className="field"
+                inputMode="numeric"
+                value={minutes}
+                onChange={(e) => setMinutes(e.target.value)}
+                aria-label="유산소 시간(분)"
+                placeholder="분"
+              />
+              <input
+                {...NO_AUTOFILL}
+                className="field"
+                value={cardioNote}
+                onChange={(e) => setCardioNote(e.target.value)}
+                aria-label="유산소 강도"
+                placeholder={intensityHintFor(cardioType)}
+              />
+            </div>
+          )}
+
+          <div className="card-label" style={{ marginTop: 16 }}>
+            메모 (선택)
+          </div>
+          <textarea
+            {...NO_AUTOFILL}
+            className="field"
+            rows={2}
+            value={note}
+            onChange={(e) => setLocalNote(e.target.value)}
+            placeholder="컨디션, 특이사항"
+          />
+
+          <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => void submit()}>
+            기록 마치기
           </button>
-        )}
-      </div>
-    </div>
+          <div style={{ height: 8 }} />
+          <button className="btn" onClick={dismiss}>
+            계속하기
+          </button>
+
+          {/*
+            기록이 있어도 버릴 수 있어야 한다. 이전에는 !anyDone 조건이라, 세트를 하나
+            체크한 뒤 "잘못된 Day였다"고 깨달으면 버릴 수도 마칠 수도 없는 상태가 됐다.
+            (Day 변경은 기록 탭에서 가능하지만 진행 중 세션은 기록 탭에 없다)
+            기록이 있을 때는 세트 수를 보여주고 확인을 한 단계 더 받는다.
+          */}
+          <div style={{ height: 8 }} />
+          {confirmDiscard ? (
+            <>
+              <p className="row-sub" style={{ color: 'var(--danger)' }}>
+                {anyDone
+                  ? `${doneCount}세트 기록이 삭제됩니다. 되돌릴 수 없습니다.`
+                  : '이 세션을 삭제합니다.'}
+              </p>
+              <div className="btn-row">
+                <button className="btn" onClick={() => setConfirmDiscard(false)}>
+                  취소
+                </button>
+                <button className="btn btn-danger" onClick={() => void discard().then(onDiscarded)}>
+                  정말 버리기
+                </button>
+              </div>
+            </>
+          ) : (
+            <button className="btn btn-danger" onClick={() => setConfirmDiscard(true)}>
+              이 세션 버리기
+            </button>
+          )}
+        </>
+      )}
+    </SheetFrame>
   )
 }

@@ -19,15 +19,7 @@ describe("PP1 — 유리는 CSS 토큰으로만 건다", () => {
 })
 
 describe("PP2 — 시트는 규칙 하나로 유리가 된다", () => {
-  const sheetFiles = () =>
-    Object.entries(SOURCES).filter(([path, text]) => /^\/src\/components\/[^/]*Sheet\.tsx$/.test(path) && /sheet-backdrop/.test(stripComments(text)))
-
-  it("sheet-backdrop을 쓰는 시트 파일 14개 전부가 className=\"sheet\"를 가진다 (다른 클래스로 갈라지면 .sheet 규칙이 닿지 않는다)", () => {
-    const files = sheetFiles()
-    expect(files.length).toBe(14)
-    const offenders = files.filter(([, text]) => !/className="sheet"/.test(stripComments(text))).map(([path]) => path)
-    expect(offenders).toEqual([])
-  })
+  // v1.19 QQ3 스캔으로 옮김 — `v119.test.ts` (시트 껍데기가 SheetFrame 하나로 모여 이 스캔의 대상 14개가 사라졌다)
 
   it("ax/index.tsx의 Sheet가 BottomSheet에 className·style·xstyle을 넘기지 않는다 (넘기면 키보드 대응이 꺼진다)", () => {
     const text = stripComments(SOURCES["/src/ax/index.tsx"])

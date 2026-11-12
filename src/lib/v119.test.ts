@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { once } from "./once"
 
 /**
  * v1.19 QQ — 유리·움직임·여백. 이 파일의 describe는 작업별(QQ0, QQ1…)로 이어 붙는다.
@@ -42,5 +43,69 @@ describe("QQ2 — 눌림·움직임", () => {
     const text = MAIN["/src/main.tsx"]
     expect(text).toMatch(/document\.addEventListener\('touchstart'/)
     expect(text).toMatch(/passive: true/)
+  })
+})
+
+const COMPONENTS = import.meta.glob("/src/components/*.tsx", { query: "?raw", import: "default", eager: true }) as Record<string, string>
+const ALL_SRC = import.meta.glob("/src/**/*.{ts,tsx}", { query: "?raw", import: "default", eager: true }) as Record<string, string>
+const stripComments = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+
+describe("QQ3 — 시트 틀 하나", () => {
+  // Astryx를 쓰지 않는 legacy 시트 = components/*Sheet.tsx 가운데 ../ax를 import하지 않고 SheetFrame 자신이 아닌 것
+  const legacy = () =>
+    Object.entries(COMPONENTS).filter(
+      ([path, text]) => /Sheet\.tsx$/.test(path) && !/SheetFrame\.tsx$/.test(path) && !/from '\.\.\/ax/.test(text),
+    )
+
+  it("legacy 시트 14개가 전부 SheetFrame을 import하고 sheet-backdrop 글자가 0건이다", () => {
+    const files = legacy()
+    expect(files.length).toBe(14)
+    const offenders = files
+      .filter(([, text]) => !/import \{ SheetFrame \} from '\.\/SheetFrame'/.test(text) || /sheet-backdrop/.test(stripComments(text)))
+      .map(([path]) => path)
+    expect(offenders).toEqual([])
+  })
+
+  it("sheet-backdrop·className=\"sheet\"·sheet-grip이 나오는 .tsx는 SheetFrame.tsx 하나뿐이다", () => {
+    const hits = Object.entries(ALL_SRC)
+      .filter(([path, text]) => /\.tsx$/.test(path) && /sheet-backdrop|className="sheet"|sheet-grip/.test(stripComments(text)))
+      .map(([path]) => path)
+    expect(hits).toEqual(["/src/components/SheetFrame.tsx"])
+  })
+
+  it("14개 시트에 onClick={onClose}·onClick={() => onClose()}가 0건이다 (닫기 버튼은 dismiss를 부른다)", () => {
+    const offenders = legacy()
+      .filter(([, text]) => /onClick=\{onClose\}|onClick=\{\(\) => onClose\(\)\}/.test(stripComments(text)))
+      .map(([path]) => path)
+    expect(offenders).toEqual([])
+  })
+
+  it("useSheetDismiss라는 이름이 src에 0건이다 (훅을 두지 않는다 — dismiss는 렌더 프롭)", () => {
+    const hits = Object.entries(ALL_SRC)
+      .filter(([path, text]) => !/v119\.test\.ts$/.test(path) && /useSheetDismiss/.test(text))
+      .map(([path]) => path)
+    expect(hits).toEqual([])
+  })
+
+  it("SheetFrame.tsx가 ../ax·Astryx 패키지를 import하지 않는다 (헬스장 경로)", () => {
+    const text = stripComments(COMPONENTS["/src/components/SheetFrame.tsx"])
+    // 글자를 쪼갠 것은 v117 OO2 스캔(src/ax 밖 import 금지)이 이 테스트 파일을 위반으로 세지 않게 하려는 것
+    expect(text).not.toMatch(new RegExp("from '\\.\\./ax|@astryx" + "design"))
+  })
+
+  it("SheetFrame이 닫힘을 once로 감싸고 움직임 줄이기면 기다리지 않는다 (두 번 누르기·animationend 안 옴 대비)", () => {
+    const text = stripComments(COMPONENTS["/src/components/SheetFrame.tsx"])
+    expect(text).toMatch(/once\(/)
+    expect(text).toMatch(/prefers-reduced-motion: reduce/)
+    expect(text).toMatch(/setTimeout\(finish/)
+  })
+
+  it("once는 두 번 불러도 한 번, 다른 인자로 불러도 한 번만 통과시킨다", () => {
+    const calls: number[] = []
+    const f = once((n: number) => calls.push(n))
+    f(1)
+    f(1)
+    f(2)
+    expect(calls).toEqual([1])
   })
 })

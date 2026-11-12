@@ -1,6 +1,7 @@
 import type { RoutineDay, RoutineTemplate } from '../types'
 import { lastDoneText } from '../lib/dayGap'
 import { dayTotalSets } from '../lib/useRoutine'
+import { SheetFrame } from './SheetFrame'
 
 /**
  * Day 선택 바텀시트 (DESIGN.md §4).
@@ -64,31 +65,32 @@ export default function DayPickerSheet({
   )
 
   return (
-    <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Day 선택">
-        <div className="sheet-grip" />
-        <div className="card-label">오늘 할 운동</div>
-        <p className="row-sub" style={{ marginTop: -4, marginBottom: 4 }}>
-          고르면 홈 카드가 바뀝니다. 시작은 시작 버튼으로.
-        </p>
-        {routine.days.map(renderDay)}
+    <SheetFrame label="Day 선택" onClose={onClose}>
+      {(dismiss) => (
+        <>
+          <div className="card-label">오늘 할 운동</div>
+          <p className="row-sub" style={{ marginTop: -4, marginBottom: 4 }}>
+            고르면 홈 카드가 바뀝니다. 시작은 시작 버튼으로.
+          </p>
+          {routine.days.map(renderDay)}
 
-        {routine.fallbackDays.length > 0 && (
-          <>
-            <div className="card-label" style={{ marginTop: 20 }}>
-              하한 모드 · 30분
-            </div>
-            <p className="row-sub" style={{ marginTop: -4, marginBottom: 4 }}>
-              시간이 없거나 컨디션이 나쁜 날. 기록은 정규 Day 라인에 이어서 남습니다.
-            </p>
-            {routine.fallbackDays.map(renderDay)}
-          </>
-        )}
+          {routine.fallbackDays.length > 0 && (
+            <>
+              <div className="card-label" style={{ marginTop: 20 }}>
+                하한 모드 · 30분
+              </div>
+              <p className="row-sub" style={{ marginTop: -4, marginBottom: 4 }}>
+                시간이 없거나 컨디션이 나쁜 날. 기록은 정규 Day 라인에 이어서 남습니다.
+              </p>
+              {routine.fallbackDays.map(renderDay)}
+            </>
+          )}
 
-        <button className="btn" style={{ marginTop: 16 }} onClick={onClose}>
-          닫기
-        </button>
-      </div>
-    </div>
+          <button className="btn" style={{ marginTop: 16 }} onClick={dismiss}>
+            닫기
+          </button>
+        </>
+      )}
+    </SheetFrame>
   )
 }

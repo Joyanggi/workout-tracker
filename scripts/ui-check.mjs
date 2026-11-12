@@ -70,6 +70,7 @@ const ASTRYX_SCENES = new Set(['editor', 'line-sheet'])
 const COLUMNS = ['접근성', '눌림 반응', '움직임 줄이기', '여백 격자', '가로 넘침', '유리']
 const rows = []
 const axeInfo = []
+const flows = [] // [이름, {ok, detail}] — 시트 닫기 흐름 (QQ3)
 const shots = []
 
 const verdict = (r) => (r.skip ? { status: '건너뜀', detail: r.detail } : { status: r.ok ? '통과' : '실패', detail: r.detail })
@@ -152,6 +153,45 @@ async function runChecks(page, scene) {
   const hasLayers = await page.evaluate(() => window.__glass.layersOf(true).length > 0)
   cells['유리'] = await glassVerdict(page, scene, hasLayers)
   rows.push({ scene, cells })
+}
+
+/** QQ3 흐름: sheet-finish가 떠 있을 때 부른다. 끝나면 시트를 다시 열어 둔다(뒤 장면이 시트를 닫는 코드를 그대로 쓴다). */
+async function closeFlows(page) {
+  const reopen = async () => {
+    await btn(page, '종료').click()
+    await page.getByRole('dialog', { name: '세션 종료' }).waitFor()
+    await settle(page, 450)
+  }
+  const flow = (name, ok, detail) => flows.push([name, { ok, detail }])
+  // 막 눌러 닫기: 누른 직후 is-closing, --motion-medium(300ms) 안에 막이 사라지고 아래 띠 유리가 켜진다
+  await page.mouse.click(195, 30)
+  const closing = await page.locator('.sheet.is-closing').count()
+  const gone = await page.locator('.sheet-backdrop').waitFor({ state: 'detached', timeout: 600 }).then(() => true, () => false)
+  await settle(page, 150)
+  const glass = gone ? await page.evaluate(inPageGlassOn) : { ok: false, detail: '막이 안 사라졌다' }
+  flow('막 눌러 닫기', closing > 0 && gone && glass.ok, `is-closing ${closing}개 · 막 사라짐 ${gone} · 유리 켜짐 ${glass.ok}`)
+  // 두 번 누르기: 닫히는 중 한 번 더 눌러도 오류 없이 한 번만 닫힌다
+  await reopen()
+  const errs = []
+  const onErr = (e) => errs.push(String(e))
+  page.on('pageerror', onErr)
+  await page.mouse.click(195, 30)
+  await page.mouse.click(195, 30)
+  const gone2 = await page.locator('.sheet-backdrop').waitFor({ state: 'detached', timeout: 600 }).then(() => true, () => false)
+  await settle(page, 450)
+  page.off('pageerror', onErr)
+  const still = await page.getByRole('button', { name: '세션 최소화', exact: true }).count()
+  flow('막 두 번 누르기', gone2 && errs.length === 0 && still > 0, `사라짐 ${gone2} · 오류 ${errs.length}건 · 세션 화면 ${still > 0}`)
+  // 움직임 줄이기에서 닫기: 기다리지 않고 다음 프레임에 사라진다
+  await reopen()
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await settle(page, 100)
+  await page.mouse.click(195, 30)
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
+  const instant = (await page.locator('.sheet-backdrop').count()) === 0
+  await page.emulateMedia({ reducedMotion: null })
+  flow('움직임 줄이기에서 닫기', instant, `두 프레임 뒤 막 ${instant ? '없음' : '남음'}`)
+  await reopen()
 }
 
 async function runGlassOnly(page, scene) {
@@ -241,6 +281,7 @@ async function runScenes(browser, port, scheme) {
     await page.getByRole('dialog', { name: '세션 종료' }).waitFor()
     await settle(page)
     await snap('sheet-finish')
+    if (CHECK && phase === 'after' && !GLASS) await closeFlows(page)
     await page.keyboard.press('Escape')
     await page.getByRole('dialog').first().waitFor({ state: 'detached', timeout: 1500 }).catch(() => {})
     if (await page.getByRole('dialog').count()) {
@@ -365,6 +406,10 @@ function printResults() {
     }
   }
   if (lines.length) console.log(`\n상세:\n${lines.join('\n')}`)
+  for (const [name, r] of flows) {
+    if (!r.ok) failed++
+    console.log(`- 흐름 ${r.ok ? '통과' : '실패'} ${name}: ${r.detail}`)
+  }
   console.log('\n접근성(axe) 결과 — color-contrast는 찍기만 한다 (위반 노드 / incomplete 노드):')
   for (const a of axeInfo) console.log(`- ${a.scene}: serious·critical ${a.hard}건, color-contrast 위반 ${a.contrast} · incomplete ${a.incomplete}`)
   return failed

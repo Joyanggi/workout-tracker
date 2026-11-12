@@ -118,3 +118,24 @@
     transition-duration: 0.01ms;
   }
 }
+
+/* 시트가 닫히는 움직임 (v1.19 QQ3): SheetFrame이 막 누름·닫기에서 is-closing을 붙인다. 내려가는 동안은 입력을 받지 않는다. */
+.sheet.is-closing {
+  animation: sheet-leave var(--motion-fast) var(--ease-leave) forwards;
+  pointer-events: none;
+}
+.sheet-backdrop.is-closing {
+  animation: scrim-leave var(--motion-fast) var(--ease-leave) forwards;
+}
+@keyframes sheet-leave {
+  to { transform: translateY(100%); }
+}
+@keyframes scrim-leave {
+  to { background-color: transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet.is-closing,
+  .sheet-backdrop.is-closing {
+    animation-duration: 0.01ms;
+  }
+}

@@ -379,3 +379,72 @@ QQ1은 `src/db`·`src/store`·기록 해석 규칙을 건드리지 않았다. `s
 ### 사람 확인 필요
 
 - 실기기 ④⑤⑦: 버튼을 누르면 바로 반응하는지(iOS `:active`와 빈 `touchstart` 처리기), 목록 스크롤 때 눌린 채 남지 않는지, 시트가 아래에서 올라오는지·버벅이지 않는지, 동작 줄이기에서 작아지지 않고 올라오지 않는지.
+
+---
+
+## QQ3. legacy 시트를 틀 하나로 + 닫히는 움직임
+
+### 범위
+
+| 파일 | 바뀐 것 |
+|---|---|
+| `src/components/SheetFrame.tsx` (새) | 막 → 시트 → 손잡이 DOM과 닫히는 흐름. 막 누름·`dismiss()` → `is-closing` → `animationend` 또는 350ms 안전장치 → `once`로 감싼 `onClose`. 움직임 줄이기면 바로 `onClose`. `children`은 노드 또는 `(dismiss) => 노드` |
+| `src/lib/once.ts` (새) | `once(fn)` — 첫 호출만 통과 |
+| `src/components/*Sheet.tsx` 14개 | 껍데기를 `<SheetFrame label onClose>`로. 닫기·취소 버튼은 `{(dismiss) => (<>…</>)}`로 감싸 `onClick={dismiss}`(13개). `TempoGuideSheet`는 닫기 버튼이 없어 노드 그대로. 동작 버튼의 `onClose()` 호출은 그대로 |
+| `src/styles/motion.css` | `.sheet.is-closing`·`.sheet-backdrop.is-closing`(내려감·막 투명, `--motion-fast` `--ease-leave`, 닫히는 중 `pointer-events: none`), 키프레임 `sheet-leave`·`scrim-leave`, 움직임 줄이기 블록 |
+| `scripts/ui-check.mjs` | `--check`에서 `sheet-finish` 뒤 흐름 셋(`closeFlows`) + 결과 표 아래 `흐름` 줄 |
+| `src/lib/v119.test.ts` | describe `QQ3` 7개 |
+| `src/lib/v118.test.ts` | PP2의 `it` 하나 삭제(아래) |
+
+14개: AddExercise·Compensation·CompensationWatch·DayPicker·DietPlan·DietSlot·DietVariant·Finish·FoodLog·ManualTimer·OpenSession·Substitute·TempoGuide·WeightScale.
+테스트 65 파일 / 1592개(QQ2 때 1586 → +7 −1).
+
+### v118 PP2 스캔 삭제 (PLAN이 허용한 예외)
+
+`v118.test.ts` PP2의 "`sheet-backdrop`을 쓰는 시트 파일 14개 전부가 `className="sheet"`를 가진다"를 지웠다(`it.skip` 아님). 그 파일이 이제 `SheetFrame.tsx` 하나라 `files.length`가 14 → 0으로 실패한다. 같은 사실은 `v119` QQ3 첫 두 스캔이 더 강하게 지킨다. 지운 자리에 "v1.19 QQ3 스캔으로 옮김 — `v119.test.ts`" 주석을 남겼고 커밋 메시지에도 같은 말을 적는다. 이 때문에 안 쓰게 된 `sheetFiles` 헬퍼도 지웠다. 같은 파일의 나머지 둘은 그대로다.
+
+### PLAN 검증 ↔ 테스트
+
+| PLAN 검증 | 테스트 (`v119.test.ts` QQ3) |
+|---|---|
+| legacy 14개가 `SheetFrame` import, `sheet-backdrop` 0건 | `legacy 시트 14개가 전부 SheetFrame을 import하고 …` |
+| `sheet-backdrop`·`className="sheet"`·`sheet-grip`은 `SheetFrame.tsx` 하나 | `… .tsx는 SheetFrame.tsx 하나뿐이다` |
+| `onClick={onClose}`·`() => onClose()` 0건 | `14개 시트에 onClick={onClose}·… 0건이다` |
+| `useSheetDismiss` 0건 | `useSheetDismiss라는 이름이 src에 0건이다` |
+| `SheetFrame`이 Astryx를 import하지 않음 | `SheetFrame.tsx가 ../ax·Astryx 패키지를 import하지 않는다` (패키지 이름은 쪼개 적었다 — v117 OO2 스캔이 이 파일을 세지 않게) |
+| `once` 순수 부분 | `once는 두 번 불러도 한 번, 다른 인자로 불러도 한 번만 …` |
+| (⑫ 대비) `once` 감싸기·움직임 줄이기·타이머 | `SheetFrame이 닫힘을 once로 감싸고 움직임 줄이기면 기다리지 않는다` |
+
+`ui-check after --check --only=sheet-finish`: 흐름 `막 눌러 닫기`(`is-closing` 1개·막 사라짐·유리 켜짐) 통과 · `막 두 번 누르기`(오류 0건, 세션 화면 유지) 통과 · `움직임 줄이기에서 닫기`(두 프레임 뒤 막 없음) 통과. 접근성·눌림·움직임 줄이기·가로 넘침·유리 통과. `여백 격자`는 실패(`session-minimize` 1px 등 — 시트와 무관, QQ4·QQ5가 맞출 부분).
+
+### 결함 복원
+
+| 되살린 결함 | 실패한 테스트 | 원상복구 |
+|---|---|---|
+| ⑩ `DayPickerSheet`에 `sheet-backdrop` 글자 | `legacy 시트 14개가 …`, `… SheetFrame.tsx 하나뿐이다` | `cmp` 같음 |
+| ⑪ `FinishSheet` 닫기 버튼을 `onClick={onClose}`로 | `14개 시트에 onClick={onClose}·… 0건이다` | `cmp` 같음 |
+| ⑫ `once(…)` 감싸기 제거 | `SheetFrame이 닫힘을 once로 감싸고 …` | `cmp` 같음 |
+
+⑫: **흐름이 못 잡는다.** `FinishSheet`의 `onClose`는 멱등(상태를 닫기로 둘 뿐)이라 두 번 불려도 겉으로 안 보인다. 그래서 PLAN대로 `SheetFrame`에 대한 스캔 한 줄(위 마지막 행)을 더했다.
+
+### 시트 위에 시트가 겹치는지
+
+`grep`으로 14개 시트가 서로를 렌더하는지 확인했다: `*Sheet` 컴포넌트가 다른 `*Sheet`를 import하는 곳은 없다(화면이 시트를 하나씩 띄운다). 겹치는 경우가 없어 흐름을 더하지 않았다.
+
+### 과거 판정 불변
+
+`git diff --stat main..HEAD -- src/db src/store` 출력 비어 있음. `src/lib`에는 새 파일 `once.ts`와 테스트만(`v118.test.ts`는 위 스캔 하나).
+
+### 실행 결과
+
+- `npm test`: `Test Files  65 passed (65)` · `Tests  1592 passed (1592)`
+- `npm run build` 통과 · `node scripts/quality-scan.mjs --ci` → `[quality-scan] 통과`
+
+### 하지 않은 것
+
+- 키보드가 올라온 채 `sheet-food` 막 누르기: 장면에서 자동으로 재지 않았다(실기기 확인).
+- 작업 트리에 있던 `docs/screenshots/v1.19/before/*.png` 변경(QQ0 이전부터 있던 것)은 커밋하지 않았다. `ui-check`가 덮은 `after/sheet-finish.png`는 되돌렸다.
+
+### 사람 확인 필요
+
+- 실기기 ⑤: 막을 누르거나 `닫기`를 누르면 시트가 내려가며 닫히는지, 닫히는 중 저장 버튼이 안 눌리는지, 키보드가 올라온 채 막을 눌러도 닫히는지(`sheet-food`).

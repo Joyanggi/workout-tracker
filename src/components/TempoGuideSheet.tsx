@@ -10,6 +10,7 @@ import {
   type TempoPhase,
 } from '../lib/tempo'
 import type { RoutineExercise } from '../types'
+import { SheetFrame } from './SheetFrame'
 
 const FRAME_MS = 80
 
@@ -180,79 +181,71 @@ export default function TempoGuideSheet({
   })()
 
   return (
-    <div className="sheet-backdrop" onClick={onClose}>
-      <div
-        className="sheet"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-label="템포 가이드"
-      >
-        <div className="sheet-grip" />
-        <div className="card-label">
-          템포 가이드 · {exerciseName} {setNumber}세트
-        </div>
-        <div className={`tempo-progress${rep.lastCycle ? ' tempo-progress-last' : ''}`}>
-          {rep.currentRep} / 최대 {routineExercise.repMax}회{rep.lastCycle && ' · 마지막'}
-        </div>
-
-        <div className="tempo-stage">
-          <div
-            className={`tempo-ring tempo-ring-${pos.phase?.kind ?? 'idle'}${
-              rep.lastCycle ? ' tempo-ring-last' : ''
-            }`}
-            style={{ transform: `scale(${scale.toFixed(3)})` }}
-            aria-hidden="true"
-          />
-          <div className="tempo-center">
-            {pos.countIn !== null ? (
-              <span className="tempo-count">{pos.countIn}</span>
-            ) : (
-              <>
-                <span className="tempo-phase">{pos.phase ? PHASE_LABEL[pos.phase.kind] : ''}</span>
-                {/*
-                  호흡 안내 (CC4). 원리는 "힘쓸 때 내쉰다" 하나 — 원본은 문서 3장 표의
-                  호흡 열이다. 대칭 호흡(3초 들숨/3초 날숨)이 아니라는 것이 요점이다.
-                */}
-                <span className="tempo-breath">
-                  {pos.phase ? BREATH_LABEL[pos.phase.kind] : ''}
-                </span>
-                {/*
-                  진행 회차를 보여준다 (완료 수가 아니다) — 완료 수만 보여주면 10회짜리에서
-                  마지막에 보이는 숫자가 9다. "회째"로 적어 종료 라벨의 "약 N회"와 구분한다.
-                */}
-                <span className="tempo-reps">{rep.currentRep}회째</span>
-              </>
-            )}
-          </div>
-        </div>
-
-        <p className="row-sub" style={{ textAlign: 'center' }}>
-          {routineExercise.group}그룹 · 한 사이클 {cycleSeconds(phases)}초 (
-          {phases.map((p) => `${PHASE_LABEL[p.kind]} ${p.seconds}`).join(' · ')})
-        </p>
-
-        <button
-          className="btn btn-primary"
-          style={{ marginTop: 12 }}
-          onClick={() => {
-            onDone(rep.reps)
-            onClose()
-          }}
-        >
-          {/*
-            "약"을 붙이는 이유 (V1): 이 값은 실제 반복이 아니라 **가이드가 돈 사이클 수**다.
-            가이드보다 느리게 하거나 시트를 열어둔 채 쉬면 실제보다 많이 세어진다.
-            자동 종료(상단 도달)는 정확한 값이므로 이 경로를 지나지 않는다.
-          */}
-          {pos.countIn !== null ? '취소' : `종료 — 약 ${rep.reps}회 기록 · 휴식 시작`}
-        </button>
-        <div style={{ height: 8 }} />
-        <p className="row-sub">
-          최대 {routineExercise.repMax}회에 닿으면 자동으로 기록하고 휴식이 시작됩니다.
-          마지막 2~3회에서 리듬을 못 따라가기 시작하면 그게 세트 종료 신호입니다 (문서 13장) —
-          그때는 먼저 종료하세요. 화면이 꺼지면 가이드도 멈춥니다 (iOS PWA 제약).
-        </p>
+    <SheetFrame label="템포 가이드" onClose={onClose}>
+      <div className="card-label">
+        템포 가이드 · {exerciseName} {setNumber}세트
       </div>
-    </div>
+      <div className={`tempo-progress${rep.lastCycle ? ' tempo-progress-last' : ''}`}>
+        {rep.currentRep} / 최대 {routineExercise.repMax}회{rep.lastCycle && ' · 마지막'}
+      </div>
+
+      <div className="tempo-stage">
+        <div
+          className={`tempo-ring tempo-ring-${pos.phase?.kind ?? 'idle'}${
+            rep.lastCycle ? ' tempo-ring-last' : ''
+          }`}
+          style={{ transform: `scale(${scale.toFixed(3)})` }}
+          aria-hidden="true"
+        />
+        <div className="tempo-center">
+          {pos.countIn !== null ? (
+            <span className="tempo-count">{pos.countIn}</span>
+          ) : (
+            <>
+              <span className="tempo-phase">{pos.phase ? PHASE_LABEL[pos.phase.kind] : ''}</span>
+              {/*
+                호흡 안내 (CC4). 원리는 "힘쓸 때 내쉰다" 하나 — 원본은 문서 3장 표의
+                호흡 열이다. 대칭 호흡(3초 들숨/3초 날숨)이 아니라는 것이 요점이다.
+              */}
+              <span className="tempo-breath">
+                {pos.phase ? BREATH_LABEL[pos.phase.kind] : ''}
+              </span>
+              {/*
+                진행 회차를 보여준다 (완료 수가 아니다) — 완료 수만 보여주면 10회짜리에서
+                마지막에 보이는 숫자가 9다. "회째"로 적어 종료 라벨의 "약 N회"와 구분한다.
+              */}
+              <span className="tempo-reps">{rep.currentRep}회째</span>
+            </>
+          )}
+        </div>
+      </div>
+
+      <p className="row-sub" style={{ textAlign: 'center' }}>
+        {routineExercise.group}그룹 · 한 사이클 {cycleSeconds(phases)}초 (
+        {phases.map((p) => `${PHASE_LABEL[p.kind]} ${p.seconds}`).join(' · ')})
+      </p>
+
+      <button
+        className="btn btn-primary"
+        style={{ marginTop: 12 }}
+        onClick={() => {
+          onDone(rep.reps)
+          onClose()
+        }}
+      >
+        {/*
+          "약"을 붙이는 이유 (V1): 이 값은 실제 반복이 아니라 **가이드가 돈 사이클 수**다.
+          가이드보다 느리게 하거나 시트를 열어둔 채 쉬면 실제보다 많이 세어진다.
+          자동 종료(상단 도달)는 정확한 값이므로 이 경로를 지나지 않는다.
+        */}
+        {pos.countIn !== null ? '취소' : `종료 — 약 ${rep.reps}회 기록 · 휴식 시작`}
+      </button>
+      <div style={{ height: 8 }} />
+      <p className="row-sub">
+        최대 {routineExercise.repMax}회에 닿으면 자동으로 기록하고 휴식이 시작됩니다.
+        마지막 2~3회에서 리듬을 못 따라가기 시작하면 그게 세트 종료 신호입니다 (문서 13장) —
+        그때는 먼저 종료하세요. 화면이 꺼지면 가이드도 멈춥니다 (iOS PWA 제약).
+      </p>
+    </SheetFrame>
   )
 }
