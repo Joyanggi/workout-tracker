@@ -24,3 +24,13 @@ describe("QQ0 — UI 검사 도구", () => {
     expect(offenders).toEqual([])
   })
 })
+
+const SCREENS = import.meta.glob("/src/screens/SettingsScreen.tsx", { query: "?raw", import: "default", eager: true }) as Record<string, string>
+
+describe("QQ1 — 유리 재료", () => {
+  it("SettingsScreen이 glassDiagnosis를 부르고 '유리' 줄을 가진다", () => {
+    const text = SCREENS["/src/screens/SettingsScreen.tsx"]
+    expect(text).toMatch(/glassDiagnosis\(readGlassDiagInput\(\)\)/)
+    expect(text).toMatch(/row-title">유리</)
+  })
+})

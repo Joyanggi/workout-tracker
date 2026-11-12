@@ -7,6 +7,8 @@
  *   --check       장면마다 접근성(axe)·눌림 반응·움직임 줄이기·여백 격자·가로 넘침 + (띠·시트가 있으면) 유리 검사를 재서 표로 찍는다.
  *                 하나라도 실패면 종료 코드 1. 정적 검사는 after에서만(지금은 QQ1~QQ4가 더하는 만큼)
  *   --only=a,b    이 장면만 찍고 잰다(흐름은 앞에서부터 그대로 거친다)
+ *   --glass=<띠 알파>,<시트 알파>,<막 알파>  addStyleTag로 유리 농도를 덮어 docs/screenshots/v1.19/compare/에 찍는다(home·session·sheet-finish만, 검사 안 함).
+ *                 비교용이다 — 값을 다시 고르는 일이 아니다
  *
  * 브라우저: `npx playwright install chromium`. 레포에 넣지 않는다, CI는 받지 않는다.
  * 요소는 글자와 aria-label로만 고른다(예외: 시작 버튼 `.btn-start`, 재개 스트립, 휴식 바).
@@ -14,22 +16,25 @@
  */
 import { AxeBuilder } from '@axe-core/playwright'
 import { execSync } from 'node:child_process'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, devices } from 'playwright'
 import { preview } from 'vite'
 import {
   freePort,
+  inPageBarShow,
   inPageContentOpaque,
   inPageGlassOff,
   inPageGlassOn,
   inPageOneLayer,
   inPageOverflow,
+  inPagePillSeparation,
   inPageSheetShow,
   inPageTabbarSpot,
   inPageTextContrast,
   installScript,
+  staticChecks,
 } from './lib/glass-check.mjs'
 import { inPageMotionDurations, inPageSpacing, measurePress, pressVerdict } from './lib/ui-check-lib.mjs'
 
@@ -45,7 +50,14 @@ if (phase !== 'before' && phase !== 'after') {
 const CHECK = flags.includes('--check')
 const onlyFlag = flags.find((f) => f.startsWith('--only='))
 const ONLY = onlyFlag ? new Set(onlyFlag.slice(7).split(',').filter(Boolean)) : null
-const OUT = join(ROOT, 'docs', 'screenshots', VER, phase)
+const glassFlag = flags.find((f) => f.startsWith('--glass='))
+const GLASS = glassFlag ? glassFlag.slice(8).split(',').map(Number) : null
+if (GLASS && (GLASS.length !== 3 || GLASS.some((n) => !Number.isFinite(n) || n < 0 || n > 1))) {
+  console.error('--glass=<띠 알파>,<시트 알파>,<막 알파> (0~1 숫자 셋)')
+  process.exit(2)
+}
+const COMPARE_SCENES = new Set(['home', 'session', 'sheet-finish'])
+const OUT = join(ROOT, 'docs', 'screenshots', VER, GLASS ? 'compare' : phase)
 
 const IPHONE = { ...devices['iPhone 14'] }
 delete IPHONE.defaultBrowserType
@@ -66,8 +78,9 @@ const TAB_SCENES = new Set(['home', 'home-end', 'home-resume', 'home-resume-end'
 const COVER_SCENES = new Set(['home-end', 'home-resume-end'])
 
 /** CDP로 미디어 기능을 흉내 낸다. 다크 고정이라 color-scheme도 같이 넣는다 (screenshots-glass.mjs와 같은 방식) */
+let SCHEME = 'dark'
 async function emulate(cdp, feature) {
-  const features = [{ name: 'prefers-color-scheme', value: 'dark' }]
+  const features = [{ name: 'prefers-color-scheme', value: SCHEME }]
   if (feature) features.push(feature)
   await cdp.send('Emulation.setEmulatedMedia', { features })
 }
@@ -79,7 +92,9 @@ async function glassVerdict(page, scene, hasLayers) {
   await run('유리 켜짐', inPageGlassOn)
   await run('내용은 불투명', inPageContentOpaque)
   await run('한 겹', inPageOneLayer)
+  await run('띠 비침', inPageBarShow)
   await run('글자 대비', inPageTextContrast) // 미디어 흉내를 걸기 전에 잰다
+  if (TAB_SCENES.has(scene)) await run('알약 구별', inPagePillSeparation)
   const cdp = await page.context().newCDPSession(page)
   for (const [name, feature, value] of [
     ['투명도 줄이기', 'prefers-reduced-transparency', 'reduce'],
@@ -139,20 +154,38 @@ async function runChecks(page, scene) {
   rows.push({ scene, cells })
 }
 
+async function runGlassOnly(page, scene) {
+  const cells = Object.fromEntries(COLUMNS.map((c) => [c, null]))
+  cells['유리'] = await glassVerdict(page, scene, await page.evaluate(() => window.__glass.layersOf(true).length > 0))
+  rows.push({ scene, cells })
+}
+
 async function runScenes(browser, port, scheme) {
   const light = scheme === 'light'
+  SCHEME = scheme
   const ctx = await browser.newContext({ ...DEVICE, locale: 'ko-KR', colorScheme: scheme, serviceWorkers: 'block' })
   const page = await ctx.newPage()
   await page.addInitScript(installScript())
+  if (GLASS) {
+    // 비교용 덮어쓰기: 띠·시트·막 알파만 바꾼다(RGB는 그대로). 막은 Astryx ::backdrop도 같이
+    const [bar, sheet, scrim] = GLASS
+    await page.addInitScript(
+      `document.addEventListener('DOMContentLoaded', () => { const st = document.createElement('style'); st.textContent = ':root{--glass-bar:rgba(6,6,8,${bar});--glass-sheet:rgba(22,22,26,${sheet});--glass-scrim:rgba(0,0,0,${scrim})} dialog:has(.astryx-bottom-sheet)::backdrop{background-color:rgba(0,0,0,${scrim})}'; document.head.appendChild(st) })`,
+    )
+  }
   await page.goto(`http://localhost:${port}${BASE}`)
 
   const snap = async (scene) => {
     await settle(page, 500)
     const name = light ? `${scene}` : scene
     if (ONLY && !ONLY.has(name)) return
+    if (GLASS && !COMPARE_SCENES.has(name)) return
     await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur())
     shots.push({ name, buf: await page.screenshot() })
-    if (CHECK && !light) await runChecks(page, scene)
+    if (CHECK && !GLASS) {
+      if (!light) await runChecks(page, scene)
+      else await runGlassOnly(page, name) // 라이트: Astryx 시트의 유리(brightness 없음)만 잰다
+    }
   }
   const optional = async (label, fn) => {
     try {
@@ -290,9 +323,31 @@ async function runScenes(browser, port, scheme) {
   await ctx.close()
 }
 
+/** src/**\/*.css를 전부 읽는다 (정적 검사용) */
+function readAllCss() {
+  const out = {}
+  for (const rel of readdirSync(join(ROOT, 'src'), { recursive: true })) {
+    const p = String(rel).replace(/\\/g, '/')
+    if (p.endsWith('.css')) out[p] = readFileSync(join(ROOT, 'src', p), 'utf8')
+  }
+  return out
+}
+
+function runStatic() {
+  const read = (p) => readFileSync(join(ROOT, p), 'utf8')
+  const hasGlass = existsSync(join(ROOT, 'src/styles/glass.css'))
+  return staticChecks({ globalCss: read('src/styles/global.css'), axCss: read('src/ax/ax.css'), glassCss: hasGlass ? read('src/styles/glass.css') : null, allCss: readAllCss() })
+}
+
 function printResults() {
   let failed = 0
-  console.log('\n정적 검사: 없음 (QQ1·QQ2·QQ4가 더한다)')
+  if (phase === 'after') {
+    console.log('\n정적 검사 (QQ1):')
+    for (const c of runStatic()) {
+      console.log(`- ${c.ok ? '통과' : '실패'} ${c.name}: ${c.detail}`)
+      if (!c.ok) failed++
+    }
+  } else console.log('\n정적 검사: before에서는 건너뜀')
   const mark = (c) => (c === null ? '·' : c.status)
   console.log(`\n| 장면 | ${COLUMNS.join(' | ')} |\n|---|${COLUMNS.map(() => '---').join('|')}|`)
   for (const r of rows) console.log(`| ${r.scene} | ${COLUMNS.map((c) => mark(r.cells[c])).join(' | ')} |`)
@@ -324,8 +379,10 @@ try {
   await runScenes(browser, port, 'dark')
   if (!ONLY || [...ONLY].some((s) => s.endsWith('-light'))) await runScenes(browser, port, 'light')
   mkdirSync(OUT, { recursive: true })
-  for (const s of shots) writeFileSync(join(OUT, `${s.name}.png`), s.buf)
-  console.log(`스크린샷 ${shots.length}장 → docs/screenshots/${VER}/${phase}/`)
+  // compare는 값 조합마다 파일 이름이 달라야 한다: <장면>-b<띠>-s<시트>-m<막>.png
+  const tag = GLASS ? `-b${GLASS[0]}-s${GLASS[1]}-m${GLASS[2]}` : ''
+  for (const s of shots) writeFileSync(join(OUT, `${s.name}${tag}.png`), s.buf)
+  console.log(`스크린샷 ${shots.length}장 → docs/screenshots/${VER}/${GLASS ? 'compare' : phase}/`)
   if (CHECK && printResults() > 0) exitCode = 1
 } finally {
   await browser.close()

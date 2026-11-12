@@ -141,3 +141,132 @@ axe `serious`·`critical`(color-contrast 제외) — `before`에 이미 있는 �
 - Argos 올리기: `ARGOS_TOKEN` 없음 → 건너뜀.
 - `package.json` 버전은 기록 커밋(마지막)에서 올린다.
 - `--press-shot` 옵션은 QQ2의 일이다.
+
+---
+
+## QQ1. 유리 재료 다시 잡기
+
+### 새로 확인 (QQ1)
+
+30. 흐림 값은 `var()` 없이 글자 그대로 적었다(`glass.css` 띠 `saturate(180%) blur(20px) brightness(0.6)`, 시트 `… brightness(0.5)`). `dist/assets/index-*.css`에서 `backdrop-filter`는 `-webkit-` 줄과 접두사 없는 줄이 둘 다 남고(아래 출력), `var(`는 선언 값에 없다. grep에 `var(` 1건이 나오는 것은 `@supports not (…) {html:root{--glass-bar: var(…)` 조건 글자가 걸린 것이다.
+31. 진단 줄은 `SettingsScreen`이 마운트 때 한 번만 읽는다(`useState` 초기화). 설정 안에서 시트를 열면 한 겹 규칙이 탭바 흐림을 `none`으로 바꾸지만 줄은 안 바뀐다 — 선언 상태를 마운트 시점 그대로 보여 주는 것이 목적이다.
+32. `glassDiag.ts`는 `backdrop-filter`를 글자로 적지 않는다: v118 PP1 스캔이 앱 코드 전체(주석 포함)에서 그 글자를 막기 때문이다. 속성 이름을 `['backdrop','filter'].join('-')`로 만들어 읽기만 한다. v118 테스트는 고치지 않았다.
+33. 라이트 Astryx 시트: Astryx `Theme mode="system"`은 `data-theme`를 지우고 `color-scheme: light dark`로 둔다 → 라이트/다크를 `@media (prefers-color-scheme: light)`로 가른다. 뒤를 안 어둡게 하므로 면을 70%로 두껍게 해야 글자 4.5:1이 선다(50%에서는 `부위` 4.09:1 실패). 라이트 시트 면이 legacy 끄기 블록보다 위 레이어(`astryx-theme`)가 되므로 `ax.css` 끄기 블록 둘에도 `--glass-sheet: var(--glass-solid)`를 더했다(없으면 `대비 증가`에서 라이트 시트가 반투명으로 남는다).
+34. `::backdrop`이 사용자 정의 속성을 물려받는지 못 믿어 `ax.css` 바텀 시트 막은 `rgba(0, 0, 0, 0.4)` 리터럴이다. 정적 검사가 `glass.css`의 `--glass-scrim` 알파와 같은지 본다. `dialog:has(.astryx-bottom-sheet)::backdrop`로 `astryx-theme` 레이어에 걸었다 — `line-sheet`의 `시트 비침`이 기준을 넘는 것으로 먹었음을 확인했다.
+35. 정적 검사를 다시 쓰면서 `scripts/screenshots-glass.mjs --check`(v1.18 재현 도구)의 `staticChecks`도 바뀐다 — 같은 함수를 쓰기 때문이다. v1.18 시점 CSS에는 이제 맞지 않는다. 그 도구는 v1.19에서 쓰지 않는다(코드는 그대로 둠).
+36. 새 검사 함수를 쓰다가 템플릿 문자열 안 정규식 백슬래시가 사라지는 일이 두 번 났다(`/brightness\(` → `/brightness(`). 검사 스크립트를 고칠 때는 Edit 도구로 직접 고치고, 고친 뒤 `staticChecks`를 실제 CSS에 한 번 돌려 `ALL PASS`와 결함 복원 실패를 눈으로 본다.
+
+### 범위
+
+| 커밋 | 바뀐 파일 | 비고 |
+|---|---|---|
+| (이 커밋) | `src/styles/glass.css` · `src/styles/global.css` · `src/ax/ax.css` · `src/lib/glassDiag.ts` · `src/lib/glassDiag.test.ts` · `src/lib/v119.test.ts` · `src/screens/SettingsScreen.tsx` · `scripts/lib/glass-check.mjs` · `scripts/ui-check.mjs` · `README.md` · `docs/DEV-RECORD-v1.19.md` · `docs/screenshots/v1.19/compare/` 9장 | 새 테스트 파일 1(`glassDiag.test.ts`) · 기존 `v119.test.ts`에 describe `QQ1` |
+
+`docs/screenshots/v1.19/after/`는 QQ6까지 계속 덮어써지므로 이 커밋에 넣지 않았다(로컬에 20장 있다).
+
+### 고른 값과 잰 값
+
+| 무엇 | 값 | 잰 값 |
+|---|---|---|
+| 띠 | `--glass-bar: rgba(6, 6, 8, 0.5)` · 흐림 `saturate(180%) blur(20px) brightness(0.6)` | `띠 비침` 0.300 (기준 0.30) |
+| 시트 (legacy·Astryx 다크) | `--glass-sheet: rgba(22, 22, 26, 0.5)` / Astryx는 `color-mix(… 50%)` · 흐림 `… brightness(0.5)` | `시트 비침` 0.50 × 0.60 × 0.5 = 0.150 (기준 0.15) |
+| Astryx 라이트 시트 | 면 70%, 흐림 `saturate(180%) blur(20px)` | 0.30 × 0.60 × 1 = 0.180 |
+| 막 | `--glass-scrim: rgba(0, 0, 0, 0.4)` (끄기에서 0.6) | — |
+| 가장자리 빛 | `--glass-highlight: rgba(255, 255, 255, 0.22)` (끄기에서 transparent) | — |
+| 지금 탭 알약 | `--glass-pill: rgba(0, 0, 0, 0.3)` + `border: 1px solid var(--glass-highlight)` | `알약 구별` 카드색 1.04:1 · 주황 1.29:1 → **테두리 쪽을 골랐다**(대비 1.2:1은 카드색 위에서 못 채운다). 정적 검사 `알약에 --glass-highlight 테두리가 있다`와 `알약 구별`이 테두리를 본다 |
+
+- 띠 색을 카드색(22,22,26)에서 (6,6,8)로 낮춘 이유: 카드색이면 `이어서 ›`(주황 글자)가 초록 뒤에서 4.09:1로 4.5를 못 넘는다(`home-resume` 실패로 확인). 같은 비침(0.30)에서 띠 색이 어두울수록 합성이 어두워져 4.5 이상이 된다.
+- 가장 낮은 `글자 대비`의 수치는 `--check`가 통과/실패로만 내보낸다(기준 4.5:1). 실패하는 방향의 수치는 결함 복원 표에 있다.
+
+### PLAN 검증 대응
+
+| PLAN 검증 항목 | 확인 |
+|---|---|
+| `glassDiag.test.ts` 다섯 갈래·우선순위·`none`/`null`/`''`·`흐림 선언됨`+sub·`켜짐` 없음 | `glassDiag.test.ts` (`it.each`로 `none`·`null`·`''`·공백 4건 포함) |
+| v118 PP1 스캔 그대로 | `v118.test.ts` 통과(고치지 않음, 제약 32) |
+| 스캔: `SettingsScreen`이 `glassDiagnosis`를 부르고 `유리` 줄 | `v119.test.ts` `QQ1 — 유리 재료 › SettingsScreen이 glassDiagnosis를 부르고 '유리' 줄을 가진다` |
+| 정적 검사 6항목 | `ui-check.mjs after --check`의 `정적 검사 (QQ1)` 11줄 전부 통과 — 아래 |
+| `--check` 장면 검사 | 아래 표: 유리 칸 전 장면 통과(`editor`·`summary`는 띠·시트 없음 `·`) |
+| 빌드 출력 | 아래 |
+| 눈으로 | 아래 |
+| 비교 스크린샷 | `compare/` 9장: 고른 값 `0.5,0.5,0.4`, 띠만 `0.4`·`0.6` (`node scripts/ui-check.mjs after --glass=<띠>,<시트>,<막> --only=home,session,sheet-finish`, 파일 이름 `<장면>-b<띠>-s<시트>-m<막>.png`) |
+
+### 정적 검사 출력 (`ui-check.mjs after --check`)
+
+```
+정적 검사 (QQ1):
+- 통과 global.css·ax.css에 backdrop-filter는 none뿐(ax.css .astryx-bottom-sheet 규칙 예외)
+- 통과 backdrop-filter 값에 var( 0건 (src/**/*.css 전체): 4개 파일 0건
+- 통과 같은 규칙의 -webkit-backdrop-filter와 backdrop-filter 값이 같다
+- 통과 시트 흐림: glass.css = ax.css 다크 (글자 그대로): saturate(180%) blur(20px) brightness(0.5)
+- 통과 Astryx 라이트 시트 흐림 = 다크에서 brightness만 뺀 것: … → saturate(180%) blur(20px)
+- 통과 막 농도: glass.css --glass-scrim = ax.css 바텀 시트 ::backdrop: glass 0.4 / ax 0.4
+- 통과 glass.css 규칙 어휘 · 끄기 @media에 대비 증가 포함 · 끄기 블록 쌍 · 끄기 블록 넷의 조건이 같다 · 알약 테두리
+```
+
+### `after --check` 표 (눌림·움직임·여백 실패는 QQ2·QQ4 몫이라 남는다. 이 작업은 `유리`·`접근성` 칸을 책임진다)
+
+| 장면 | 접근성 | 눌림 반응 | 움직임 줄이기 | 여백 격자 | 가로 넘침 | 유리 |
+|---|---|---|---|---|---|---|
+| home · home-end · home-resume | 통과 | 실패 | 건너뜀 | 실패 | 통과 | 통과 |
+| sheet-home | 통과 | 실패 | 실패 | 실패 | 통과 | 통과 |
+| session | 실패(전부터, `label-content-name-mismatch` 1건) | 실패 | 건너뜀 | 실패 | 통과 | 통과 |
+| session-rest · history · history-detail · analyze · diet · settings · settings-end | 통과 | 실패 | 건너뜀 | 실패 | 통과 | 통과 |
+| sheet-finish · sheet-timer | 통과 | 실패 | 실패 | 실패 | 통과 | 통과 |
+| summary | 통과 | 실패 | 건너뜀 | 실패 | 통과 | · |
+| sheet-food | 실패(전부터 10건) | 실패 | 실패 | 실패 | 통과 | 통과 |
+| editor | 통과 | 건너뜀 | 건너뜀 | 통과 | 통과 | · |
+| line-sheet | 통과 | 건너뜀 | 실패 | 통과 | 통과 | 통과 |
+| line-sheet-light | · | · | · | · | · | 통과 (라이트 장면은 유리 칸만 잰다 — `ui-check`에 새로 더함) |
+
+axe `serious`·`critical`은 `before`와 같다(`session` 1건, `sheet-food` 1건. QQ0 목록 그대로, 늘지 않음). 종료 코드 1은 QQ2·QQ4 몫 칸 때문이다.
+
+### 빌드 출력
+
+```
+$ grep -oE "(-webkit-)?backdrop-filter:[^;}]*" dist/assets/index-*.css | sort | uniq -c
+      3 backdrop-filter:none
+      1 backdrop-filter:saturate(180%) blur(20px) brightness(.5)
+      1 backdrop-filter:saturate(180%) blur(20px) brightness(.6)
+      3 -webkit-backdrop-filter:none
+      1 -webkit-backdrop-filter:saturate(180%) blur(20px) brightness(.5)
+      1 -webkit-backdrop-filter:saturate(180%) blur(20px) brightness(.6)
+```
+
+### 눈으로 (Chromium, `after/*.png`)
+
+- `home`: 탭바 뒤로 아래쪽 카드의 오른쪽 숫자가 아주 희미하게 번져 보인다. 대부분 카드색이라 거의 안 보인다 — 비침이 보이는 것은 주황·초록 요소가 뒤에 올 때다.
+- `session`: 스크롤 0이라 상단 바 뒤에 아무것도 없어 안 보인다(스크롤한 장면은 사람이 폰으로 본다).
+- `sheet-finish`: 시트 뒤의 세션 화면이 덜 어둡고 카드·상단 바 윤곽이 어렴풋이 비친다. 오른쪽에 초록 체크 버튼이 희미한 초록 얼룩으로, 아래쪽에 주황 번짐이 보인다. 시트 위쪽 가장자리에 1px 밝은 선이 보인다.
+- 이 Chromium 캡처는 iOS Safari가 아니다(제약 16). 실제로 그려지는지는 사람이 폰에서 `compare/`와 함께 본다.
+
+### 결함 복원
+
+| 되살린 결함 | 실패한 검사 | 원상복구 |
+|---|---|---|
+| ① `glass.css` 띠 흐림 값을 `var(--x)`로 | 정적 `backdrop-filter 값에 var( 0건` | `cp` 백업 + `cmp` 같음 |
+| ② `global.css` `.tabbar`에 `backdrop-filter: blur(4px)` | 정적 `none뿐` · `두 접두사 값이 같다` | 〃 |
+| ③ `--glass-bar` 알파를 0.78로 | `home` `띠 비침`: `(1−0.78)×0.6=0.132` | 〃 |
+| ④ `--glass-scrim`을 0.6으로 | `sheet-finish` `시트 비침`: 0.100 | 〃 |
+| ⑤ `--glass-pill`을 흰빛 0.08로 | `home` `글자 대비`(알약 위): "홈" 3.88:1 | 〃 |
+| ⑤-2 `--glass-pill`을 띠 배경색과 같게 + 테두리 삭제 | `home` `알약 구별`: 카드색 1.01:1 · 테두리 없음 | 〃 |
+| ⑤-3 `ax.css` 라이트 시트 흐림에 `brightness(0.5)` | 정적 `Astryx 라이트 시트 흐림 = 다크에서 brightness만 뺀 것` | 〃 |
+| 알약 `border` 삭제 | 정적 `알약에 --glass-highlight 테두리가 있다` | 〃 |
+| `ax.css` 끄기 블록 한쪽 선언 변경 | 정적 `끄기 블록 쌍` | 〃 |
+| `glassDiag`가 `흐림 선언됨` 대신 `켜짐`을 냄 | `glassDiag.test.ts` 2개 | 〃 |
+| `SettingsScreen`에서 `glassDiagnosis` 호출 제거 | `v119.test.ts` `QQ1` | 〃 |
+
+### 과거 판정 불변
+
+QQ1은 `src/db`·`src/store`·기록 해석 규칙을 건드리지 않았다. `src/lib`에는 새 파일(`glassDiag.ts`·`glassDiag.test.ts`)만 더했다.
+
+### 실행 결과
+
+- `npm test`: `Test Files  65 passed (65)` · `Tests  1585 passed (1585)`
+- `npm run build` 통과 · `node scripts/quality-scan.mjs --ci` → `[quality-scan] 통과`
+- `git rev-list --count main..HEAD` → 4 (이 커밋 포함)
+
+### 사람 확인 필요
+
+- 실기기 ①②③⑤⑥⑧(PLAN "실기기 확인") — 폰에서 `compare/` 세 벌과 함께 본다. 특히 ②: 탭바 뒤 글자가 번지는지(목표)·또렷한지(안 그려짐)·안 보이는지.
+- Argos는 QQ0 결과 그대로(`ARGOS_TOKEN` 없음).

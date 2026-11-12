@@ -101,7 +101,13 @@ export const inPageInstall = () => {
     const bars = [...document.querySelectorAll('.tabbar, .resume-strip, .session-header, .rest-bar')].filter(visible)
     return all ? [...bars, ...(sheet ? [sheet] : [])] : sheet ? [sheet] : bars
   }
-  window.__glass = { parse, over, ratio, bg, filterOf, visible, fmt, cssVar, sheetOf, backdropOf, layersOf }
+  /** 흐림 값의 brightness(b). 없으면 1 (v1.19 QQ1: 뒤 밝기를 낮춰 비치는 양을 늘린다 — 비침·대비 계산에 곱한다) */
+  const brightnessOf = (el) => {
+    const m = filterOf(el).match(/brightness\(([\d.]+)(%?)\)/)
+    return m ? Number.parseFloat(m[1]) / (m[2] ? 100 : 1) : 1
+  }
+  const scale = (c, k) => ({ r: c.r * k, g: c.g * k, b: c.b * k, a: c.a })
+  window.__glass = { parse, over, ratio, bg, filterOf, visible, fmt, cssVar, sheetOf, backdropOf, layersOf, brightnessOf, scale }
 }
 
 /** 유리 켜짐 */
@@ -196,14 +202,16 @@ export const inPageTextContrast = () => {
   let n = 0
   let min = Infinity
   for (const root of roots) {
+    // 뒤 밝기: 흐림 값의 brightness(b)가 뒤(막까지 합성한 색)에 곱해진다
+    const bright = g.brightnessOf(root)
     const base = (under) => {
       let c = g.bg(root)
       if (sheet) {
         const b = g.backdropOf(root)
         const behind = b ? g.over(b.color, under) : under
-        return g.over(c, behind)
+        return g.over(c, g.scale(behind, bright))
       }
-      return g.over(c, under)
+      return g.over(c, g.scale(under, bright))
     }
     for (const el of root.querySelectorAll('*')) {
       if (!g.visible(el)) continue
@@ -224,7 +232,10 @@ export const inPageTextContrast = () => {
       const fg = g.parse(cs.color)
       const size = Number.parseFloat(cs.fontSize)
       const need = size >= 24 && Number.parseInt(cs.fontWeight, 10) >= 700 ? 3 : 4.5
-      const unders = face ? [['면', face]] : [['accent', base(accent)], ['ok', base(okC)]]
+      // 지금 탭 글자는 알약(::before) 위에 한 번 더 합성한 색이 바탕이다
+      const pillBtn = el.closest('button[aria-current="page"]')
+      const onPill = (c) => (pillBtn && !sheet ? g.over(g.bg(pillBtn, '::before'), c) : c)
+      const unders = face ? [['면', face]] : [['accent', onPill(base(accent))], ['ok', onPill(base(okC))]]
       for (const [label, under] of unders) {
         const r = g.ratio(fg.a < 1 ? g.over(fg, under) : fg, under)
         n++
@@ -237,7 +248,26 @@ export const inPageTextContrast = () => {
   return { ok: bad.length === 0, detail: bad.length ? bad.slice(0, 3).join(' · ') + (bad.length > 3 ? ` 외 ${bad.length - 3}` : '') : `${n}건 최소 ${min.toFixed(2)}:1` }
 }
 
-/** 시트 비침: (1 − 시트 알파) × (1 − 막 알파). Astryx는 값만 찍는다 */
+/** 띠 비침 (v1.19 QQ1): 띠마다 보이는 비침 (1 − 띠 배경 알파) × brightness ≥ 0.30. 알파만 보면 brightness를 낮춰도 지표가 그대로라 곱한다 */
+export const inPageBarShow = () => {
+  const g = window.__glass
+  // 시트가 떠 있으면 한 겹 규칙이 아래 띠를 불투명으로 바꾼다 — 그때는 시트 비침이 잰다
+  const bars = g.sheetOf() ? [] : [...document.querySelectorAll('.tabbar, .resume-strip, .session-header, .rest-bar')].filter(g.visible)
+  if (bars.length === 0) return { skip: true, detail: '띠가 없다(또는 시트가 떠 있다)' }
+  const bad = []
+  const seen = []
+  for (const el of bars) {
+    const name = el.className.toString().split(' ')[0]
+    const a = g.bg(el).a
+    const b = g.brightnessOf(el)
+    const show = (1 - a) * b
+    seen.push(`${name} (1−${+a.toFixed(2)})×${b}=${show.toFixed(3)}`)
+    if (show < 0.3 - 1e-9) bad.push(`${name} ${show.toFixed(3)}`)
+  }
+  return { ok: bad.length === 0, detail: (bad.length ? bad.join(' · ') + ' (기준 0.30 이상) ' : '') + seen.join(' · ') }
+}
+
+/** 시트 비침: (1 − 시트 알파) × (1 − 막 알파) × brightness ≥ 0.15. legacy·Astryx 라이트·다크 같은 기준 (라이트 Astryx는 brightness 1) */
 export const inPageSheetShow = () => {
   const g = window.__glass
   const sheet = g.sheetOf()
@@ -245,10 +275,34 @@ export const inPageSheetShow = () => {
   const b = g.backdropOf(sheet)
   const sa = g.bg(sheet).a
   const ba = b ? b.color.a : 0
-  const show = (1 - sa) * (1 - ba)
-  const text = `시트 α${+sa.toFixed(3)} · 막 α${+ba.toFixed(3)} → 비침 ${show.toFixed(3)}`
-  if (b?.kind === 'astryx') return { ok: true, info: true, detail: `${text} (Astryx: 값만 찍는다)` }
-  return { ok: show >= 0.1, detail: `${text} (기준 0.10 이상)` }
+  const br = g.brightnessOf(sheet)
+  const show = (1 - sa) * (1 - ba) * br
+  const text = `시트 α${+sa.toFixed(3)} · 막 α${+ba.toFixed(3)} · 밝기 ${br} → 비침 ${show.toFixed(3)}`
+  return { ok: show >= 0.15 - 1e-9, detail: `${text} (기준 0.15 이상)` }
+}
+
+/**
+ * 알약 구별 (v1.19 QQ1): 지금 탭 알약 합성색과 띠 합성색의 대비 ≥ 1.2:1 — 뒤가 카드색일 때와 주황일 때 둘 다.
+ * 대비로 못 채우면 알약에 테두리(--glass-highlight)를 두어 채운다: 테두리가 있으면(너비 > 0, 알파 > 0) 통과로 본다.
+ */
+export const inPagePillSeparation = () => {
+  const g = window.__glass
+  const btn = document.querySelector('.tabbar button[aria-current="page"]')
+  const bar = document.querySelector('.tabbar')
+  if (!btn || !bar || !g.visible(bar)) return { skip: true, detail: '지금 탭 알약이 없다' }
+  const pill = g.bg(btn, '::before')
+  const pcs = getComputedStyle(btn, '::before')
+  const border = Number.parseFloat(pcs.borderTopWidth) > 0 && g.parse(pcs.borderTopColor).a > 0
+  const bright = g.brightnessOf(bar)
+  const parts = []
+  let ok = true
+  for (const [label, under] of [['카드색', g.cssVar('--surface')], ['주황', g.cssVar('--accent')]]) {
+    const face = g.over(g.bg(bar), g.scale(under, bright))
+    const r = g.ratio(g.over(pill, face), face)
+    parts.push(`${label} ${r.toFixed(2)}:1`)
+    if (r < 1.2 && !border) ok = false
+  }
+  return { ok, detail: parts.join(' · ') + (border ? ' · 알약에 테두리 있음' : ' · 알약에 테두리 없음 (기준 1.2:1)') }
 }
 
 /** 탭바 자리 (하위 항목). scene은 'home' 계열만 가림을 잰다 */
@@ -316,8 +370,13 @@ const blockAfter = (css, headerRe) => {
   return null
 }
 
+/** 규칙 목록 [{ sel, body }]. @media 같은 중첩은 안쪽 규칙만 나온다 */
+const rulesOf = (css) => [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ sel: m[1].trim().replace(/\s+/g, ' '), body: m[2] }))
+const declsOf = (body, prop) => [...body.matchAll(new RegExp(`(?:^|[;\\s])(${prop})\\s*:\\s*([^;}]+)`, 'g'))].map((m) => m[2].trim())
+const squashWs = (s) => s.replace(/\s+/g, '')
+
 /**
- * @param {{ globalCss: string, axCss: string, glassCss: string | null }} src CSS 소스 글자
+ * @param {{ globalCss: string, axCss: string, glassCss: string | null, allCss?: Record<string, string> }} src CSS 소스 글자
  * @returns {{ name: string, ok: boolean, detail: string }[]}
  */
 export function staticChecks(src) {
@@ -325,30 +384,75 @@ export function staticChecks(src) {
   const g = stripComments(src.globalCss)
   const a = stripComments(src.axCss)
   const gl = src.glassCss === null ? null : stripComments(src.glassCss)
+  const add = (name, ok, detail) => out.push({ name, ok, detail })
 
-  const blurs = [['global.css', g], ['ax.css', a]].flatMap(([n, css]) => (css.match(/blur\(/g) ?? []).map(() => n))
-  out.push({ name: 'blur( 리터럴 0건', ok: blurs.length === 0, detail: blurs.length ? `${blurs.length}건: ${[...new Set(blurs)].join(', ')}` : 'global.css·ax.css 0건' })
+  // 1. global.css·ax.css: none 말고 없다 (ax.css의 .astryx-bottom-sheet 규칙은 예외)
+  const bd = (css, file, except) =>
+    rulesOf(css).flatMap((r) => ['-webkit-backdrop-filter', 'backdrop-filter'].flatMap((p) => declsOf(r.body, p).map((v) => ({ file, sel: r.sel, v, ok: v === 'none' || (except && r.sel.includes('.astryx-bottom-sheet')) }))))
+  const stray = [...bd(g, 'global.css', false), ...bd(a, 'ax.css', true)].filter((d) => !d.ok)
+  add('global.css·ax.css에 backdrop-filter는 none뿐(ax.css .astryx-bottom-sheet 규칙 예외)', stray.length === 0, stray.length ? stray.slice(0, 3).map((d) => `${d.file} ${d.sel}: ${d.v}`).join(' · ') : '없음')
 
-  const decls = [['global.css', g], ['ax.css', a]].flatMap(([n, css]) =>
-    [...css.matchAll(/(?:-webkit-)?backdrop-filter\s*:\s*([^;}]+)/g)].map((m) => ({ n, v: m[1].trim() })),
+  // 2. 프로젝트 CSS 전체: backdrop-filter 값에 var( 0건
+  const all = src.allCss ?? { 'global.css': src.globalCss, 'ax.css': src.axCss, ...(src.glassCss === null ? {} : { 'glass.css': src.glassCss }) }
+  const withVar = Object.entries(all).flatMap(([file, css]) =>
+    rulesOf(stripComments(css)).flatMap((r) => ['-webkit-backdrop-filter', 'backdrop-filter'].flatMap((p) => declsOf(r.body, p).filter((v) => v.includes('var(')).map((v) => `${file} ${r.sel}: ${v}`))),
   )
-  const notVar = decls.filter((d) => !d.v.startsWith('var(--glass-'))
-  out.push({ name: 'backdrop-filter 값이 var(--glass-…)', ok: notVar.length === 0, detail: notVar.length ? notVar.map((d) => `${d.n}: ${d.v}`).slice(0, 3).join(' · ') : `${decls.length}건 모두 var(--glass-…)` })
+  add('backdrop-filter 값에 var( 0건 (src/**/*.css 전체)', withVar.length === 0, withVar.length ? withVar.slice(0, 3).join(' · ') : `${Object.keys(all).length}개 파일 0건`)
+
+  // 3. 같은 규칙 안 두 접두사 값이 글자 그대로 같다
+  const mism = Object.entries(all).flatMap(([file, css]) =>
+    rulesOf(stripComments(css)).flatMap((r) => {
+      const w = declsOf(r.body, '-webkit-backdrop-filter')
+      const p = declsOf(r.body, 'backdrop-filter')
+      if (w.length === 0 && p.length === 0) return []
+      return w.length === 1 && p.length === 1 && w[0] === p[0] ? [] : [`${file} ${r.sel}`]
+    }),
+  )
+  add('같은 규칙의 -webkit-backdrop-filter와 backdrop-filter 값이 같다', mism.length === 0, mism.length ? mism.slice(0, 3).join(' · ') : '모든 규칙 같다')
 
   if (gl === null) {
-    out.push({ name: 'glass.css 있음', ok: false, detail: 'src/styles/glass.css가 없다' })
+    add('glass.css 있음', false, 'src/styles/glass.css가 없다')
     return out
   }
+
+  // 4. 시트 흐림: glass.css .sheet = ax.css 다크, 라이트 = 다크에서 brightness 항만 뺀 것
+  const glSheet = rulesOf(gl).find((r) => r.sel === '.sheet' && declsOf(r.body, 'backdrop-filter').length)
+  const glSheetV = glSheet ? declsOf(glSheet.body, 'backdrop-filter')[0] : null
+  const axSheetVals = rulesOf(a)
+    .filter((r) => r.sel.includes('.astryx-bottom-sheet'))
+    .flatMap((r) => declsOf(r.body, 'backdrop-filter'))
+    .filter((v) => v !== 'none')
+  const dark = axSheetVals.find((v) => v.includes('brightness('))
+  const light = axSheetVals.find((v) => !v.includes('brightness('))
+  const strip = (v) => v.replace(/\s*brightness\([^)]*\)/g, '').trim()
+  add('시트 흐림: glass.css = ax.css 다크 (글자 그대로)', glSheetV !== null && dark !== undefined && glSheetV === dark, `glass ${glSheetV ?? '없음'} / ax 다크 ${dark ?? '없음'}`)
+  add('Astryx 라이트 시트 흐림 = 다크에서 brightness만 뺀 것', dark !== undefined && light !== undefined && light === strip(dark), `다크 ${dark ?? '없음'} → 라이트 ${light ?? 'brightness 없는 값이 없다'}`)
+
+  // 5. 막: glass.css --glass-scrim 알파 = ax.css 바텀 시트 ::backdrop 알파
+  const scrimA = gl.match(/--glass-scrim:\s*rgba\(0,\s*0,\s*0,\s*([\d.]+)\)/)?.[1]
+  const axScrim = rulesOf(a).find((r) => r.sel === 'dialog:has(.astryx-bottom-sheet)::backdrop' && /rgba\(0, 0, 0, ([\d.]+)\)/.test(r.body))
+  const axScrimA = axScrim?.body.match(/rgba\(0, 0, 0, ([\d.]+)\)/)?.[1]
+  add('막 농도: glass.css --glass-scrim = ax.css 바텀 시트 ::backdrop', scrimA !== undefined && scrimA === axScrimA, `glass ${scrimA ?? '없음'} / ax ${axScrimA ?? '없음'}`)
+
+  // 6. 규칙 어휘
   const need = ['prefers-reduced-transparency', 'prefers-contrast', ':has(']
   const missing = need.filter((k) => !gl.includes(k))
-  out.push({ name: 'glass.css 규칙 어휘', ok: missing.length === 0, detail: missing.length ? `없음: ${missing.join(', ')}` : need.join(' · ') })
+  add('glass.css 규칙 어휘', missing.length === 0, missing.length ? `없음: ${missing.join(', ')}` : need.join(' · '))
 
-  const media = blockAfter(gl, /@media[^{]*prefers-reduced-transparency/)
-  const supports = blockAfter(gl, /@supports\s+not/)
-  const sameHeader = media !== null && media.header.includes('prefers-contrast')
-  out.push({ name: '끄기 @media에 대비 증가 포함', ok: sameHeader, detail: media ? media.header.replace(/\s+/g, ' ') : '@media 블록이 없다' })
-  const squash = (s) => s.replace(/\s+/g, '')
-  const same = media !== null && supports !== null && squash(media.body) === squash(supports.body)
-  out.push({ name: '끄기 두 블록 선언 같음', ok: same, detail: !media || !supports ? `${media ? '' : '@media 없음 '}${supports ? '' : '@supports not 없음'}` : same ? '공백 빼고 같다' : '두 블록이 다르다' })
+  // 7. 끄기 블록 넷 (glass.css 둘, ax.css 둘)
+  const gm = blockAfter(gl, /@media[^{]*prefers-reduced-transparency/)
+  const gs = blockAfter(gl, /@supports\s+not/)
+  const am = blockAfter(a, /@media[^{]*prefers-reduced-transparency/)
+  const as = blockAfter(a, /@supports\s+not/)
+  add('끄기 @media에 대비 증가 포함', gm !== null && gm.header.includes('prefers-contrast'), gm ? gm.header.replace(/\s+/g, ' ') : '@media 블록이 없다')
+  const pairSame = (x, y) => x !== null && y !== null && squashWs(x.body) === squashWs(y.body)
+  add('끄기 블록 쌍: glass.css 둘 선언 같음 · ax.css 둘 선언 같음', pairSame(gm, gs) && pairSame(am, as), `glass ${pairSame(gm, gs) ? '같다' : '다르다/없음'} · ax ${pairSame(am, as) ? '같다' : '다르다/없음'}`)
+  const hdr = (b) => (b ? squashWs(b.header) : null)
+  add('끄기 블록 넷의 미디어·지원 조건이 같다', gm !== null && hdr(gm) === hdr(am) && hdr(gs) === hdr(as) && hdr(gs) !== null, `@media ${hdr(gm) === hdr(am) ? '같다' : '다르다'} · @supports ${hdr(gs) === hdr(as) ? '같다' : '다르다'}`)
+
+  // 8. 알약 테두리 (대비로 못 채운 구별을 테두리로 채운다)
+  const pillRule = rulesOf(g).find((r) => r.sel.includes("aria-current='page']::before") || r.sel.includes('aria-current="page"]::before'))
+  const pillBorder = pillRule ? declsOf(pillRule.body, 'border').some((v) => v.includes('var(--glass-highlight)')) : false
+  add('지금 탭 알약에 --glass-highlight 테두리가 있다', pillBorder, pillRule ? (pillBorder ? 'border: … var(--glass-highlight)' : '테두리 선언 없음') : '알약 규칙을 못 찾았다')
   return out
 }

@@ -207,15 +207,65 @@
  * 버전을 올리면 `node scripts/screenshots.mjs after --check --ver v1.18 --out editor`(Astryx 시트 장면)로 다시 확인한다.
  */
 @layer astryx-theme {
+  /*
+   * 흐림 값은 var() 없이 글자 그대로 적는다(WebKit 289149·289800·297620). glass.css의 .sheet와 같은 값이어야 한다 — 정적 검사가 본다.
+   * glass.css는 legacy 레이어라 거기에 @layer astryx-theme을 적으면 하위 레이어가 되어 Astryx 부품 규칙을 못 이긴다. 그래서 값이 여기 한 번 더 있다.
+   */
   html[data-astryx-theme] .astryx-bottom-sheet {
     background-color: var(--glass-sheet);
-    -webkit-backdrop-filter: var(--glass-sheet-filter);
-    backdrop-filter: var(--glass-sheet-filter);
+    -webkit-backdrop-filter: saturate(180%) blur(20px) brightness(0.5);
+    backdrop-filter: saturate(180%) blur(20px) brightness(0.5);
     border-block-start-color: var(--glass-edge);
+    box-shadow: inset 0 1px 0 var(--glass-highlight);
+  }
+
+  /*
+   * 라이트 시트는 하얀 면이라 뒤를 어둡게 하면 칙칙한 회색이 번진다 — brightness만 뺀다 (Theme mode="system"은 폰의 prefers-color-scheme을 따른다).
+   * 뒤 밝기를 안 낮추는 대신 면을 더 두껍게(70%) 둬 글자 4.5:1을 지킨다. 비침 (1 − 0.70) × (1 − 막 0.40) = 0.18 ≥ 0.15
+   */
+  @media (prefers-color-scheme: light) {
+    html[data-astryx-theme] {
+      --glass-sheet: color-mix(in srgb, var(--color-background-surface) 70%, transparent);
+    }
+    html[data-astryx-theme] .astryx-bottom-sheet {
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      backdrop-filter: saturate(180%) blur(20px);
+    }
+  }
+
+  /* 바텀 시트의 막만 옅게 (농도는 glass.css의 --glass-scrim과 같다 — ::backdrop이 사용자 정의 속성을 물려받는지 못 믿어 글자 그대로 적는다). Dialog·Drawer의 막은 그대로 */
+  dialog:has(.astryx-bottom-sheet)::backdrop {
+    background-color: rgba(0, 0, 0, 0.4);
   }
 
   /* 패널 안의 스크롤 영역이 표면색을 다시 칠하는 것을 끈다 (자식은 손잡이 aria-hidden과 스크롤 영역뿐) */
   html[data-astryx-theme] .astryx-bottom-sheet > :not([aria-hidden='true']) {
     background-color: transparent;
+  }
+
+  /* 유리 끄기 (glass.css와 같은 조건·같은 선언 — 정적 검사가 본다). 라이트 시트의 면(70%)이 legacy 끄기보다 위 레이어라 여기서 한 번 더 불투명으로 돌린다 */
+  @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+    html[data-astryx-theme] {
+      --glass-sheet: var(--glass-solid);
+    }
+    html[data-astryx-theme] .astryx-bottom-sheet {
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+    dialog:has(.astryx-bottom-sheet)::backdrop {
+      background-color: rgba(0, 0, 0, 0.6);
+    }
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    html[data-astryx-theme] {
+      --glass-sheet: var(--glass-solid);
+    }
+    html[data-astryx-theme] .astryx-bottom-sheet {
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+    dialog:has(.astryx-bottom-sheet)::backdrop {
+      background-color: rgba(0, 0, 0, 0.6);
+    }
   }
 }

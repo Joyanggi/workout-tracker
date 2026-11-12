@@ -23,6 +23,7 @@ import { phaseReadiness } from '../lib/phaseReadiness'
 import { todayLocal } from '../lib/dates'
 import { dayTotalSets, exerciseLabel, useRoutine } from '../lib/useRoutine'
 import { isStandalone } from '../lib/platform'
+import { glassDiagnosis, readGlassDiagInput } from '../lib/glassDiag'
 import { A_ECCENTRIC_OPTIONS, COUNT_IN_OPTIONS, phaseTone } from '../lib/tempo'
 import { useSettings } from '../store/settings'
 import { useSessionStore } from '../store/session'
@@ -76,6 +77,8 @@ export default function SettingsScreen({
   const [openDayId, setOpenDayId] = useState<string | null>(null)
   const [resetStep, setResetStep] = useState(0)
   const [quota, setQuota] = useState<string | null>(null)
+  // 마운트 때 한 번만 읽는다(저장 안 함). 설정 안에서 시트를 열어 한 겹 규칙이 탭바 흐림을 끄는 것은 반영하지 않는다
+  const [glass] = useState(() => glassDiagnosis(readGlassDiagInput()))
 
   useEffect(() => {
     void navigator.storage?.estimate?.().then((est) => {
@@ -442,6 +445,14 @@ export default function SettingsScreen({
             <div className="row-sub">running인데 안 들리면 무음 스위치·볼륨·출력 기기 확인</div>
           </div>
           <div className="row-meta">{audioContextState() ?? '아직 안 열림'}</div>
+        </div>
+        {/* 흐림이 선언됐는지만 안다. 실제로 그려졌는지는 탭바 뒤 글자가 번지는지 또렷한지로 눈으로 가른다 (v1.19 QQ1) */}
+        <div className="row">
+          <div className="row-main">
+            <div className="row-title">유리</div>
+            {glass.sub && <div className="row-sub">{glass.sub}</div>}
+          </div>
+          <div className="row-meta">{glass.label}</div>
         </div>
         {/*
           복구 카운터 (2026-08-27). 앱 전환 후 무음 문제는 이 창에서 재현할 수 없다
