@@ -63,6 +63,34 @@ describe('incidents: 대장과 모으기', () => {
     expect(unkeyed).toEqual([]);
   });
 
+  it("막은 PR이 '이번 정비'면 번호가 채워질 때까지 재발로 올리지 않고, 일회성은 여러 번 나와도 고치라고 하지 않는다", () => {
+    const l = parseLedger('| `a-b-c` | 명령 | 막음(글) | 방법 | 이번 정비 | #46 |\n| `usage-limit-resume` | 일꾼 | 일회성 | 규칙 | | #32 |\n');
+    const out = aggregate(
+      [
+        { ref: '#46', number: 46, text: body('- [명령] 리뷰: x (키: a-b-c)', '- [일꾼] 구현: 한도 (키: usage-limit-resume)') },
+        { ref: '#47', number: 47, text: body('- [일꾼] 구현: 한도 (키: usage-limit-resume)') },
+      ],
+      l,
+    );
+    expect(out.rows.find((r) => r.key === 'a-b-c').recurred).toBe(false);
+    expect(render(out, 2)).toContain('| `usage-limit-resume` | 일꾼 | 2 | #46 #47 | 일회성 | 일회성 — 규칙대로 넘겼는지만 본다 |');
+  });
+
+  it('대장의 "다른 이름" 표에 있는 키는 원래 키로 합쳐 센다', () => {
+    const withAlias = parseLedger('| `worker-setup-timeout` | 일꾼 | 열림 | | | #32 |\n\n| 다른 이름 | 원래 키 |\n|---|---|\n| `agent-readiness-slow` | `worker-setup-timeout` |\n');
+    expect(withAlias.aliases.get('agent-readiness-slow')).toBe('worker-setup-timeout');
+    expect(withAlias.has('agent-readiness-slow')).toBe(false);
+    const out = aggregate(
+      [
+        { ref: '#50', number: 50, text: body('- [일꾼] 구현: 시작 시간 초과 (키: agent-readiness-slow)') },
+        { ref: '#51', number: 51, text: body('- [일꾼] 구현: 시작 시간 초과 (키: worker-setup-timeout)') },
+      ],
+      withAlias,
+    );
+    expect(out.rows).toHaveLength(1);
+    expect(out.rows[0]).toMatchObject({ key: 'worker-setup-timeout', count: 2, isNew: false });
+  });
+
   it('표에 판단을 적고, 키 없는 메모는 따로 모은다', () => {
     const out = render(aggregate([...sources, { ref: '#43', number: 43, text: body('- 키를 안 적은 메모') }], ledger), 5);
     expect(out).toContain('| `npm-lock-ci-version` | 환경 | 1 | #40 | 막음(장치) | **재발**');

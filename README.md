@@ -391,6 +391,7 @@ flowchart TB
 - 차트: recharts (분석 탭만 `React.lazy`로 지연 로딩)
 - PWA: vite-plugin-pwa (manifest + Workbox SW), iOS 스플래시 8종
 - 테스트: Vitest (알고리즘·파생 계산 단위 테스트, CI에서 배포 전 실행). 개수는 `npm test`가 말해줍니다
+- 검사: `npm run check` 하나가 CI와 같은 목록을 돕니다 — 흔적 검사(자체 스크립트), ESLint(React 훅·접근성), Knip(안 쓰는 파일·의존성), Astryx 뒷걸음 검사, 테스트(fast-check 속성 테스트 포함), 빌드. 변이 테스트(StrykerJS, `npm run mutation`)와 화면 검사(Playwright + axe-core, `scripts/ui-check.mjs`)는 로컬에서 돌리고, CodeQL·OSV-Scanner는 별도 워크플로로 돕니다
 - 배포: GitHub Actions → GitHub Pages
 
 ## 프로젝트 구조
