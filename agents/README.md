@@ -18,7 +18,7 @@
           여러 작업 구현: 작업마다 구현자 → (화면 변경이면 화면 검증자) → 리뷰어 (반려 1회까지)
                                     │                                   │
                                     ▼                                   ▼
-                     PR (CI: 흔적 검사·test·build 필수) ──[사람: 화면 확인 → 머지]──▶ main
+              PR (CI: npm run check와 같은 목록, 필수) ──[사람: 화면 확인 → 머지]──▶ main
                                     │                                   │
                 PR 본문 "규칙 메모"·"토큰 사용"                GitHub Pages 배포 → 폰 앱
                                     ▼                                   │
@@ -80,7 +80,12 @@ PLAN 구현 PR이 머지되면 (같은 지휘자 세션에서 이어서)
 | 장치 | 막는 것 | 위치 |
 |---|---|---|
 | GitHub ruleset `mainRuleset` | main 직접 push, 강제 push, 삭제, CI 실패한 PR 머지 | 레포 Settings → Rules |
-| CI (`ci`) | 테스트·빌드 깨진 PR | `.github/workflows/ci.yml` |
+| CI (`ci`) | 아래 검사가 하나라도 깨진 PR. 로컬의 `npm run check`와 같은 목록이다(`scripts/check.test.mjs`가 둘이 같은지 본다) | `.github/workflows/ci.yml`, `scripts/check.mjs` |
+| 린트 (ESLint, CI에서) | **새로 생긴** React 훅 규칙 위반(렌더 중 ref 쓰기, effect 안 setState), 접근성 위반(jsx-a11y), 안 쓰는 변수. 도입 전부터 있던 34건은 `eslint-suppressions.json`에 묶여 있고 줄어들기만 한다 | `eslint.config.js` |
+| 안 쓰는 파일·의존성 (Knip, CI에서) | 아무도 import하지 않는 파일, `package.json`에 없는데 쓰는 패키지, 있는데 안 쓰는 패키지 | `knip.json` |
+| Astryx 뒷걸음 (CI에서) | Astryx를 안 읽는 화면 파일, 인라인 스타일, 손으로 짠 클래스 쓰임이 **늘어난** PR | `scripts/astryx-inventory.mjs --check` (기준: `docs/ASTRYX-INVENTORY.md` 합계 줄) |
+| 속성 테스트 (fast-check, `npm test` 안에서) | "어떤 입력에서도 성립해야 하는 것"이 깨진 계산 함수 | `src/lib/properties.test.ts` |
+| 보안 (`Security`, 필수 아님) | 코드의 취약 패턴(CodeQL), PR이 새로 들인 취약 의존성(OSV). 결과는 레포 Security 탭 | `.github/workflows/security.yml` |
 | 흔적 검사 (`quality-scan --ci`, CI에서) | 새로 생긴 같은 이름 함수·상수 복사본, `.skip`·`.only`·`.todo` 테스트, `@ts-ignore`·`@ts-nocheck`, 무력화(`if (false)` 같은 늘 같은 조건, `any`, 이유 없이 빈 `catch`) | `scripts/quality-scan.mjs` (알고 있는 중복: `scripts/quality-allow.json`) |
 | 배포 전 테스트 | 깨진 코드 배포 | `.github/workflows/deploy.yml` |
 | 에이전트 안전장치 훅 | Claude 일꾼의 `gh pr merge`, main push, 강제 push, `reset --hard`, `clean -f`, `checkout --`, `branch -D`, 그리고 위 ruleset을 끄는 명령(`gh repo edit/delete`, API로 ruleset·브랜치 보호·main 삭제) | `.claude/settings.json` → `scripts/agent-guard.mjs` (테스트: `scripts/agent-guard.test.mjs`) |
@@ -90,6 +95,15 @@ PLAN 구현 PR이 머지되면 (같은 지휘자 세션에서 이어서)
 
 ruleset은 승인 리뷰 0개로 되어 있다(혼자 쓰는 레포라 자기 PR을 승인할 수 없다). 그래서 **에이전트가 `gh pr merge`를 하면 서버는 막지 못한다.** 훅이 그 자리를 막는다.
 
+### CI 밖에서 도는 검사 (에이전트가 돌린다)
+
+| 도구 | 누가 언제 | 무엇을 |
+|---|---|---|
+| 변이 테스트 (StrykerJS) `npm run mutation` | 구현자가 `src/lib`를 바꿨을 때 | 바뀐 파일의 줄마다 결함을 넣어 보고 테스트가 잡는지. 살아남은 변이 = 테스트의 구멍. 파일당 1분쯤 걸려 CI에 넣지 않았다 |
+| 화면 검사 `node scripts/ui-check.mjs after --check` | 화면 검증자 | 화면마다 접근성(axe-core), 넘침, 눌림 반응, 움직임, 여백. Playwright 브라우저가 필요해 CI에 넣지 않았다 |
+| 화면 비교 (Argos) `node scripts/argos-upload.mjs` | 화면 검증자, `ARGOS_TOKEN`이 있을 때만 | 바꾸기 전·후 스크린샷의 달라진 픽셀 |
+| 검사 루프 | 구현자 | `npm run check`가 통과할 때까지 고치고 다시 돌린다. 다섯 번까지, 같은 실패가 두 번이면 멈춘다(`IMPLEMENTER.md` 3절) |
+
 ## 6. 상태가 있는 곳
 
 | 무엇 | 어디 |
@@ -98,6 +112,8 @@ ruleset은 승인 리뷰 0개로 되어 있다(혼자 쓰는 레포라 자기 PR
 | 지금 하는 일의 진행 | `.reports/run-<대상>.md` (지휘자가 단계마다 고친다. 대화가 끊겨도 이어갈 수 있다) |
 | 설계 검토 결과 | `.reports/<PLAN 버전>-<검토자>.md` |
 | 설계 | `docs/PLAN-*.md` (바뀐 부분의 기록) |
+| 화면의 기준 | `docs/DESIGN.md` 9절 (Astryx 우선), 옮긴 정도는 `docs/ASTRYX-INVENTORY.md` |
+| 리뷰 판정 전문 | `.reports/review-<작업 ID>.md` |
 | 지금 동작의 명세 | `README.md` "핵심 설계 결정" |
 | 구현 기록 | `docs/DEV-RECORD-*.md`, 작은 수정은 PR 본문 |
 | 계획대로 안 된 일 | PR 본문 `## 규칙 메모`, 댓글 `## 규칙 메모 (추가)` (줄마다 `[분류]`와 `(키: …)`) |

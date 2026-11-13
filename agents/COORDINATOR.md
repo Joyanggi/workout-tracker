@@ -3,7 +3,7 @@
 너는 지휘자다. 일을 일꾼에게 맡기고, 보고를 받아 다음 행동을 정한다.
 
 **너는 코드를 읽지도 고치지도 않는다.** 소스, diff, 테스트 파일을 열지 않는다.
-판단은 구현자 보고의 `결과:` 줄과 리뷰어 판정의 첫 줄로만 한다. 네가 읽는 글자 수가 곧 비용이다.
+판단은 구현자 보고의 `결과:` 줄과 리뷰어·화면 검증자 판정의 첫 줄로만 한다. 네가 읽는 글자 수가 곧 비용이다.
 문서(PLAN, DEV-RECORD, 이슈, `.reports/`)는 읽어도 된다. 필요한 절만 `grep -n`으로 찾아 읽는다.
 
 ## 0. 일의 종류
@@ -51,6 +51,8 @@ PR을 만드는 일이면 마무리 때 `agents/coordinator/PR.md`도 읽는다.
 - **이미 있는 작업 트리에 다음 일꾼을 띄울 때는 경로로 지정한다** (`--worktree path:<작업 트리 경로>`).
   `--worktree current`는 쓰지 않는다. 지휘자의 main 작업 트리로 잡힌다(v1.13에서 두 번 일어났다).
 - 일꾼을 띄운 직후 `orca status --json`이나 띄우기 결과에서 작업 트리 경로를 확인해 진행 파일에 적는다. 다음 일꾼은 그 경로를 쓴다.
+- **새 작업 트리는 준비(`npm ci`)에 1분쯤 걸린다.** 새 작업 트리에 띄울 때는 시작 대기 시간을 5분으로 준다(`--timeout-ms 300000`. 이름이 바뀌었으면 스킬을 따른다).
+  그래도 `agent_readiness` 시간 초과로 실패하면 준비가 늦은 것이다. 사람에게 묻지 않고 같은 Task를 **한 번** 다시 띄운다(`--retry-of`. 경로만 지정하면 `task_not_startable`이 난다). 두 번째도 실패하면 gate를 건다.
 
 ### 기다리는 법
 
@@ -61,6 +63,7 @@ orca orchestration check --wait --types worker_done,escalation,question --timeou
 메시지 없이 시간이 끝나면 같은 명령을 다시 실행한다. 메시지를 처리한 뒤에는 다음 대기 명령에 `--ack <deliveryId>`를 붙여 확인 처리한다. deliveryId는 check 결과에 있는 `deliveryId` 값이고, `msg_`로 시작하는 메시지 ID가 아니다.
 
 **release 확인.** 일꾼을 release한 뒤 결과가 `state=released`가 아니면, 결과에 나온 복구 안내를 따르고 최종 보고에 그 일꾼이 열려 있다고 적는다.
+한도로 끝난 일꾼은 release가 `dispatch_inactive`로 거부된다. 그때는 `worker-stop`으로 닫는다(세 번 일어났다).
 
 ### spec
 
@@ -80,7 +83,7 @@ agents/SCREEN-CHECKER.md를 읽고 <PLAN 파일>의 <작업 ID> 화면을 검증
 ```
 agents/REVIEWER.md를 읽고 <PLAN 파일>의 <작업 ID> 기준으로 이 브랜치를 리뷰해.
 화면은 .reports/screen-check-<작업 ID>.md의 판정과 스크린샷을 근거로 본다.
-판정 전문을 worker_done 요약으로 보내.
+판정 전문은 .reports/review-<작업 ID>.md에 쓰고, worker_done 요약에는 첫 줄과 "고칠 것"만 보내.
 ```
 
 ## 3. 보고를 받은 뒤
@@ -88,7 +91,7 @@ agents/REVIEWER.md를 읽고 <PLAN 파일>의 <작업 ID> 기준으로 이 브�
 **일꾼이 보고 없이 종료되면** `orca orchestration worker-read`로 마지막 출력을 읽는다.
 - **사용량 한도**(limit, quota, usage, rate limit, 5-hour 등): gate를 걸고 한도가 풀리는 시각을 사람에게 알린다.
   사람이 "이어서"라고 하면, 일꾼이 아직 살아 있으면 `orca orchestration send`로 "멈춘 곳부터 이어서 해"를 보내고, 끝났으면 같은 작업 트리에서 같은 spec으로 다시 띄운다.
-- **그 밖**(권한 확인 창, 로그인 요구, 시작 직후 종료): 재시도하지 말고 gate를 걸어 마지막 출력을 그대로 전한다.
+- **그 밖**(권한 확인 창, 로그인 요구, 시작 직후 종료): 재시도하지 말고 gate를 걸어 마지막 출력을 그대로 전한다. (새 작업 트리의 시작 시간 초과만은 2절 "작업 트리 지정"대로 한 번 다시 띄운다)
   사람이 고쳤다고 하면 같은 작업 트리에서 같은 spec으로 한 번 다시 띄운다.
 
 | 구현자 `결과:` | 다음 행동 |
@@ -117,6 +120,7 @@ git diff --name-only origin/main...HEAD -- src index.html | grep -vE '\.test\.' 
 ## 4. 반려됐을 때 (1회까지)
 
 리뷰(또는 화면 검증) 판정에서 **"고칠 것" 절만** 원문 그대로 잘라 옮긴다. 요약하거나 다시 쓰지 않는다.
+원문은 알림 본문이 아니라 **작업 트리의 판정 파일**에서 읽는다(`.reports/review-<작업 ID>.md`, `.reports/screen-check-<작업 ID>.md`). 알림 본문은 길면 잘린다.
 반려는 진행 파일의 규칙 메모에 `[반려]` 한 줄로 남긴다(`coordinator/PR.md` 3절).
 
 같은 작업 트리에서 구현자를 다시 띄운다:

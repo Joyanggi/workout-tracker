@@ -9,7 +9,11 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc -b --noEmit false --emitDeclarationOnly false"
+    "typecheck": "tsc -b --noEmit false --emitDeclarationOnly false",
+    "lint": "eslint .",
+    "knip": "knip --no-progress --include files,dependencies,unlisted,unresolved,binaries",
+    "mutation": "node scripts/mutation.mjs",
+    "check": "node scripts/check.mjs"
   },
   "dependencies": {
     "@astryxdesign/core": "0.7.13",
@@ -25,11 +29,21 @@
   "devDependencies": {
     "@argos-ci/cli": "6.11.0",
     "@axe-core/playwright": "4.14.0",
+    "@eslint/js": "^9.39.5",
+    "@stryker-mutator/core": "^10.1.1",
+    "@stryker-mutator/vitest-runner": "^10.1.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^9.39.5",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "fast-check": "^4.10.2",
+    "globals": "^17.14.0",
+    "knip": "^6.45.1",
     "playwright": "1.65.0",
     "typescript": "^5.6.3",
+    "typescript-eslint": "^8.72.2",
     "vite": "^5.4.11",
     "vite-plugin-pwa": "^0.21.1",
     "vitest": "^4.1.10"

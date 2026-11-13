@@ -2,13 +2,13 @@
 /**
  * 스크린샷을 Argos에 올린다 (PLAN v1.19 QQ0). 판정하지 않는다: 건너뜀·실패여도 종료 코드 0.
  *
- * 사용: node scripts/argos-upload.mjs <before|after>
+ * 사용: node scripts/argos-upload.mjs <before|after> [--ver=v1.20]  (없으면 package.json 버전의 앞 두 자리)
  *   before  docs/screenshots/v1.19/before를 main의 빌드로(ARGOS_BRANCH=main, ARGOS_COMMIT=merge-base) 올린다 — 기준이 된다
  *   after   docs/screenshots/v1.19/after를 지금 브랜치·HEAD로 올리되 기준을 merge-base로 못 박는다
  * 토큰은 환경 변수 ARGOS_TOKEN으로만 읽는다(명령줄 인자로 넘기지 않는다 — 로그에 남지 않게).
  */
 import { execSync, spawnSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -22,7 +22,14 @@ if (!process.env.ARGOS_TOKEN) {
   console.log('Argos 건너뜀: ARGOS_TOKEN 없음')
   process.exit(0)
 }
-const dir = join('docs', 'screenshots', 'v1.19', phase)
+const verFlag = process.argv.find((a) => a.startsWith('--ver='))
+const verAt = process.argv.indexOf('--ver')
+const VER = verFlag ? verFlag.slice(6) : verAt >= 0 ? String(process.argv[verAt + 1]) : 'v' + JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version.split('.').slice(0, 2).join('.')
+if (!/^v\d+\.\d+$/.test(VER)) {
+  console.error(`--ver는 v1.20 모양이어야 한다: ${VER}`)
+  process.exit(2)
+}
+const dir = join('docs', 'screenshots', VER, phase)
 if (!existsSync(join(ROOT, dir))) {
   console.log(`Argos 건너뜀: ${dir} 없음`)
   process.exit(0)

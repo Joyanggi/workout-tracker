@@ -2,8 +2,9 @@
 /**
  * UI 스크린샷 + 검사 (PLAN v1.19 QQ0).
  *
- * 사용: node scripts/ui-check.mjs <before|after> [--check] [--only=<장면,…>]
- *   before|after  저장 폴더 docs/screenshots/v1.19/<before|after>/<장면>.png (다크. 루틴 편집만 -light도)
+ * 사용: node scripts/ui-check.mjs <before|after> [--check] [--only=<장면,…>] [--ver=v1.20]
+ *   before|after  저장 폴더 docs/screenshots/<버전>/<before|after>/<장면>.png (다크. 루틴 편집만 -light도)
+ *   --ver=v1.20   저장 폴더의 버전. 없으면 package.json 버전의 앞 두 자리
  *   --check       장면마다 접근성(axe)·눌림 반응·움직임 줄이기·여백 격자·가로 넘침 + (띠·시트가 있으면) 유리 검사를 재서 표로 찍는다.
  *                 하나라도 실패면 종료 코드 1. 정적 검사는 after에서만(지금은 QQ1~QQ4가 더하는 만큼)
  *   --only=a,b    이 장면만 찍고 잰다(흐름은 앞에서부터 그대로 거친다)
@@ -41,7 +42,7 @@ import { inPageMotionDurations, inPageRowButtons, inPageSpacing, measurePress, m
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const BASE = '/workout-tracker/'
-const VER = 'v1.19'
+const PKG_VER = 'v' + JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version.split('.').slice(0, 2).join('.')
 
 const [phase, ...flags] = process.argv.slice(2)
 if (phase !== 'before' && phase !== 'after') {
@@ -49,6 +50,14 @@ if (phase !== 'before' && phase !== 'after') {
   process.exit(2)
 }
 const CHECK = flags.includes('--check')
+// --ver=v1.20과 --ver v1.20 둘 다 받는다(screenshots.mjs는 띄어 쓴다)
+const verFlag = flags.find((f) => f.startsWith('--ver='))
+const verAt = flags.indexOf('--ver')
+const VER = verFlag ? verFlag.slice(6) : verAt >= 0 ? String(flags[verAt + 1]) : PKG_VER
+if (!/^v\d+\.\d+$/.test(VER)) {
+  console.error(`--ver는 v1.20 모양이어야 한다: ${VER}`)
+  process.exit(2)
+}
 const onlyFlag = flags.find((f) => f.startsWith('--only='))
 const ONLY = onlyFlag ? new Set(onlyFlag.slice(7).split(',').filter(Boolean)) : null
 const glassFlag = flags.find((f) => f.startsWith('--glass='))
@@ -466,7 +475,10 @@ function printResults() {
     }
   }
   if (lines.length) console.log(`\n상세:\n${lines.join('\n')}`)
-  if (rows.length) {
+  if (rows.length && ONLY) {
+    // 장면 사이 비교는 견줄 장면이 다 있어야 한다. --only로 일부만 찍으면 '잰 장면 없음'으로 실패가 나서 건너뛴다
+    console.log('\n여백 한 벌 (장면 사이 비교): 건너뜀 — --only 실행이다. 전체 실행에서 본다')
+  } else if (rows.length) {
     console.log('\n여백 한 벌 (장면 사이 비교):')
     for (const c of spaceSetVerdicts(layouts)) {
       if (!c.ok) failed++

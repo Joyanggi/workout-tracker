@@ -20,6 +20,10 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      # 아래 목록은 scripts/check.mjs의 STEPS와 같아야 한다 (scripts/check.test.mjs가 본다). 로컬에서는 npm run check
       - run: node scripts/quality-scan.mjs --ci
+      - run: node scripts/astryx-inventory.mjs --check
+      - run: npm run lint
+      - run: npm run knip
       - run: npm test
       - run: npm run build

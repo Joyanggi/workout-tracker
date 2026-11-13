@@ -18,7 +18,8 @@
 
 ## 명령
 
-- 테스트 `npm test`, 타입 확인과 빌드 `npm run build`, 흔적 검사 `node scripts/quality-scan.mjs --ci` (CI에서도 돈다)
+- **검사 전부 한 번에: `npm run check`** (CI와 같은 목록 — 흔적 검사, Astryx 뒷걸음, 린트, 안 쓰는 파일·의존성, 테스트, 빌드). 작업 중간에는 `npm run check -- --fast`(빌드 제외)
+- 하나씩: 테스트 `npm test`, 타입 확인과 빌드 `npm run build`, 린트 `npm run lint`, 변이 테스트 `npm run mutation`(바뀐 `src/lib`만, CI에서는 안 돈다)
 - `tsc`를 직접 호출하지 않는다. `npx tsc --noEmit`은 `src`를 검사하지 않는다.
 
 ## 토큰 절약 (모든 역할 공통)
@@ -42,7 +43,8 @@
 
 ## 문서
 
-- `README.md` "핵심 설계 결정": 지금 동작의 명세. `docs/DESIGN.md`는 v1.0 당시 설계라 지금과 다를 수 있다 (9절 UI 방향만은 지금 기준).
+- `README.md` "핵심 설계 결정": 지금 동작의 명세. `docs/DESIGN.md`는 v1.0 당시 설계라 지금과 다를 수 있다 (4·7절 판정 근거와 9절 UI 방향은 지금 기준).
+- 화면은 **Astryx 우선**이다(`docs/DESIGN.md` 9절). 새 화면·부품은 `src/ax/`의 Astryx 부품으로 짓고, 손으로 짠 클래스·인라인 스타일을 늘리지 않는다(CI가 막는다).
 - `docs/INCIDENTS.md`: 문제 대장. 규칙 메모의 키와 막은 방법. 규칙 정비자만 고친다.
 - 요청: GitHub 이슈(개선·새 기능·구조 변경 양식)나 `docs/FIELD-REPORT-*.md`. 지휘자가 기획을 받으면 이슈로 만든다(`agents/coordinator/INTAKE.md`).
 - `docs/PLAN-*.md`: 설계서. 설계자만 쓴다.

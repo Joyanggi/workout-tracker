@@ -20,6 +20,7 @@ PR은 `agents/coordinator/PR.md`를 따른다.
 - 없으면 위 표대로 Codex와 Antigravity를 동시에 띄운다.
 - 검토자가 보고 없이 끝나면 `orca orchestration worker-read`로 마지막 출력을 읽는다.
   - 사용량 한도(limit, quota, usage, rate limit 등)로 끝난 것이면, 그 자리를 **Claude 검토자**(sonnet·high, 새 세션)로 바꿔 같은 spec과 같은 PLAN 커밋 SHA로 띄운다. 보고 파일은 `.reports/<PLAN 버전>-claude.md`다. Claude 검토자는 최대 하나만 둔다.
+    한도로 끝난 검토자는 release가 거부되면 `worker-stop`으로 닫는다(COORDINATOR.md "release 확인").
   - 한도가 아닌 이유로 끝났으면 사람에게 알리고 멈춘다.
 - 실제로 검토한 검토자와, 바꿨다면 그 사유를 적어둔다. PR 본문에 쓴다(아래 "자동 승인"·"사람에게 넘기기").
 

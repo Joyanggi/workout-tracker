@@ -1,0 +1,11 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "testRunner": "vitest",
+  "plugins": ["@stryker-mutator/vitest-runner"],
+  "reporters": ["clear-text", "json"],
+  "jsonReporter": { "fileName": "reports/mutation/mutation.json" },
+  "clearTextReporter": { "logTests": false, "reportTests": false },
+  "mutate": ["src/lib/**/*.ts", "!src/lib/**/*.test.ts"],
+  "coverageAnalysis": "perTest",
+  "tempDirName": ".stryker-tmp"
+}
