@@ -1,5 +1,6 @@
 import { itemVariant, variantsOf } from '../lib/diet'
 import type { DietItem, DietSlot } from '../types'
+import { SheetFrame } from './SheetFrame'
 
 /**
  * 단백질원 고르기 (DD3) — 변형 선택 시트.
@@ -29,68 +30,63 @@ export default function DietVariantSheet({
   const base = itemVariant(item, 0)
 
   return (
-    <div className="sheet-backdrop" onClick={onClose}>
-      <div
-        className="sheet"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-label={`${slot.name} 단백질원 고르기`}
-      >
-        <div className="sheet-grip" />
-        <div className="card-label">
-          {slot.name} · 단백질원
-        </div>
-        <p className="row-sub" style={{ whiteSpace: 'normal' }}>
-          루틴 문서 15장 로테이션 — <b>등가 기준은 단백질</b>입니다. 어느 것을 골라도 준수
-          점수는 같습니다 (물림이 이행률을 깎기 때문에 셋 다 허용됩니다).
-        </p>
+    <SheetFrame label={`${slot.name} 단백질원 고르기`} onClose={onClose}>
+      {(dismiss) => (
+        <>
+          <div className="card-label">
+            {slot.name} · 단백질원
+          </div>
+          <p className="row-sub" style={{ whiteSpace: 'normal' }}>
+            루틴 문서 15장 로테이션 — <b>등가 기준은 단백질</b>입니다. 어느 것을 골라도 준수
+            점수는 같습니다 (물림이 이행률을 깎기 때문에 셋 다 허용됩니다).
+          </p>
 
-        <div className="check-list" style={{ marginTop: 10 }}>
-          {variants.map((variant, index) => {
-            const kcalDelta = variant.kcal - base.kcal
-            const proteinDelta = variant.proteinG - base.proteinG
-            return (
-              <button
-                key={index}
-                className={`check-item${index === choice ? ' check-item-on' : ''}`}
-                aria-pressed={index === choice}
-                onClick={() => {
-                  onPick(index)
-                  onClose()
-                }}
-              >
-                <span className="check-box" aria-hidden="true">
-                  {index === choice ? '✓' : ''}
-                </span>
-                <span style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
-                  <span className="row-title">
-                    {variant.name} {variant.qty}
+          <div className="check-list mt-row">
+            {variants.map((variant, index) => {
+              const kcalDelta = variant.kcal - base.kcal
+              const proteinDelta = variant.proteinG - base.proteinG
+              return (
+                <button
+                  key={index}
+                  className={`check-item${index === choice ? ' check-item-on' : ''}`}
+                  aria-pressed={index === choice}
+                  onClick={() => {
+                    onPick(index)
+                    onClose()
+                  }}
+                >
+                  <span className="check-box" aria-hidden="true">
+                    {index === choice ? '✓' : ''}
                   </span>
-                  {/* 차이는 기본 변형 대비로 파생시킨다 — 손으로 적으면 시드를 고칠 때 낡는다 */}
-                  <span className="row-sub">
-                    {variant.kcal}kcal · 단백질 {variant.proteinG}g
-                    {index > 0 && (kcalDelta !== 0 || proteinDelta !== 0)
-                      ? ` (기본 대비 ${kcalDelta >= 0 ? '+' : '−'}${Math.abs(kcalDelta)}kcal${
-                          proteinDelta !== 0
-                            ? ` · 단백질 ${proteinDelta >= 0 ? '+' : '−'}${Math.abs(proteinDelta)}g`
-                            : ''
-                        })`
-                      : ''}
+                  <span className="stack-tight" style={{ flex: 1 }}>
+                    <span className="row-title">
+                      {variant.name} {variant.qty}
+                    </span>
+                    {/* 차이는 기본 변형 대비로 파생시킨다 — 손으로 적으면 시드를 고칠 때 낡는다 */}
+                    <span className="row-sub">
+                      {variant.kcal}kcal · 단백질 {variant.proteinG}g
+                      {index > 0 && (kcalDelta !== 0 || proteinDelta !== 0)
+                        ? ` (기본 대비 ${kcalDelta >= 0 ? '+' : '−'}${Math.abs(kcalDelta)}kcal${
+                            proteinDelta !== 0
+                              ? ` · 단백질 ${proteinDelta >= 0 ? '+' : '−'}${Math.abs(proteinDelta)}g`
+                              : ''
+                          })`
+                        : ''}
+                    </span>
                   </span>
-                </span>
-              </button>
-            )
-          })}
-        </div>
+                </button>
+              )
+            })}
+          </div>
 
-        <p className="row-sub" style={{ marginTop: 10, whiteSpace: 'normal' }}>
-          고른 것이 <b>다음 날의 기본</b>이 됩니다. 이미 적어 둔 날의 기록은 바뀌지 않습니다.
-        </p>
-        <div style={{ height: 8 }} />
-        <button className="btn" onClick={onClose}>
-          닫기
-        </button>
-      </div>
-    </div>
+          <p className="row-sub mt-row" style={{ whiteSpace: 'normal' }}>
+            고른 것이 <b>다음 날의 기본</b>이 됩니다. 이미 적어 둔 날의 기록은 바뀌지 않습니다.
+          </p>
+          <button className="btn mt-row" onClick={dismiss}>
+            닫기
+          </button>
+        </>
+      )}
+    </SheetFrame>
   )
 }

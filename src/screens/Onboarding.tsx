@@ -49,7 +49,7 @@ export default function Onboarding() {
           </div>
 
           {!ios && (
-            <p className="row-sub" style={{ marginBottom: 20 }}>
+            <p className="row-sub mb-group">
               iOS가 아닌 환경입니다. 브라우저 메뉴의 “앱 설치”를 사용하세요.
             </p>
           )}
@@ -67,7 +67,7 @@ export default function Onboarding() {
         {standalone ? '시작하기' : '확인했어요, 그래도 계속'}
       </button>
       {!standalone && (
-        <p className="row-sub" style={{ textAlign: 'center', marginTop: 12 }}>
+        <p className="row-sub mt-group" style={{ textAlign: 'center' }}>
           홈 화면에 추가하기 전까지 상단에 경고가 계속 표시됩니다.
         </p>
       )}

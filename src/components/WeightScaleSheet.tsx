@@ -7,6 +7,7 @@ import {
   type WeightScale,
 } from '../lib/weightScale'
 import { NO_AUTOFILL } from '../lib/inputProps'
+import { SheetFrame } from './SheetFrame'
 
 /**
  * 종목별 무게 단위 설정 (T9).
@@ -68,101 +69,96 @@ export default function WeightScaleSheet({
   }
 
   return (
-    <div className="sheet-backdrop" onClick={onClose}>
-      <div
-        className="sheet"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-label="무게 단위 설정"
-      >
-        <div className="sheet-grip" />
-        <div className="card-label">무게 단위 · {exerciseName}</div>
-        <p className="row-sub">
-          이 종목의 머신 한 핀이 몇 kg인지. 증량 제안과 ± 버튼이 이 값을 따릅니다.
-        </p>
+    <SheetFrame label="무게 단위 설정" onClose={onClose}>
+      {(dismiss) => (
+        <>
+          <div className="card-label">무게 단위 · {exerciseName}</div>
+          <p className="row-sub">
+            이 종목의 머신 한 핀이 몇 kg인지. 증량 제안과 ± 버튼이 이 값을 따릅니다.
+          </p>
 
-        <div className="segment" style={{ marginTop: 12 }}>
-          <button aria-pressed={mode === 'step'} onClick={() => setMode('step')}>
-            균일 간격
-          </button>
-          <button aria-pressed={mode === 'ladder'} onClick={() => setMode('ladder')}>
-            불규칙 (핀 목록)
-          </button>
-        </div>
+          <div className="segment mt-group">
+            <button aria-pressed={mode === 'step'} onClick={() => setMode('step')}>
+              균일 간격
+            </button>
+            <button aria-pressed={mode === 'ladder'} onClick={() => setMode('ladder')}>
+              불규칙 (핀 목록)
+            </button>
+          </div>
 
-        {mode === 'step' ? (
-          <>
-            <div className="chip-row" style={{ marginTop: 12 }}>
-              {STEP_PRESETS.map((preset) => (
-                <button
-                  key={preset}
-                  className={`chip chip-btn${parsedStep === preset ? ' chip-btn-on' : ''}`}
-                  aria-pressed={parsedStep === preset}
-                  onClick={() => setStepText(String(preset))}
-                >
-                  {preset}kg
-                </button>
-              ))}
-            </div>
-            <input
-              {...NO_AUTOFILL}
-              className="field"
-              style={{ marginTop: 10 }}
-              inputMode="decimal"
-              value={stepText}
-              onChange={(e) => setStepText(e.target.value)}
-              aria-label="무게 단위 직접 입력 (kg)"
-              placeholder="직접 입력 (kg)"
-            />
-          </>
-        ) : (
-          <>
-            <p className="row-sub" style={{ marginTop: 12 }}>
-              머신에 적힌 핀 값을 순서 상관없이 나열하세요. 예: 5, 10, 15, 20, 25, 30, 35, 41, 47
-            </p>
-            <textarea
-              {...NO_AUTOFILL}
-              className="field"
-              rows={3}
-              value={ladderText}
-              onChange={(e) => setLadderText(e.target.value)}
-              aria-label="핀 목록"
-              placeholder="5, 10, 15, 20, 25, 30, 35, 41, 47"
-            />
-          </>
-        )}
-
-        <p className="row-sub" style={{ marginTop: 10 }}>
-          {error ? (
-            <strong style={{ color: 'var(--warn)' }}>{error}</strong>
-          ) : mode === 'ladder' && preview?.ladder ? (
+          {mode === 'step' ? (
             <>
-              핀 {preview.ladder.length}개 · {formatLadder(preview.ladder)}
+              <div className="chip-row mt-group">
+                {STEP_PRESETS.map((preset) => (
+                  <button
+                    key={preset}
+                    className={`chip chip-btn${parsedStep === preset ? ' chip-btn-on' : ''}`}
+                    aria-pressed={parsedStep === preset}
+                    onClick={() => setStepText(String(preset))}
+                  >
+                    {preset}kg
+                  </button>
+                ))}
+              </div>
+              <input
+                {...NO_AUTOFILL}
+                className="field mt-row"
+                
+                inputMode="decimal"
+                value={stepText}
+                onChange={(e) => setStepText(e.target.value)}
+                aria-label="무게 단위 직접 입력 (kg)"
+                placeholder="직접 입력 (kg)"
+              />
             </>
           ) : (
-            <>± 버튼과 증량 제안이 {preview?.step}kg 단위로 움직입니다</>
+            <>
+              <p className="row-sub mt-group">
+                머신에 적힌 핀 값을 순서 상관없이 나열하세요. 예: 5, 10, 15, 20, 25, 30, 35, 41, 47
+              </p>
+              <textarea
+                {...NO_AUTOFILL}
+                className="field"
+                rows={3}
+                value={ladderText}
+                onChange={(e) => setLadderText(e.target.value)}
+                aria-label="핀 목록"
+                placeholder="5, 10, 15, 20, 25, 30, 35, 41, 47"
+              />
+            </>
           )}
-        </p>
 
-        <button className="btn btn-primary" style={{ marginTop: 8 }} onClick={save} disabled={!preview}>
-          저장
-        </button>
-        <div style={{ height: 8 }} />
-        <div className="btn-row">
-          <button
-            className="btn"
-            onClick={() => {
-              onSave({})
-              onClose()
-            }}
-          >
-            기본값({defaultStep}kg)으로
+          <p className="row-sub mt-row">
+            {error ? (
+              <strong style={{ color: 'var(--warn)' }}>{error}</strong>
+            ) : mode === 'ladder' && preview?.ladder ? (
+              <>
+                핀 {preview.ladder.length}개 · {formatLadder(preview.ladder)}
+              </>
+            ) : (
+              <>± 버튼과 증량 제안이 {preview?.step}kg 단위로 움직입니다</>
+            )}
+          </p>
+
+          <button className="btn btn-primary mt-row" onClick={save} disabled={!preview}>
+            저장
           </button>
-          <button className="btn" onClick={onClose}>
-            취소
-          </button>
-        </div>
-      </div>
-    </div>
+          <div className="btn-row mt-row">
+            <button
+              className="btn"
+              onClick={() => {
+                onSave({})
+                onClose()
+              }}
+            >
+              기본값({defaultStep}kg)으로
+            </button>
+            <button className="btn" onClick={dismiss}>
+              취소
+            </button>
+          </div>
+        </>
+      )}
+    </SheetFrame>
   )
 }

@@ -116,7 +116,7 @@ export default function RoutineIoPanel({
             정합성 검사 통과. 적용하면 활성 루틴이 이 루틴으로 바뀝니다. 세션 기록은 그대로
             유지됩니다 (기록 키 기준).
           </p>
-          <div className="btn-row" style={{ marginTop: 10 }}>
+          <div className="btn-row mt-row">
             <button className="btn btn-sm" onClick={() => setStaged(null)}>
               취소
             </button>
@@ -137,7 +137,7 @@ export default function RoutineIoPanel({
       )}
 
       {status && (
-        <p className="row-sub" style={{ marginTop: 10, color: 'var(--accent)' }}>
+        <p className="row-sub mt-row" style={{ color: 'var(--accent)' }}>
           {status}
         </p>
       )}

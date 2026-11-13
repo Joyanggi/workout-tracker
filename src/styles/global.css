@@ -76,6 +76,8 @@ button {
   cursor: pointer;
   /* 터치 타깃 최소 44pt (§9) */
   min-height: 44px;
+  /* 브라우저 기본 위아래 1px는 여백 단계 밖이다. 높이는 min-height가 지킨다 */
+  padding-block: 0;
 }
 
 input,
@@ -96,21 +98,21 @@ select {
 
 .screen {
   flex: 1;
-  padding: calc(var(--safe-t) + 12px) 16px calc(var(--tabbar-h) + var(--tabbar-bottom) + 32px);
+  padding: calc(var(--safe-t) + 12px) var(--inset-screen) calc(var(--tabbar-h) + var(--tabbar-bottom) + 32px);
   max-width: 640px;
   width: 100%;
   margin: 0 auto;
 }
 
 .screen-title {
-  margin: 8px 0 4px;
+  margin: var(--space-row) 0 var(--space-tight);
   font-size: 28px;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
 .screen-sub {
-  margin: 0 0 20px;
+  margin: 0 0 var(--space-section);
   color: var(--text-dim);
   font-size: 14px;
 }
@@ -121,8 +123,8 @@ select {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
-  padding: 16px;
-  margin-bottom: 12px;
+  padding: var(--inset-card);
+  margin-bottom: var(--space-card);
 }
 
 .card-label {
@@ -131,7 +133,7 @@ select {
   letter-spacing: 0.08em;
   color: var(--text-faint);
   text-transform: uppercase;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-row);
 }
 
 .today-card {
@@ -159,7 +161,7 @@ select {
   justify-content: center;
   gap: 8px;
   width: 100%;
-  padding: 14px 18px;
+  padding: 12px 16px;
   border-radius: var(--r-md);
   background: var(--surface-2);
   font-weight: 600;
@@ -191,7 +193,7 @@ select {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 9px;
+  padding: 4px 8px;
   border-radius: 999px;
   /* 칩은 장식이 아니라 정보다 (그룹·휴식 시간) — 배경을 한 단계 밝게 (G6) */
   background: #26262e;
@@ -241,7 +243,12 @@ select {
 .row-sub {
   font-size: 13px;
   color: var(--text-dim);
-  margin-top: 1px;
+  margin: var(--space-tight) 0 0;
+}
+
+/* <p>의 브라우저 기본 아래 여백(1em=13px)은 단계 밖이라 가까운 12px로 명시. div.row-sub는 0. :where()로 특이도를 낮춰 .mb-row 같은 유틸이 이긴다(QQ5) */
+:where(p).row-sub {
+  margin-bottom: var(--space-group);
 }
 
 .row-meta {
@@ -291,10 +298,8 @@ select {
   overflow: hidden;
   border-radius: calc(var(--tabbar-h) / 2);
   background: var(--glass-bar);
-  -webkit-backdrop-filter: var(--glass-bar-filter);
-  backdrop-filter: var(--glass-bar-filter);
   border: 1px solid var(--glass-edge);
-  box-shadow: var(--glass-shadow);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
 }
 
 .tabbar button {
@@ -322,6 +327,8 @@ select {
   inset: 6px 2px;
   border-radius: 22px;
   background: var(--glass-pill);
+  /* 어두운 알약은 어두운 띠에 묻혀 지금 탭이 주황 글자로만 알려진다 — 위쪽 가장자리 빛과 같은 선으로 모양을 낸다 (대비 1.2:1은 카드색 위에서 못 채운다) */
+  border: 1px solid var(--glass-highlight);
   z-index: -1;
 }
 
@@ -346,7 +353,7 @@ select {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 14px;
+  padding: 12px 12px;
   border-radius: var(--r-md);
   margin-bottom: 12px;
   font-size: 14px;
@@ -368,7 +375,7 @@ select {
 */
 .banner-more {
   width: 100%;
-  padding: 9px 14px;
+  padding: 8px 12px;
   margin-bottom: 12px;
   border-radius: var(--r-md);
   border: 1px solid var(--line);
@@ -382,7 +389,7 @@ select {
 .banner button {
   margin-left: auto;
   flex-shrink: 0;
-  padding: 6px 14px;
+  padding: 6px 12px;
   border-radius: var(--r-sm);
   background: currentColor;
   font-size: 13px;
@@ -462,7 +469,7 @@ select {
 .steps li {
   counter-increment: step;
   position: relative;
-  padding: 0 0 18px 40px;
+  padding: 0 0 16px 40px;
   color: var(--text);
   font-size: 15px;
 }
@@ -493,7 +500,7 @@ select {
   background: rgba(255, 204, 0, 0.08);
   color: #ffe08a;
   border-radius: var(--r-md);
-  padding: 14px;
+  padding: 12px;
   font-size: 14px;
   margin-bottom: 20px;
 }
@@ -518,10 +525,9 @@ select {
   position: fixed;
   inset: 0;
   z-index: 40;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--glass-scrim);
   display: flex;
   align-items: flex-end;
-  animation: fade-in 0.15s ease-out;
 }
 
 .sheet {
@@ -531,13 +537,11 @@ select {
   max-height: 88dvh;
   overflow-y: auto;
   background: var(--glass-sheet);
-  -webkit-backdrop-filter: var(--glass-sheet-filter);
-  backdrop-filter: var(--glass-sheet-filter);
   border-top: 1px solid var(--glass-edge);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
   border-top-left-radius: var(--r-lg);
   border-top-right-radius: var(--r-lg);
-  padding: 8px 16px calc(var(--safe-b) + 20px);
-  animation: slide-up 0.2s ease-out;
+  padding: 8px var(--inset-card) calc(var(--safe-b) + 20px);
 }
 
 .sheet-grip {
@@ -545,7 +549,7 @@ select {
   height: 4px;
   border-radius: 2px;
   background: var(--line);
-  margin: 4px auto 14px;
+  margin: 4px auto 12px;
 }
 
 .sheet-row {
@@ -553,13 +557,7 @@ select {
   text-align: left;
 }
 
-@keyframes fade-in {
-  from { opacity: 0; }
-}
-
-@keyframes slide-up {
-  from { transform: translateY(12px); }
-}
+/* 시트·막이 들어오는 움직임은 motion.css */
 
 /* ─── 홈 오늘 카드 ─────────────────────────────────────── */
 
@@ -608,11 +606,10 @@ select {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: calc(var(--safe-t) + 10px) 16px 10px;
+  padding: calc(var(--safe-t) + 8px) var(--inset-screen) 8px;
   background: var(--glass-bar);
-  -webkit-backdrop-filter: var(--glass-bar-filter);
-  backdrop-filter: var(--glass-bar-filter);
   border-bottom: 1px solid var(--glass-edge);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
 }
 
 .session-day {
@@ -625,7 +622,7 @@ select {
   font-size: 13px;
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
-  margin-top: 1px;
+  margin-top: 2px;
 }
 
 /*
@@ -654,7 +651,7 @@ select {
 .session-body {
   flex: 1;
   /* 하단 고정 휴식 타이머 바에 카드가 가리지 않도록 항상 자리를 비워둔다 */
-  padding: 12px 12px calc(var(--safe-b) + 96px);
+  padding: 12px var(--inset-screen) calc(var(--safe-b) + 48px + 48px); /* 96px = 단계 둘 */
   max-width: 640px;
   width: 100%;
   margin: 0 auto;
@@ -666,7 +663,7 @@ select {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   overflow: hidden;
 }
 
@@ -683,7 +680,7 @@ select {
   align-items: center;
   gap: 12px;
   width: 100%;
-  padding: 14px;
+  padding: 12px;
   text-align: left;
 }
 
@@ -734,7 +731,7 @@ select {
 }
 
 .ex-body {
-  padding: 12px 10px 14px;
+  padding: 12px 8px 12px;
   border-top: 1px solid var(--line);
 }
 
@@ -748,7 +745,7 @@ select {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 /* ─── 세트 입력 행 ─────────────────────────────────────── */
@@ -902,7 +899,7 @@ select {
 }
 
 .pill {
-  padding: 8px 14px;
+  padding: 8px 12px;
   border-radius: 999px;
   background: var(--surface-2);
   color: var(--text-dim);
@@ -955,8 +952,9 @@ select {
   text-align: center;
 }
 
-.btn-sm {
-  padding: 10px 12px;
+.btn-sm,
+.row > .btn {
+  padding: 8px 12px;
   font-size: 14px;
   /*
     X8 — 줄바꿈 금지. 세트 행의 작은 버튼이 두 줄이 되면 행 높이가 흔들려
@@ -984,12 +982,10 @@ select {
   gap: 8px;
   width: auto;
   min-height: var(--resume-strip-h);
-  padding: 8px 14px;
+  padding: 8px 12px;
   background: var(--glass-bar);
-  -webkit-backdrop-filter: var(--glass-bar-filter);
-  backdrop-filter: var(--glass-bar-filter);
   border: 1px solid var(--glass-edge);
-  box-shadow: var(--glass-shadow);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
   border-radius: 22px;
   font-size: 13px;
   text-align: left;
@@ -1043,9 +1039,8 @@ select {
   overflow: hidden;
   padding-bottom: var(--safe-b);
   background: var(--glass-bar);
-  -webkit-backdrop-filter: var(--glass-bar-filter);
-  backdrop-filter: var(--glass-bar-filter);
   border-top: 1px solid var(--glass-edge);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
 }
 
 .rest-bar-done {
@@ -1087,7 +1082,7 @@ select {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 14px;
+  padding: 8px 12px;
   max-width: 640px;
   margin: 0 auto;
 }
@@ -1121,7 +1116,7 @@ select {
 .rest-btn {
   flex-shrink: 0;
   pointer-events: auto; /* .rest-content가 none이므로 버튼만 되살린다 */
-  padding: 10px 14px;
+  padding: 8px 12px;
   border-radius: var(--r-sm);
   background: var(--surface-2);
   font-size: 14px;
@@ -1172,9 +1167,9 @@ select {
 .check-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  padding: 10px 12px;
+  padding: 8px 12px;
   border-radius: var(--r-sm);
   background: var(--surface-2);
   text-align: left;
@@ -1268,7 +1263,7 @@ select {
   color: var(--accent);
   background: var(--surface);
   border-radius: 999px;
-  padding: 0 3px;
+  padding: 0 4px;
 }
 
 .week-day-label {
@@ -1290,7 +1285,7 @@ select {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 5px;
+  margin-bottom: 4px;
 }
 
 .mbar-name {
@@ -1384,7 +1379,7 @@ details.card[open] > summary::after {
 .cal-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 3px;
+  gap: 4px;
 }
 
 .cal-weekdays {
@@ -1406,7 +1401,7 @@ details.card[open] > summary::after {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
+  gap: 2px;
   border-radius: var(--r-sm);
   background: transparent;
 }
@@ -1489,7 +1484,7 @@ button.row {
 /* ─── 내보내기 미리보기 ────────────────────────────────── */
 
 .preview {
-  margin: 10px 0 0;
+  margin: 8px 0 0;
   padding: 12px;
   max-height: 320px;
   overflow: auto;
@@ -1556,12 +1551,12 @@ button.row {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 5px;
+  margin-bottom: 4px;
 }
 
 .sdots {
   display: flex;
-  gap: 3px;
+  gap: 4px;
 }
 
 .sdot {
@@ -1574,13 +1569,13 @@ button.row {
 /* 탭 가능한 칩은 터치 타깃을 확보한다 (§9). 표시용 .chip은 min-height 0 유지 */
 button.chip {
   min-height: 44px;
-  padding: 3px 12px;
+  padding: 4px 12px;
 }
 
 /* 자극 요령 (T1). note와 구분되게 살짝 강조하되 시선을 빼앗지 않는다 */
 .ex-cue {
-  margin: 0 0 10px;
-  padding: 8px 10px;
+  margin: 0 0 8px;
+  padding: 8px 8px;
   border-radius: var(--r-sm);
   background: var(--accent-soft);
   color: #ffcfa8;
@@ -1609,7 +1604,7 @@ button.chip {
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 9px 10px;
+  padding: 8px 8px;
   margin-bottom: 12px;
   border-radius: var(--r-sm);
   border: 1px solid var(--line);
@@ -1641,6 +1636,12 @@ button.chip {
 
 .setup-edit .field {
   flex: 1;
+}
+
+/* QQ6 — 카드 줄(.row) 안의 버튼은 작은 버튼이다: 글자 폭만큼, 남는 폭은 .row-main이 쓴다. 누르는 높이 44px는 button 규칙이 지킨다 */
+.row > .btn {
+  width: auto;
+  flex-shrink: 0;
 }
 
 .setup-edit .btn-sm {
@@ -1799,7 +1800,7 @@ textarea.field {
   border-radius: 3px;
   background: var(--line);
   overflow: hidden;
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .diet-bar-fill {
@@ -1912,14 +1913,14 @@ textarea.field {
   같은 사실이므로 색까지 같아야 한다 (문구는 diet.substitutionNote가 공유한다).
 */
 .diet-sheet-state {
-  margin-top: 10px;
-  padding: 8px 10px;
+  margin-top: 8px;
+  padding: 8px 8px;
   border-radius: var(--r-sm);
   background: var(--surface-2);
   color: var(--warn);
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   white-space: normal;
 }
 
@@ -1968,7 +1969,7 @@ textarea.field {
   gap: 8px;
   width: 100%;
   min-height: 44px;
-  padding: 10px 14px;
+  padding: 8px 12px;
   margin-bottom: 12px;
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
@@ -1986,7 +1987,7 @@ textarea.field {
 
 .diet-plan-btn {
   width: 100%;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 /*
@@ -2010,7 +2011,7 @@ textarea.field {
 .diet-item-group {
   display: flex;
   align-items: stretch;
-  gap: 3px;
+  gap: 4px;
 }
 
 .diet-variant-btn {

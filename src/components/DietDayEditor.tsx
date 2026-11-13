@@ -166,7 +166,7 @@ export default function DietDayEditor({
             }}
           />
         </div>
-        <p className="row-sub" style={{ marginTop: 8 }}>
+        <p className="row-sub mt-row">
           {summary.kcal.toLocaleString()} / {summary.targetKcal.toLocaleString()}kcal ·{' '}
           {dietDayStatusText(summary)}
         </p>
@@ -339,7 +339,7 @@ export default function DietDayEditor({
         {(day.log?.length ?? 0) === 0 && (
           <p className="row-sub">플랜에 없는 음식이나 다른 시간에 먹은 것을 적습니다.</p>
         )}
-        <button className="btn btn-sm" style={{ marginTop: 8 }} onClick={() => setFoodSheet(true)}>
+        <button className="btn btn-sm mt-row" onClick={() => setFoodSheet(true)}>
           ＋ 먹은 것 추가
         </button>
       </div>

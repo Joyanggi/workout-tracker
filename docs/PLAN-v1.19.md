@@ -6,6 +6,7 @@
 > **성격:** 화면만 바꾼다. 저장 구조(Dexie 3, 백업 `SCHEMA_VERSION` 3)·판정·내보내기는 바꾸지 않는다.
 > v1.18과 달리 `.tsx`도 고친다: 시트 틀 하나로 모으기(QQ3), 인라인 여백을 클래스로 옮기기(QQ5), 진단 줄 하나(QQ1), `main.tsx` 한 줄(QQ2).
 > 검토 반영: 2026-11-12, codex·claude 검토(`.reports/v1.19-codex.md`·`.reports/v1.19-claude.md`). 바뀐 곳과 기각한 지적은 끝 "검토 반영 기록".
+> 사람의 답 반영: 2026-11-12. "사람이 정할 것" 1·2의 답과 visual review(Argos), 추가 요구(설정의 루틴 `편집` 버튼 — QQ6)를 본문에 녹였다. 끝 "검토 반영 기록"의 "사람의 답".
 > 화면 문구·버튼 순서·누르면 일어나는 일은 그대로다. 새 문구는 설정 → 진단의 한 줄(QQ1)뿐이다.
 >
 > **이 PLAN이 정한 Astryx 범위:** 이번에는 화면을 Astryx로 더 옮기지 않는다. 대신 재질·움직임·여백의 **값을 Astryx 테마의 값과 같게** 맞춰서, legacy 화면과 Astryx 화면이 같은 앱으로 보이게 한다. 이유는 "Astryx 적용 현황"의 끝.
@@ -20,17 +21,19 @@
 | 2. 버튼·탭·시트에 눌림·전환 움직임, 버벅이지 않음, "동작 줄이기"에 반응 | QQ2 · QQ3 |
 | 3. 여백이 화면 사이에서 균일(간격 단위 하나) | QQ4 · QQ5 |
 | 4. Astryx 적용 현황 목록 | 이 PLAN "Astryx 적용 현황" + QQ0 `scripts/astryx-inventory.mjs` |
-| 5. Playwright · axe-core · Astryx visual review로 확인하는 절차 | QQ0 (+ 각 작업의 검증) |
+| 5. Playwright · axe-core · Astryx visual review로 확인하는 절차 | QQ0 (+ 각 작업의 검증). visual review는 Argos 빌드 + 화면 검증자 목록 |
 | 6. 기록·판정·내보내기 그대로 | "과거 판정 불변" |
+| (사람 추가 요구, 2026-11-12) 설정 → 활성 루틴의 `편집` 버튼이 불필요하게 크다 | QQ6 |
 
 | ID | 내용 | 화면 변화 | 되돌리는 단위 |
 |---|---|---|---|
-| QQ0 | UI 검사 도구(Playwright + axe-core + 눌림·움직임·여백 검사), Astryx 현황 스크립트, "바꾸기 전" 스크린샷 | 없음 | — |
+| QQ0 | UI 검사 도구(Playwright + axe-core + 눌림·움직임·여백 검사), Argos 올리기 스크립트, Astryx 현황 스크립트, "바꾸기 전" 스크린샷 | 없음 | — |
 | QQ1 | 유리 재료 다시 잡기: 흐림 선언을 `glass.css` 한 곳의 리터럴로, 비침 목표, 시트 막 옅게, 가장자리 빛, 진단 줄 | 띠 넷·시트 16개, 설정 진단 | 커밋 하나 |
 | QQ2 | 움직임 토큰 + 눌림 반응 + 시트 들어오는 움직임 + 동작 줄이기 | 버튼 전부, 시트 | 커밋 하나 |
 | QQ3 | legacy 시트 14개를 틀 하나(`SheetFrame`)로 + 닫히는 움직임 | 시트 14개 | 커밋 하나 |
 | QQ4 | 여백 토큰 한 벌 + `global.css`·`ax.css`의 여백 값을 토큰·단계로 | 거의 모든 legacy 화면 (CSS만) | 커밋 하나 |
 | QQ5 | `.tsx` 인라인 여백(약 180곳)을 클래스로 | 인라인 여백이 있던 화면 | 커밋 하나 |
+| QQ6 | 카드 줄(`.row`) 안의 버튼을 작은 버튼으로 (CSS 규칙 하나) | 설정 → 활성 루틴 `편집`, 루틴 목록 `이 루틴 쓰기`·`삭제` | 커밋 하나 |
 
 ---
 
@@ -89,7 +92,19 @@
 |---|---|---|
 | Playwright | `1.65.0` devDependency. `scripts/screenshots.mjs`(루틴 편집)·`screenshots-glass.mjs`(유리)가 쓴다. 로컬에서만 돈다(CI는 브라우저를 받지 않는다 — v1.17 결정) | 그대로 쓴다. 새 `scripts/ui-check.mjs` |
 | axe-core | 없다. `@axe-core/playwright`·`axe-core` 최신은 `4.14.0`(2026-11-12 `npm view`) | `@axe-core/playwright`를 devDependency로 정확한 버전 고정(설치한 날 2주 넘은 판 가운데 최신 — 구현자가 `npm view @axe-core/playwright time`으로 고른다) |
-| Astryx "visual review" | **도구가 없다.** `@astryxdesign/cli@0.7.14`의 명령(`blog build component discover docs doctor experimental gap-report hook init integration manifest search swizzle template theme upgrade`)에 화면을 보는 검사가 없다. "visual review"는 `theme-neutral/README.md:68`에서 "팔레트를 바꾸면 영수증·토큰 비교·테스트·visual review를 같이 낸다"는 **사람이 스크린샷을 보는 절차**를 뜻한다 | 절차로 만든다: QQ0의 전·후 스크린샷 짝(390 다크, Astryx 화면은 라이트도) + 아래 "visual review 목록"을 화면 검증자가 채운다. CLI는 v1.17처럼 들이지 않는다 |
+| Astryx "visual review" | **Astryx에는 도구가 없다.** `@astryxdesign/cli@0.7.14`의 명령(`blog build component discover docs doctor experimental gap-report hook init integration manifest search swizzle template theme upgrade`)에 화면을 보는 검사가 없다. "visual review"는 `theme-neutral/README.md:68`에서 "팔레트를 바꾸면 영수증·토큰 비교·테스트·visual review를 같이 낸다"는 **사람이 스크린샷을 보는 절차**를 뜻한다 | **Argos**(외부 시각 회귀 도구)로 한다 — 아래 "Argos 확인". QQ0의 전·후 스크린샷(390 다크, Astryx 화면은 라이트도)을 Argos에 올려 장면마다 바뀐 픽셀을 사람이 PR에서 본다. 화면 검증자는 같은 짝으로 "visual review 목록"을 채운다(에이전트는 Argos 화면에 로그인하지 않는다). Astryx CLI는 v1.17처럼 들이지 않는다 |
+
+**Argos 확인** (2026-11-12, `argos-ci.com/pricing`·`/docs/playwright`·`/docs/argos-cli`·`/docs/learn/integrations/github-actions-authentication`, `npm view`)
+
+| 물은 것 | 확인한 것 | 이 레포에서 |
+|---|---|---|
+| 쓸 수 있나 | 된다. `@argos-ci/cli`(MIT, 최신 `6.11.0` 2026-10-21, Node ≥22)의 `argos upload <폴더>`가 PNG 폴더를 그대로 올린다. 같은 파일 이름끼리 기준 빌드와 비교한다. `@argos-ci/playwright`는 `@playwright/test` 러너용이라 쓰지 않는다(이 레포는 `playwright` 라이브러리로 스크립트를 짠다) | 로컬 Node `v26.13.0`, CI Node 24 — 조건을 채운다 |
+| 비용·무료 한도 | Hobby 무료: 한 달 스크린샷 5,000장, 상업적 사용·비공개 레포 허용, 사용자 1명(팀 승인 없음). Pro 월 $100 | 한 번 올릴 때 약 25장(장면 22 + 라이트 2 + α). 이 PLAN 전체(전 1번 + 후 작업마다 6번)로 약 175장. 한도 안이다. 1인 앱이라 사용자 1명 제한도 맞다 |
+| 어디서 도나 | 기준 빌드와 비교·화면은 Argos 서버(웹). 올리는 것은 어디서나: 로컬에서는 Git에서 브랜치·커밋을 읽고, `ARGOS_BRANCH`·`ARGOS_COMMIT`(40자 SHA)로 덮을 수 있다. 기준은 `--reference-branch`·`--reference-commit`으로 못 박을 수 있다 | **로컬에서 올린다**(스크린샷을 찍는 곳이 로컬이다 — v1.17 결정으로 CI는 브라우저를 받지 않는다) |
+| 비밀키 | 올리기에 프로젝트 토큰이 필요하다(`--token` → `ARGOS_TOKEN` → `argos login` 순). GitHub Actions에서는 토큰 없이 OIDC(`id-token: write` + 프로젝트 설정)나 tokenless(Argos GitHub App 설치 + 프로젝트 설정)로도 된다. 찍기에는 토큰이 필요 없다 | 로컬 올리기라 `ARGOS_TOKEN`이 필요하다. 사람이 한 번 만들어 Windows 사용자 환경 변수로 둔다("구현 전에 사람이 할 일"). 레포·커밋·로그에 넣지 않는다. 2026-11-12 지금 이 환경에는 없다 |
+| CI 연동 | 가능하다(위 OIDC/tokenless). 하지만 이 레포 CI(`ci.yml`)는 브라우저를 받지 않으므로 CI에서 찍을 수 없고, 커밋된 PNG를 CI가 올리게 하면 기준 빌드(`main`)를 CI가 따로 만들어야 해서 단계가 둘로 갈라진다 | **CI에는 넣지 않는다.** `ci.yml`은 그대로다. PR 본문에 로컬 올리기가 찍은 Argos 빌드 주소를 적는다 |
+| 공개 범위 | 공개 레포의 스크린샷은 공개된다(Hobby에서는 못 막는다) | 레포가 공개다(`gh repo view` `PUBLIC`). `ui-check`는 매번 빈 IndexedDB + 내장 루틴으로 찍으므로 실제 기록이 들어가지 않는다 — 괜찮다 |
+| 못 쓰게 되면 | — | `ARGOS_TOKEN`이 없거나 올리기가 실패하면 **기존 스크린샷 짝 절차**(화면 검증자가 `before`·`after`를 Read로 본다)로 하고 DEV-RECORD에 "Argos 건너뜀: <이유>"를 적는다. 멈추지 않는다 |
 
 ---
 
@@ -119,8 +134,9 @@
 
 | 이유 | 근거 |
 |---|---|
-| 남은 화면의 대부분이 헬스장 경로(홈·세션·세션 시트·요약)다. 옮기면 README "헬스장 경로가 Astryx 코드를 읽지 않습니다"를 뒤집는다. 이 결정은 v1.18 "사람이 정할 것" 1·2·3으로 물었고 아직 답이 없다 | `README.md:249`, PLAN-v1.18 "사람이 정할 것" |
-| 이슈가 짚은 세 가지(비침·눌림·여백)는 부품을 바꾸지 않아도 고칠 수 있다. 오히려 지금 옮기면 legacy와 Astryx가 섞인 채로 세 가지를 두 벌 고쳐야 한다 | 아래 QQ1~QQ4 |
+| 남은 화면의 대부분이 헬스장 경로(홈·세션·세션 시트·요약)다. 옮기면 README "헬스장 경로가 Astryx 코드를 읽지 않습니다"가 바뀐다. **사람이 2026-11-12에 "고쳐도 된다"고 답했다.** 그래서 이 문장은 더 이상 막는 이유가 아니다 — 남은 화면을 옮기는 **다음 PLAN**이 이 문장을 고친다. 이번 PLAN은 그 문장을 건드리지 않는다(v1.19가 끝나도 헬스장 경로는 Astryx를 읽지 않으므로 README가 지금 동작과 맞다) | `README.md:249`, 이 PLAN "검토 반영 기록"의 "사람의 답" |
+| 루틴 편집(Astryx) 시트 안 `−`·`+`·칩·스위치(보이는 높이 36px)는 엄지로 잘 눌린다(사람의 답, 2026-11-12). 다음 PLAN은 Astryx 컨트롤의 보이는 높이를 올리지 않고 그대로 쓴다 | PLAN-v1.18 "사람이 정할 것" 3 |
+| (그래도 이번에 옮기지 않는 이유) 이슈가 짚은 세 가지(비침·눌림·여백)는 부품을 바꾸지 않아도 고칠 수 있다. 오히려 지금 옮기면 legacy와 Astryx가 섞인 채로 세 가지를 두 벌 고쳐야 한다 | 아래 QQ1~QQ4 |
 | 그래서 이번에는 **값을 맞춘다**: 움직임(QQ2)·여백(QQ4·QQ5)의 토큰 값을 Astryx 테마 값과 같게 두고, 유리 토큰은 v1.18처럼 Astryx 시트도 읽는다. 나중에 화면을 옮길 때 값이 바뀌지 않는다 | — |
 
 ---
@@ -135,7 +151,7 @@
 
 ### 설계
 
-**새 파일 `scripts/ui-check.mjs`** — 사용: `node scripts/ui-check.mjs <before|after> [--check] [--only=<장면,…>]`. 뼈대(`vite preview`, 390×844 `iPhone 14` 흉내, `ko-KR`, 온보딩 통과, 글자·`aria-label`로만 고르기, 공유 도우미는 `addInitScript` — DEV-RECORD 제약 15)는 `screenshots-glass.mjs`와 같다. 저장 `docs/screenshots/v1.19/<before|after>-<장면>.png`, 다크. 루틴 편집 장면만 라이트도 찍는다(`-light`).
+**새 파일 `scripts/ui-check.mjs`** — 사용: `node scripts/ui-check.mjs <before|after> [--check] [--only=<장면,…>]`. 뼈대(`vite preview`, 390×844 `iPhone 14` 흉내, `ko-KR`, 온보딩 통과, 글자·`aria-label`로만 고르기, 공유 도우미는 `addInitScript` — DEV-RECORD 제약 15)는 `screenshots-glass.mjs`와 같다. 저장 `docs/screenshots/v1.19/<before|after>/<장면>.png`, 다크. 루틴 편집 장면만 라이트도 찍는다(`-light`). 전·후를 폴더로 가르고 파일 이름은 장면 이름만 쓴다 — Argos가 같은 파일 이름끼리 비교한다.
 검사 함수는 새 모듈 `scripts/lib/ui-check-lib.mjs`(import해도 실행 안 함). 유리 검사는 `scripts/lib/glass-check.mjs`를 그대로 import한다(같은 함수를 두 벌 짜지 않는다).
 
 | 장면 | 상태 |
@@ -166,7 +182,18 @@
 
 **새 파일 `scripts/astryx-inventory.mjs`** — `src/**/*.tsx`(테스트 제외)를 읽어 "Astryx 적용 현황" 표를 Markdown으로 찍는다: 파일 · `../ax`나 `./ax` import 유무 · `style={` 수 · 그 가운데 여백 속성 수 · legacy 클래스(`className="…"`의 낱말 가운데 `global.css`에 선택자로 있는 것) 수. `--write`면 `docs/ASTRYX-INVENTORY.md`에 쓴다(맨 위에 만든 날짜와 커밋). 판정하지 않는다(종료 코드 항상 0).
 
-**visual review 목록** — 화면 검증자가 `before`·`after` 짝을 Read로 보고 장면마다 칸을 채운다(`.reports/screen-check-<ID>.md`). Astryx가 말하는 visual review를 이 앱에서 하는 방법이다.
+**새 파일 `scripts/argos-upload.mjs`** — 사용: `node scripts/argos-upload.mjs <before|after>`. `@argos-ci/cli`를 devDependency로 정확한 버전 고정(설치한 날 2주 넘은 판 가운데 최신 — `npm view @argos-ci/cli time`으로 고른다. 2026-11-12에는 `6.11.0`)하고 `npx argos upload`를 부른다.
+
+| 인자 | 올리는 폴더 | 브랜치·커밋 | 기준 |
+|---|---|---|---|
+| `before` | `docs/screenshots/v1.19/before` | `ARGOS_BRANCH=main`, `ARGOS_COMMIT=$(git merge-base main HEAD)`의 40자 SHA — "바꾸기 전"은 `main`의 화면이므로 `main`의 빌드로 올린다 | 없음(이것이 기준이 된다) |
+| `after` | `docs/screenshots/v1.19/after` | Git에서 읽은 지금 브랜치·`HEAD` | `--reference-branch main --reference-commit <같은 merge-base SHA>`로 못 박는다(Argos가 다른 `main` 빌드를 기준으로 잡지 않게) |
+
+- `ARGOS_TOKEN`이 없으면 `Argos 건너뜀: ARGOS_TOKEN 없음`을 찍고 종료 코드 0(짝 절차로 간다 — "Argos 확인" 마지막 줄). 올리기가 실패하면 CLI 출력의 마지막 줄을 찍고 종료 코드 0 — 시각 검사는 판정하지 않는다(판정은 `ui-check --check`가 한다).
+- 성공하면 CLI가 찍은 빌드 주소를 그대로 출력한다. 토큰 값은 출력하지 않는다(`--token` 인자로 넘기지 않고 환경 변수로만 둔다 — 명령줄이 로그에 남지 않게).
+- `compare/`는 올리지 않는다(같은 장면의 다른 값이라 기준이 없다).
+
+**visual review 목록** — 화면 검증자가 `before`·`after` 짝을 Read로 보고 장면마다 칸을 채운다(`.reports/screen-check-<ID>.md`). Argos 빌드가 있으면 보고 맨 위에 빌드 주소를 적는다(바뀐 픽셀은 사람이 그 주소에서 본다). Astryx가 말하는 visual review를 이 앱에서 하는 방법이다.
 
 | 칸 | 묻는 것 |
 |---|---|
@@ -179,6 +206,8 @@
 ### 검증
 
 - `node scripts/ui-check.mjs before`가 장면 전부를 찍는다. 커밋한다.
+- `node scripts/argos-upload.mjs before`를 돌려 출력(빌드 주소, 또는 `Argos 건너뜀: …`)을 DEV-RECORD에 복사한다. `ARGOS_TOKEN`을 지운 셸에서 한 번 더 돌려 `Argos 건너뜀: ARGOS_TOKEN 없음` + 종료 코드 0을 확인한다.
+- 스캔(`v119.test.ts` describe `QQ0`): `scripts/argos-upload.mjs`에 `--token`이 없다(토큰을 명령줄로 넘기지 않는다). `.github/workflows/`에 `argos`가 없다(CI에 넣지 않는다).
 - **검사가 잡는다는 증거:** `before --check`가 종료 코드 1이고 아래가 실패로 찍힌다(출력 표를 DEV-RECORD에 복사). 하나라도 통과면 검사가 틀린 것이다.
   - `home`의 `눌림 반응` — legacy 버튼 전부(눌림 규칙이 없다)
   - `sheet-finish`의 `움직임 줄이기` — `.sheet`의 `slide-up`이 0.2s
@@ -192,6 +221,8 @@
 
 - CI에서 `ui-check` 돌리기: 브라우저 내려받기(v1.17 결정과 같다). `astryx-inventory.mjs`는 판정하지 않으니 CI에 넣을 이유가 없다.
 - `@astryxdesign/cli` 들이기: 화면 검사 명령이 없다("확인한 것" 4).
+- Argos를 CI에서 돌리기·PR 필수 검사로 걸기: CI가 브라우저를 받지 않는다(v1.17 결정). Argos 결과로 머지를 막지 않는다 — 사람이 보는 자료다("확인한 것" 4 "Argos 확인").
+- `@argos-ci/playwright`: `@playwright/test` 러너용이다. 이 레포는 러너 없이 `playwright` 라이브러리로 찍는다.
 - `before`의 axe 위반 고치기: 무엇이 나올지 모르고, 이 이슈의 끝 기준이 아니다. 나오면 DEV-RECORD 목록을 근거로 새 이슈를 만든다(지휘자).
 
 ### README 반영
@@ -286,7 +317,7 @@
 
 - 빌드 출력(명령과 출력 복사): `dist/assets/index-*.css`에서 `backdrop-filter` 값에 `var(`가 없고, `-webkit-` 줄과 접두사 없는 줄이 둘 다 남아 있다.
 - 결함 복원 (QQ1 몫, "구현 순서와 검증"의 목록): ①~⑤.
-- 눈으로(구현자, DEV-RECORD에 한 줄씩): `after-home`·`after-session`·`after-sheet-finish`에서 유리 뒤에 무엇이 비치는지 말로 적는다. 못 적으면 "안 보인다"고 그대로 적는다(멈추지 않는다 — 사람이 `compare/`와 폰으로 본다).
+- 눈으로(구현자, DEV-RECORD에 한 줄씩): `after/home`·`after/session`·`after/sheet-finish`에서 유리 뒤에 무엇이 비치는지 말로 적는다. 못 적으면 "안 보인다"고 그대로 적는다(멈추지 않는다 — 사람이 `compare/`와 폰으로 본다).
 
 ### 범위 제외
 
@@ -592,9 +623,56 @@ QQ4가 더한 "여백은 역할 토큰 한 벌이다" 항목 끝에 한 문장�
 
 ---
 
+## QQ6. 카드 줄 안의 버튼을 작게
+
+근거: 사람의 추가 요구(2026-11-12) — "설정 화면의 활성 루틴 쪽 운동 루틴 편집 버튼이 불필요하게 크다".
+
+### 진단
+
+| 사실 | 근거 |
+|---|---|
+| 그 버튼은 설정 → `활성 루틴` 카드의 첫 줄(`.row`) 오른쪽 `편집`이다. 큰 버튼 클래스 `.btn`만 붙어 있다 | `SettingsScreen.tsx:169-182` |
+| `.btn`은 화면 폭 버튼용이다: `width: 100%`, 큰 안쪽 여백, 16px 글자 | `global.css:156-167` |
+| `.row`는 `display: flex; justify-content: space-between`이다. 그 안의 `width: 100%` 버튼은 줄어들 수 있는 만큼만 줄어 루틴 이름 칸(`.row-main`)과 폭을 나눠 가진다 → 글자 두 개짜리 버튼이 줄의 큰 몫을 차지하고 루틴 이름이 일찍 말줄임된다 | `global.css:216-231` |
+| 같은 모양(`.row`의 직접 자식인 `.btn`)이 루틴 목록에도 있다: 활성 아닌 루틴 줄의 `이 루틴 쓰기`·`삭제` | `RoutineListPanel.tsx:40-66` |
+| 그 밖에 `.row` 안에 `.btn`을 둔 곳은 없다. 작은 버튼 클래스 `.btn-sm`(작은 안쪽 여백·14px·줄바꿈 금지)이 이미 있고, 줄 안에서 쓸 때는 `width: auto; flex-shrink: 0`을 더해 쓴다(`.setup-edit .btn-sm`) | `grep -rn -A14 'className="row"' src --include=*.tsx \| grep 'className="btn'`, `global.css:958-967`·`:1646-1649` |
+| 누르는 높이는 `button { min-height: 44px }`가 지킨다 — 크기를 줄여도 이 규칙은 남는다 | `global.css:71-79` |
+
+### 설계
+
+- `global.css` 한 곳에서 고친다. `.tsx`는 고치지 않는다(줄 안 버튼은 어디에 있든 같은 크기가 되어야 하고, 새 줄 버튼이 생겨도 따로 클래스를 붙일 필요가 없게).
+  - `.btn-sm` 규칙의 선택자에 `.row > .btn`을 더한다 → 줄 안 버튼은 작은 버튼과 같은 안쪽 여백·글자 크기·줄바꿈 금지.
+  - 새 규칙 `.row > .btn { width: auto; flex-shrink: 0; }` → 버튼은 글자 폭만큼, 남는 폭은 루틴 이름이 쓴다.
+- 값은 새로 고르지 않는다. `.btn-sm`의 값을 그대로 따른다(QQ4가 `.btn-sm` 값을 단계로 옮기면 그 값). 누르는 높이 44px는 그대로다.
+- 버튼 문구(`편집`·`이 루틴 쓰기`·`삭제`), 순서, 비활성 조건(세션이 열려 있으면 `편집`·`이 루틴 쓰기` 비활성)은 그대로다.
+- 구현자는 시작할 때 위 `grep`을 다시 돌려 `.row > .btn`에 걸리는 버튼 목록을 DEV-RECORD에 적는다. 위 셋 말고 더 있으면 같은 규칙이 그 버튼에도 걸리는 것이 맞는지 보고(줄 안 버튼은 모두 작은 버튼이어야 한다) 목록에 적는다.
+
+### 검증
+
+`src/lib/v119.test.ts` (describe `QQ6`)
+
+- 스캔: `global.css`에 `.row > .btn`이 `.btn-sm`과 같은 규칙의 선택자 목록에 있다. `.row > .btn` 규칙에 `width: auto`와 `flex-shrink: 0`이 있다.
+
+`ui-check.mjs` 검사 (QQ6이 더한다, `--check`) — `줄 안 버튼`: 장면의 보이는 `.row > .btn`마다 (1) 폭이 그 `.row` 폭의 절반보다 작다 (2) 높이가 44px 이상이다 (3) 글자가 한 줄이다(`scrollHeight`가 한 줄 높이). `settings` 장면에 활성 루틴 `편집`이 있으므로 이 장면에서 최소 하나를 잰다(0개면 실패 — 검사가 아무것도 안 잰 것이다).
+
+- `before`(QQ0 커밋의 앱)에서 이 검사를 돌리면 `settings`가 `줄 안 버튼` 실패여야 한다(QQ6 커밋 전 앱으로 `--only=settings --check` 출력 복사). 통과면 검사가 틀린 것이다.
+- 결함 복원: ⑯.
+- 화면 검증: 아래 "화면 검증" 표.
+
+### 범위 제외
+
+- 줄 밖의 화면 폭 버튼(`위험 구역`의 `온보딩 안내 다시 보기`, 루틴 목록 아래 `＋ 새 루틴 만들기` 등): 화면 폭 버튼이 맞다. 요구는 줄 안 버튼이다.
+- 버튼을 아이콘이나 글자 링크로 바꾸기: 문구·누르는 방식이 바뀐다.
+
+### README 반영
+
+없음.
+
+---
+
 ## 화면 검증 (화면 검증자 — `agents/SCREEN-CHECKER.md`)
 
-작업마다 `node scripts/ui-check.mjs after --check --only=<장면>`의 표와 스크린샷, 그리고 QQ0 "visual review 목록"을 채운다. `before`가 QQ0에서 커밋돼 있다.
+작업마다 `node scripts/ui-check.mjs after --check --only=<장면>`의 표와 스크린샷, 그리고 QQ0 "visual review 목록"을 채운다. `before`가 QQ0에서 커밋돼 있다. 구현자는 작업 커밋마다 `after`를 찍은 뒤 `node scripts/argos-upload.mjs after`를 돌리고, 출력(빌드 주소나 `Argos 건너뜀: …`)을 DEV-RECORD와 화면 검증 보고에 적는다.
 
 | 작업 | 장면 | 상태 |
 |---|---|---|
@@ -603,6 +681,7 @@ QQ4가 더한 "여백은 역할 토큰 한 벌이다" 항목 끝에 한 문장�
 | QQ3 | `sheet-finish` `sheet-timer` `sheet-home` `sheet-food` | 닫히는 중 한 장(`is-closing`이 붙은 직후) |
 | QQ4 | 전 장면, 375 폭에서 `home` `session` `settings` `sheet-finish` 한 번 더 | 시트 끝까지 스크롤, 버튼 높이가 줄지 않았는가 |
 | QQ5 | 전 장면 | 긴 종목 이름, 기록 0건(새 프로필), 식단 플랜 없음, 시트 끝까지 스크롤, `ml-auto`를 쓴 줄(세트 카드 화살표·분석·홈)의 오른쪽 끝 정렬 |
+| QQ6 | `settings`, 375 폭에서 한 번 더 | 활성 루틴 `편집`이 글자 폭만큼이고 루틴 이름이 전보다 길게 보이는가, 세션이 열려 있을 때(`편집` 비활성 + 안내 문구), 루틴 목록에 활성 아닌 루틴이 있을 때(`이 루틴 쓰기`·`삭제` 둘이 한 줄에, 줄바꿈 없이), 그 줄의 `이 루틴 쓰기`를 누른 확인 상태 |
 
 ---
 
@@ -618,7 +697,8 @@ QQ4가 더한 "여백은 역할 토큰 한 벌이다" 항목 끝에 한 문장�
 | 시트가 올라오는 움직임이 느리다 / 거슬린다 | `motion.css`의 `--motion-medium`만 줄인다 |
 | 시트가 닫히는 중에 반응이 없다 | `SheetFrame`의 닫힘 길이를 `--motion-fast`보다 줄이거나, `is-closing`의 `pointer-events: none`을 지운다 |
 | 여백이 전보다 넓어/좁아졌다 | `space.css`의 역할 토큰 하나를 고친다(그 역할 전체가 같이 바뀐다) |
-| 전부 | QQ5 → QQ4 → QQ3 → QQ2 → QQ1 순서로 `git revert`. 데이터는 건드린 적이 없다 |
+| 설정의 줄 안 버튼이 너무 작아 잘 안 눌린다 | 누르는 높이는 44px 그대로다. 그래도 그렇다면 QQ6 커밋만 `git revert`(CSS 두 곳) |
+| 전부 | QQ6 → QQ5 → QQ4 → QQ3 → QQ2 → QQ1 순서로 `git revert`. 데이터는 건드린 적이 없다 |
 
 데이터 이전은 없다: IndexedDB·백업·설정·localStorage에 새 키가 없다. 진단 줄은 매번 계산한다(파생).
 
@@ -642,13 +722,19 @@ QQ4가 더한 "여백은 역할 토큰 한 벌이다" 항목 끝에 한 문장�
 | 동작 줄이기를 켰을 때 | 변화 없음 | 크기 변화·시트 올라오는 움직임이 꺼진다 |
 | 여백 | 같은 역할에 4~20px이 섞임 | 역할마다 한 값. 화면에 따라 몇 px씩 달라진다 |
 | 설정 → 진단 | — | `유리` 줄 하나 |
+| 설정 → 활성 루틴 `편집`, 루틴 목록 `이 루틴 쓰기`·`삭제` | 화면 폭 버튼 크기로 줄의 큰 몫을 차지 | 작은 버튼 크기, 글자 폭만큼(누르는 높이 44px 그대로) |
 
 ---
 
 ## 구현 순서와 검증
 
-**QQ0 → QQ1 → QQ2 → QQ3 → QQ4 → QQ5.** QQ0의 "바꾸기 전"은 다른 작업 뒤에 못 찍는다. QQ1이 막을 `background-color` 토큰으로 바꿔야 QQ2가 막의 움직임을 색으로 바꿀 수 있다. QQ3은 QQ2의 움직임 토큰을 쓴다. QQ4는 QQ5가 쓸 토큰을 만든다. QQ5는 시트 14개의 껍데기가 `SheetFrame`으로 모인 뒤에 해야 같은 줄을 두 번 고치지 않는다. 단계마다 배포할 수 있다.
-커밋은 **도구 1 + 구현 5 + 기록·버전 1 = 7.** 작업끼리 한 커밋에 섞지 않는다.
+**QQ0 → QQ1 → QQ2 → QQ3 → QQ4 → QQ5 → QQ6.** QQ0의 "바꾸기 전"은 다른 작업 뒤에 못 찍는다. QQ1이 막을 `background-color` 토큰으로 바꿔야 QQ2가 막의 움직임을 색으로 바꿀 수 있다. QQ3은 QQ2의 움직임 토큰을 쓴다. QQ4는 QQ5가 쓸 토큰을 만든다. QQ5는 시트 14개의 껍데기가 `SheetFrame`으로 모인 뒤에 해야 같은 줄을 두 번 고치지 않는다. QQ6은 `.btn-sm`의 값을 따르므로 QQ4가 그 값을 단계로 옮긴 뒤에 한다(QQ5가 같은 줄의 `marginLeft: 8`을 `.ml-inline`으로 바꾸지만 QQ6은 `.tsx`를 안 고치므로 부딪치지 않는다). 단계마다 배포할 수 있다.
+커밋은 **도구 1 + 구현 6 + 기록·버전 1 = 8.** 작업끼리 한 커밋에 섞지 않는다.
+
+**구현 전에 사람이 할 일** (질문이 아니다. 안 해도 구현은 멈추지 않는다 — 그때는 짝 절차로 간다):
+1. `argos-ci.com`에 GitHub 계정으로 가입(Hobby, 무료)하고 `Joyanggi/workout-tracker` 프로젝트를 만든다.
+2. 프로젝트 설정에서 토큰을 복사해 Windows 사용자 환경 변수 `ARGOS_TOKEN`으로 둔다(시스템 속성 → 환경 변수). 새로 여는 Orca 터미널부터 읽힌다. 레포·채팅에 붙여 넣지 않는다.
+3. 공개 레포라 올린 스크린샷은 공개된다(빈 프로필 + 내장 루틴 화면뿐이다).
 
 관례:
 - `npm run build`(`tsc` 직접 호출 금지) · 작업 중에는 `npx vitest run src/lib/v119.test.ts src/lib/v118.test.ts src/lib/glassDiag.test.ts src/lib/polish.test.ts src/lib/uiConsistency.test.ts`만 · 마지막에 `npm test` 한 번 · `node scripts/quality-scan.mjs --ci`
@@ -674,16 +760,19 @@ QQ4가 더한 "여백은 역할 토큰 한 벌이다" 항목 끝에 한 문장�
   ⑬ 아무 화면에 `style={{ marginTop: 10 }}`, 그리고 여러 줄로 적은 `style={{\n gap: 2,\n }}` → `v119` QQ5 스캔이 둘 다 실패
   ⑭ `global.css` `.card`의 `padding`을 `14px`로 → 정적 검사(단계 밖) 실패
   ⑮ `.ax-screen`의 좌우 여백을 `20px`로 → `여백 한 벌`(화면 좌우) 실패
+  ⑯ `global.css`의 `.row > .btn` 규칙과 `.btn-sm` 선택자 목록의 `.row > .btn`을 지움 → `v119` QQ6 스캔 실패 + `settings`의 `줄 안 버튼` 실패
 - **과거 판정 불변 확인 절**(DEV-RECORD): ① `git diff --stat main..HEAD -- src/db src/store` 출력이 비어 있다(복사) ② `git diff --stat main..HEAD -- src/lib`에 새 파일만(복사) ③ 골든 테스트 수정 없이 통과 ④ 바뀌는 것: "과거 판정 불변" 표.
-- 완료 후 `docs/DEV-RECORD-v1.19.md`(맨 위 "이 환경에서 확인된 제약"은 v1.18 목록을 이어받고 새로 확인한 것을 더한다: axe가 이 Chromium에서 유리 위 대비를 어떻게 내는지, `mouse.down`이 Astryx 눌림 추적기를 칠하는지, `reducedMotion` 흉내가 먹는지, `@axe-core/playwright` 고정 버전, `onPointerDown` 요소 수, 진단 줄이 마운트 때 한 번만 읽는 이유). "배포 영향" 절에 아래를 남기고 PR 본문 맨 위에도 넣는다:
+- 완료 후 `docs/DEV-RECORD-v1.19.md`(맨 위 "이 환경에서 확인된 제약"은 v1.18 목록을 이어받고 새로 확인한 것을 더한다: axe가 이 Chromium에서 유리 위 대비를 어떻게 내는지, `mouse.down`이 Astryx 눌림 추적기를 칠하는지, `reducedMotion` 흉내가 먹는지, `@axe-core/playwright` 고정 버전, `onPointerDown` 요소 수, 진단 줄이 마운트 때 한 번만 읽는 이유, `@argos-ci/cli` 고정 버전과 `ARGOS_TOKEN` 유무·올리기 결과, `.row > .btn`에 걸린 버튼 목록). "배포 영향" 절에 아래를 남기고 PR 본문 맨 위에도 넣는다:
   - 유리 띠·시트가 전보다 많이 비치고, 시트 뒤 막이 옅어진다. 기록·판정·내보내기·백업은 그대로다.
   - 버튼을 누르면 반응하고, 시트가 화면 아래에서 올라와 내려가며 닫힌다. 폰의 "동작 줄이기"를 켜면 움직임이 줄어든다. 세션·요약 화면 전환은 그대로다.
   - 여백이 역할마다 한 값이 되어 화면마다 몇 px씩 달라진다.
+  - 설정의 활성 루틴 `편집`과 루틴 목록의 `이 루틴 쓰기`·`삭제`가 작은 버튼이 된다(누르는 높이는 그대로).
+  - 화면 비교: Argos 빌드 주소(작업마다 하나 — 올리지 못했으면 "Argos 건너뜀"과 이유), 그리고 `docs/screenshots/v1.19/before`·`after`.
   - 설정 → 진단에 `유리` 줄이 생긴다. 이 줄은 흐림이 "선언됐는지"만 안다. `흐림 선언됨`이 아니면 그 문구를, `흐림 선언됨`인데 탭바 뒤 글자가 또렷하게(번지지 않고) 비치면 그 사실을 알려 달라.
   - 고칠 자리: 농도 `src/styles/glass.css`, 움직임 `motion.css`, 여백 `space.css`. 비교 스크린샷 `docs/screenshots/v1.19/compare/`.
   - Astryx 적용 현황: `docs/ASTRYX-INVENTORY.md`.
 - README: 각 작업의 "README 반영"을 그 작업의 커밋에서 고친다. "Tech Stack"의 Astryx 줄(`지금은 루틴 편집 화면만`)은 그대로다.
-- `package.json` **1.19.0**은 기록 커밋에서 올린다. `@axe-core/playwright`는 QQ0 커밋에서 devDependency로.
+- `package.json` **1.19.0**은 기록 커밋에서 올린다. `@axe-core/playwright`·`@argos-ci/cli`는 QQ0 커밋에서 devDependency로.
 - PR 본문에 `Closes #44`.
 - 실기기 확인(구현자가 못 하면 DEV-RECORD에 "사람 확인 필요") — 홈 화면 앱에서:
   ① 설정 → 진단 `유리` 줄이 `흐림 선언됨`이다(아니면 그 문구를 적는다 — 선언·지원 문제이고 ②의 값 판단은 의미가 없다)
@@ -696,19 +785,21 @@ QQ4가 더한 "여백은 역할 토큰 한 벌이다" 항목 끝에 한 문장�
   ⑧ `대비 증가`를 켜면 유리가 전부 불투명해진다(v1.18과 같다)
   ⑨ 홈·기록·설정·식단·세션·루틴 편집을 오가며 화면 좌우 여백, 카드 사이 간격이 같아 보인다
   ⑩ 저전력 모드에서 ②③⑤를 한 번 더
+  ⑪ 설정 → 활성 루틴의 `편집`이 작아졌고 엄지로 한 번에 눌린다
 
-리뷰 단위: 작업별 — QQ1(유리 CSS)·QQ2(움직임 CSS + `main.tsx`)·QQ3(시트 14개 `.tsx`)·QQ4(여백 CSS)·QQ5(`.tsx` 40여 개 인라인 여백)가 서로 다른 파일 묶음을 건드리고, QQ4·QQ5는 각각 거의 모든 화면을 바꾼다.
+리뷰 단위: 작업별 — QQ1(유리 CSS)·QQ2(움직임 CSS + `main.tsx`)·QQ3(시트 14개 `.tsx`)·QQ4(여백 CSS)·QQ5(`.tsx` 40여 개 인라인 여백)가 서로 다른 파일 묶음을 건드리고, QQ4·QQ5는 각각 거의 모든 화면을 바꾼다. QQ6은 CSS 두 곳뿐이라 작지만 QQ4의 값 위에 서므로 QQ4 리뷰가 끝난 뒤 따로 본다.
 
 ---
 
 ## 사람이 정할 것
 
-이 PLAN의 구현을 막는 항목은 없다. 아래 둘은 v1.18에서 넘어온 질문으로, **남은 화면을 Astryx로 옮기는 다음 PLAN**을 쓰기 전에 필요하다. 이슈 #44의 "함께 정한다"에 따라 다시 올린다.
+없음. 남아 있던 둘(README 헬스장 경로 문장, 루틴 편집 시트 컨트롤 36px)은 2026-11-12 사람의 답으로 본문("Astryx 적용 현황"의 이유 표)에 녹였다. 기록은 끝 "검토 반영 기록"의 "사람의 답". Argos 준비("구현 순서와 검증"의 "구현 전에 사람이 할 일")는 결정이 아니라 할 일이고, 안 해도 구현이 멈추지 않는다.
 
-| # | 정할 것 | 선택지 | 설계자 추천 |
-|---|---|---|---|
-| 1 | (v1.18 1) 세션 화면을 Astryx로 옮기면 헬스장 경로(홈 → 세션)가 Astryx 코드(JS gzip 211KB + CSS gzip 48KB, v1.17 기록)를 읽는다. README "헬스장 경로가 Astryx 코드를 읽지 않습니다"를 고쳐도 되나 | 고쳐도 된다 / 안 된다(헬스장 경로는 legacy로 두고 값만 맞춘다 — 이번 PLAN의 방식을 계속) | 고쳐도 된다 — 단 이번 PLAN의 결과(유리·눌림·여백)를 폰에서 보고 "legacy로도 충분하다"면 "안 된다"가 더 싸다. 이번 결과를 본 뒤에 답해도 된다 (검토자 claude도 "결과를 본 뒤"에 동의) |
-| 2 | (v1.18 3) 루틴 편집 화면(Astryx)의 시트 안 `−`·`+`·칩·스위치(보이는 높이 36px)가 엄지로 잘 눌리는가 | 잘 눌린다 / 옆이 눌리거나 안 눌릴 때가 있다 | 사람만 아는 사실이다. "안 눌릴 때가 있다"면 다음 PLAN에서 Astryx 버튼의 보이는 높이를 올려 설계한다 |
+**확정한 것 (사람의 답, 2026-11-12):**
+- README "헬스장 경로가 Astryx 코드를 읽지 않습니다"는 고쳐도 된다 — 남은 화면을 옮기는 다음 PLAN이 고친다. 이번 PLAN은 고치지 않는다(v1.19 뒤에도 그 문장이 지금 동작과 맞다).
+- 루틴 편집 시트의 `−`·`+`·칩·스위치(보이는 높이 36px)는 엄지로 잘 눌린다 — 다음 PLAN은 Astryx 컨트롤 높이를 올리지 않는다.
+- visual review는 Argos로 한다 — QQ0 `argos-upload.mjs`, "확인한 것" 4 "Argos 확인". 로컬 올리기, CI에는 넣지 않는다, 토큰이 없으면 짝 절차.
+- 설정의 활성 루틴 `편집` 버튼을 작게 한다 — QQ6. 같은 원인인 루틴 목록 줄 버튼 둘도 같이 작아진다(설계자가 범위를 정함 — 줄 안 버튼은 한 규칙으로).
 
 **확정한 것 (검토 반영 때 설계자가 정함, 사람이 뒤집을 수 있다):**
 - 시트 뒤 막을 옅게 한다(옛 1) — QQ1 "막"에 녹였다. 막을 그대로 두면 계산상 `시트 비침` 기준을 못 채운다.
@@ -716,7 +807,7 @@ QQ4가 더한 "여백은 역할 토큰 한 벌이다" 항목 끝에 한 문장�
 
 화면 문구 (확정, 사람이 고칠 수 있게 원문을 적는다): 설정 → 진단 줄 제목 `유리`, 값 `흐림 선언됨` / `꺼짐 (대비 증가)` / `꺼짐 (투명도 줄이기)` / `꺼짐 (이 브라우저는 흐림 미지원)` / `꺼짐 (흐림이 적용되지 않음)`, 보조 줄 `흐림 지원: 표준` / `webkit` / `둘 다` 또는 계산된 흐림 값.
 
-**규칙 문서에 반영을 제안하는 것** (설계자는 `agents/`를 고치지 않는다 — 지휘자가 규칙 정비자에게 넘긴다): `agents/SCREEN-CHECKER.md` 2절 4번에 `node scripts/ui-check.mjs after --check` 한 줄과 "visual review 목록"을 보고에 채우는 것을 더한다.
+**규칙 문서에 반영을 제안하는 것** (설계자는 `agents/`를 고치지 않는다 — 지휘자가 규칙 정비자에게 넘긴다): `agents/SCREEN-CHECKER.md` 2절 4번에 `node scripts/ui-check.mjs after --check` 한 줄과 "visual review 목록"을 보고에 채우는 것, 그리고 Argos 빌드 주소(없으면 "Argos 건너뜀: <이유>")를 보고 맨 위에 적는 것을 더한다.
 
 ---
 
@@ -752,3 +843,12 @@ QQ4가 더한 "여백은 역할 토큰 한 벌이다" 항목 끝에 한 문장�
 | 클래스 없는 버튼을 개수 상한(25)으로 고정 | claude (선택지 b) | 선택지 a(기본 규칙)를 골라 셀 이유가 없어졌다 |
 
 두 검토자가 같은 지점을 다르게 본 곳은 없다. QQ1의 "진단이 해결하려는 것"을 codex는 진단 정확도로, claude는 비침 지표·알약으로 각각 짚었고 둘 다 반영했다.
+
+**사람의 답 (2026-11-12, 지휘자 전달)**
+
+| 물은 것 | 답 | 반영한 곳 |
+|---|---|---|
+| (사람이 정할 것 1) README "헬스장 경로가 Astryx 코드를 읽지 않습니다"를 고쳐도 되나 | 고쳐도 된다 | "Astryx 적용 현황"의 이유 표 첫 줄. 이번 PLAN의 범위는 그대로(값 맞추기) — 이슈 #44의 끝 기준은 화면을 옮기지 않고 채운다. 문장은 다음 PLAN이 고친다 |
+| (사람이 정할 것 2) 루틴 편집 시트 컨트롤 36px이 엄지로 잘 눌리나 | 잘 눌린다 | "Astryx 적용 현황"의 이유 표 둘째 줄 — 다음 PLAN의 전제 |
+| visual review를 Argos로 할 수 있나 | 검토하고, 되면 그것으로 | "확인한 것" 4 "Argos 확인"(가능 여부·어디서·비용·CI·비밀키를 문서와 `npm view`로 확인), QQ0 `scripts/argos-upload.mjs`·검증·범위 제외, 스크린샷 폴더를 `before/`·`after/`로, "화면 검증" 머리, "구현 전에 사람이 할 일", DEV-RECORD 제약·배포 영향, 규칙 문서 제안 |
+| (추가 요구) 설정의 활성 루틴 `운동 루틴 편집` 버튼이 불필요하게 크다 | 작게 | 새 작업 QQ6. 코드로 확인한 버튼은 `SettingsScreen.tsx:175`의 `편집`(카드 이름은 `활성 루틴`). 원인(줄 안의 `width: 100%` 버튼)이 같은 `RoutineListPanel.tsx`의 줄 버튼 둘도 범위에 넣었다. 구현 순서·커밋 수(8)·결함 ⑯·되돌리기·과거 판정 불변 표·실기기 ⑪·리뷰 단위 |

@@ -24,7 +24,7 @@ export default function WeekDots({
   return (
     <div className="card">
       <div className="week-head">
-        <div className="card-label" style={{ marginBottom: 0 }}>
+        <div className="card-label label-flush">
           이번 주
         </div>
         <div className="week-count">
@@ -32,7 +32,7 @@ export default function WeekDots({
         </div>
       </div>
       {total !== strengthCount && (
-        <p className="row-sub" style={{ whiteSpace: 'normal', marginBottom: 6 }}>
+        <p className="row-sub mb-row" style={{ whiteSpace: 'normal' }}>
           유산소만 한 날도 불꽃으로 표시합니다 — 디로드·Phase 카운터는 근력 {strengthCount}회로
           셉니다.
         </p>

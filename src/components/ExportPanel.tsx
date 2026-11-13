@@ -138,11 +138,11 @@ export default function ExportPanel({
         ))}
       </div>
 
-      <p className="row-sub" style={{ marginTop: 10 }}>
+      <p className="row-sub mt-row">
         {range.from} ~ {range.to} · 세션 {inRange.length}개
       </p>
 
-      <div className="card-label" style={{ marginTop: 16 }}>
+      <div className="card-label mt-group">
         Markdown (LLM 분석용)
       </div>
       <div className="btn-row">
@@ -162,18 +162,18 @@ export default function ExportPanel({
 
       {preview !== null && <pre className="preview">{preview}</pre>}
 
-      <div className="card-label" style={{ marginTop: 16 }}>
+      <div className="card-label mt-group">
         JSON (전체 백업)
       </div>
       <button className="btn btn-sm" onClick={() => void onShareJson()}>
         백업 파일 공유
       </button>
-      <p className="row-sub" style={{ marginTop: 8 }}>
+      <p className="row-sub mt-row">
         기간과 무관하게 전체를 담습니다. Gist 토큰 같은 비밀값은 포함되지 않습니다.
       </p>
 
       {status && (
-        <p className="row-sub" style={{ marginTop: 10, color: 'var(--accent)' }}>
+        <p className="row-sub mt-row" style={{ color: 'var(--accent)' }}>
           {status}
         </p>
       )}

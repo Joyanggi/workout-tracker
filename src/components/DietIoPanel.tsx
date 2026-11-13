@@ -152,17 +152,16 @@ export default function DietIoPanel({ plans }: { plans: DietPlan[] }) {
         </div>
       )}
 
-      <p className="row-sub" style={{ marginTop: 8 }}>
+      <p className="row-sub mt-row">
         제품 라벨의 실제 kcal·단백질로 보정할 때 씁니다. 요약 라벨은 항목 합계에서 다시
         계산하므로 파일에 적은 값과 어긋날 수 없습니다.
       </p>
-      <div style={{ height: 8 }} />
-      <button className="btn btn-sm" onClick={() => void onReset()}>
+      <button className="btn btn-sm mt-row" onClick={() => void onReset()}>
         번들 플랜으로 되돌리기
       </button>
 
       {status && (
-        <p className="row-sub" style={{ marginTop: 8 }}>
+        <p className="row-sub mt-row">
           {status}
         </p>
       )}

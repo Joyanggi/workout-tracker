@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { hasCompensation, parseCompensation, serializeCompensation } from '../lib/compensation'
 import { NO_AUTOFILL } from '../lib/inputProps'
+import { SheetFrame } from './SheetFrame'
 
 /**
  * 보상작용 입력 (DESIGN.md §5.2).
@@ -32,89 +33,84 @@ export default function CompensationSheet({
   const preview = serializeCompensation({ signs: selected, free })
 
   return (
-    <div className="sheet-backdrop" onClick={onClose}>
-      <div
-        className="sheet"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-label="보상작용 입력"
-      >
-        <div className="sheet-grip" />
-        <div className="card-label">보상작용 · {exerciseName}</div>
+    <SheetFrame label="보상작용 입력" onClose={onClose}>
+      {(dismiss) => (
+        <>
+          <div className="card-label">보상작용 · {exerciseName}</div>
 
-        {signs.length > 0 ? (
-          <div className="check-list">
-            {signs.map((sign) => (
-              <button
-                key={sign}
-                className={`check-item${selected.includes(sign) ? ' check-item-on' : ''}`}
-                onClick={() => toggle(sign)}
-                aria-pressed={selected.includes(sign)}
-              >
-                <span className="check-box" aria-hidden="true">
-                  {selected.includes(sign) ? '✓' : ''}
-                </span>
-                <span>{sign}</span>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <p className="row-sub">이 종목에는 등록된 체크리스트가 없습니다. 직접 입력하세요.</p>
-        )}
-
-        <div className="card-label" style={{ marginTop: 16 }}>
-          직접 입력
-        </div>
-        <input
-          {...NO_AUTOFILL}
-          className="field"
-          value={free}
-          onChange={(e) => setFree(e.target.value)}
-          placeholder="예: 마지막 세트 엉덩이 살짝 뜸"
-          aria-label="보상작용 직접 입력"
-        />
-        <p className="row-sub">
-          여기에 적으면 "보상작용 있음"으로 기록되고 다음 증량이 보류됩니다. 통증은 카드의 통증 칸에 적어 주세요.
-        </p>
-
-        <p className="row-sub" style={{ marginTop: 12 }}>
-          저장될 값: <strong style={{ color: hasCompensation(preview) ? 'var(--warn)' : 'var(--text-dim)' }}>{preview}</strong>
-        </p>
-
-        <button
-          className="btn btn-primary"
-          style={{ marginTop: 8 }}
-          onClick={() => {
-            onSave(preview)
-            onClose()
-          }}
-        >
-          저장
-        </button>
-        <div style={{ height: 8 }} />
-        <div className="btn-row">
-          {/*
-            X9 — **지울 것이 있을 때만** 보인다. 이미 '없음'인 상태에서 "없음으로 비우기"는
-            아무 일도 하지 않는 버튼이고, 그런 버튼이 있으면 자기 존재를 설명하지 못한다.
-            기준은 저장된 현재 값이다 (편집 중인 선택이 아니다) — 편집 중 값으로 판단하면
-            체크를 다 풀자마자 버튼이 사라져서 "되돌리기"를 못 한다.
-          */}
-          {hasCompensation(current) && (
-            <button
-              className="btn"
-              onClick={() => {
-                setSelected([])
-                setFree('')
-              }}
-            >
-              없음으로 비우기
-            </button>
+          {signs.length > 0 ? (
+            <div className="check-list">
+              {signs.map((sign) => (
+                <button
+                  key={sign}
+                  className={`check-item${selected.includes(sign) ? ' check-item-on' : ''}`}
+                  onClick={() => toggle(sign)}
+                  aria-pressed={selected.includes(sign)}
+                >
+                  <span className="check-box" aria-hidden="true">
+                    {selected.includes(sign) ? '✓' : ''}
+                  </span>
+                  <span>{sign}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="row-sub">이 종목에는 등록된 체크리스트가 없습니다. 직접 입력하세요.</p>
           )}
-          <button className="btn" onClick={onClose}>
-            취소
+
+          <div className="card-label mt-group">
+            직접 입력
+          </div>
+          <input
+            {...NO_AUTOFILL}
+            className="field"
+            value={free}
+            onChange={(e) => setFree(e.target.value)}
+            placeholder="예: 마지막 세트 엉덩이 살짝 뜸"
+            aria-label="보상작용 직접 입력"
+          />
+          <p className="row-sub">
+            여기에 적으면 "보상작용 있음"으로 기록되고 다음 증량이 보류됩니다. 통증은 카드의 통증 칸에 적어 주세요.
+          </p>
+
+          <p className="row-sub mt-group">
+            저장될 값: <strong style={{ color: hasCompensation(preview) ? 'var(--warn)' : 'var(--text-dim)' }}>{preview}</strong>
+          </p>
+
+          <button
+            className="btn btn-primary mt-row"
+            
+            onClick={() => {
+              onSave(preview)
+              onClose()
+            }}
+          >
+            저장
           </button>
-        </div>
-      </div>
-    </div>
+          <div className="btn-row mt-row">
+            {/*
+              X9 — **지울 것이 있을 때만** 보인다. 이미 '없음'인 상태에서 "없음으로 비우기"는
+              아무 일도 하지 않는 버튼이고, 그런 버튼이 있으면 자기 존재를 설명하지 못한다.
+              기준은 저장된 현재 값이다 (편집 중인 선택이 아니다) — 편집 중 값으로 판단하면
+              체크를 다 풀자마자 버튼이 사라져서 "되돌리기"를 못 한다.
+            */}
+            {hasCompensation(current) && (
+              <button
+                className="btn"
+                onClick={() => {
+                  setSelected([])
+                  setFree('')
+                }}
+              >
+                없음으로 비우기
+              </button>
+            )}
+            <button className="btn" onClick={dismiss}>
+              취소
+            </button>
+          </div>
+        </>
+      )}
+    </SheetFrame>
   )
 }

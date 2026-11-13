@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { dayTotalSets } from '../lib/useRoutine'
 import type { RoutineBundle } from '../lib/useRoutine'
 import { makeRecordKey, recordDayIdOf, type RecordKey } from '../types'
+import { SheetFrame } from './SheetFrame'
 
 /**
  * 종목 얹기 (CC15) — "그 Day 머신이 다 차 있을 때".
@@ -44,53 +45,54 @@ export default function AddExerciseSheet({
   }, [bundle, existing])
 
   return (
-    <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="종목 추가">
-        <div className="sheet-grip" />
-        <div className="card-label">종목 추가</div>
-        <p className="row-sub" style={{ whiteSpace: 'normal' }}>
-          루틴의 다른 종목을 이 세션에 얹습니다. 기록은 <b>그 종목의 원래 Day 라인</b>에
-          남고, 주간 볼륨에 정상 반영됩니다. 몸 풀기 수준이면 세트를 워밍업으로 표시하세요.
-        </p>
-
-        {groups.length === 0 ? (
-          <p className="row-sub" style={{ marginTop: 12 }}>
-            추가할 수 있는 종목이 없습니다 (전부 이 세션에 있습니다).
+    <SheetFrame label="종목 추가" onClose={onClose}>
+      {(dismiss) => (
+        <>
+          <div className="card-label">종목 추가</div>
+          <p className="row-sub" style={{ whiteSpace: 'normal' }}>
+            루틴의 다른 종목을 이 세션에 얹습니다. 기록은 <b>그 종목의 원래 Day 라인</b>에
+            남고, 주간 볼륨에 정상 반영됩니다. 몸 풀기 수준이면 세트를 워밍업으로 표시하세요.
           </p>
-        ) : (
-          groups.map(({ day, items }) => (
-            <div key={day.id}>
-              <div className="card-label" style={{ marginTop: 16 }}>
-                {day.name} · {day.exercises.length}종목 {dayTotalSets(day)}세트
-              </div>
-              {items.map(({ ex, recordKey, name }) => (
-                <button
-                  className="row sheet-row"
-                  key={recordKey}
-                  onClick={() => {
-                    onAdd({ recordKey, setCount: ex.sets, repMin: ex.repMin })
-                    onClose()
-                  }}
-                >
-                  <div className="row-main">
-                    <div className="row-title">{name}</div>
-                    <div className="row-sub mono">{recordKey}</div>
-                  </div>
-                  <div className="row-meta">
-                    {ex.group}그룹
-                    <br />
-                    {ex.sets}×{ex.repMin}~{ex.repMax}
-                  </div>
-                </button>
-              ))}
-            </div>
-          ))
-        )}
 
-        <button className="btn" style={{ marginTop: 16 }} onClick={onClose}>
-          닫기
-        </button>
-      </div>
-    </div>
+          {groups.length === 0 ? (
+            <p className="row-sub mt-group">
+              추가할 수 있는 종목이 없습니다 (전부 이 세션에 있습니다).
+            </p>
+          ) : (
+            groups.map(({ day, items }) => (
+              <div key={day.id}>
+                <div className="card-label mt-group">
+                  {day.name} · {day.exercises.length}종목 {dayTotalSets(day)}세트
+                </div>
+                {items.map(({ ex, recordKey, name }) => (
+                  <button
+                    className="row sheet-row"
+                    key={recordKey}
+                    onClick={() => {
+                      onAdd({ recordKey, setCount: ex.sets, repMin: ex.repMin })
+                      onClose()
+                    }}
+                  >
+                    <div className="row-main">
+                      <div className="row-title">{name}</div>
+                      <div className="row-sub mono">{recordKey}</div>
+                    </div>
+                    <div className="row-meta">
+                      {ex.group}그룹
+                      <br />
+                      {ex.sets}×{ex.repMin}~{ex.repMax}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ))
+          )}
+
+          <button className="btn mt-group" onClick={dismiss}>
+            닫기
+          </button>
+        </>
+      )}
+    </SheetFrame>
   )
 }

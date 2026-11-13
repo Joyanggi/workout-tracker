@@ -1,16 +1,23 @@
 /*
- * 유리의 재료를 정하는 한 곳 (v1.18). 화면 쪽 CSS와 Astryx 시트는 이 토큰만 읽는다.
- * 농도·흐림을 고치려면 여기만 고친다. `.tsx`에는 backdrop-filter를 적지 않는다.
+ * 유리의 재료를 정하는 한 곳 (v1.18, v1.19 QQ1에서 다시 잡음). 농도는 아래 토큰, 흐림 값은 아래 규칙에 글자 그대로 적는다.
+ * 농도·흐림을 고치려면 여기만 고친다(Astryx 시트의 흐림만 src/ax/ax.css에 같은 값이 한 번 더 있다 — 정적 검사가 같은지 본다).
+ * `.tsx`에는 backdrop-filter를 적지 않는다.
  * 카드·입력칸·세트 행은 유리로 만들지 않는다(읽어야 하는 내용은 묻히면 안 된다).
+ *
+ * 흐림 값에 `var()`를 쓰지 않는다 — WebKit이 `-webkit-backdrop-filter`의 사용자 정의 속성을 무시한 보고가 있다
+ * (WebKit 289149·289800·297620). 같은 규칙 안의 두 접두사 값은 글자 그대로 같게 둔다.
  */
 :root {
-  --glass-bar: rgba(22, 22, 26, 0.78);
-  --glass-bar-filter: saturate(180%) blur(20px);
-  /* 시트 뒤에는 어두운 막(0.6)이 이미 깔려 있어 띠보다 옅게 둔다 (PP2에서 쓴다) */
-  --glass-sheet: rgba(22, 22, 26, 0.72);
-  --glass-sheet-filter: saturate(180%) blur(20px);
+  /* 띠: 보이는 비침 (1 − 0.50) × brightness 0.6 = 0.30. 색을 카드색(22,22,26)보다 어둡게 둬 뒤가 통째로 주황·초록이어도 글자 4.5:1 (카드색이면 "이어서 ›"가 4.09:1) */
+  --glass-bar: rgba(6, 6, 8, 0.5);
+  /* 시트: (1 − 0.50) × (1 − 막 0.40) × brightness 0.5 = 0.15 */
+  --glass-sheet: rgba(22, 22, 26, 0.5);
+  /* 시트 뒤 막. 옅을수록 시트가 유리로 보인다 — 눈부시면 이것만 올리고 시트 알파를 다시 고른다 */
+  --glass-scrim: rgba(0, 0, 0, 0.4);
   --glass-edge: rgba(255, 255, 255, 0.14);
-  --glass-pill: rgba(255, 255, 255, 0.08);
+  /* 위쪽 안 가장자리의 1px 빛. 뒤가 어두워 비침이 덜 보이는 것을 보완한다 */
+  --glass-highlight: rgba(255, 255, 255, 0.22);
+  --glass-pill: rgba(0, 0, 0, 0.3);
   --glass-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
   --glass-solid: #16161a;
 }
@@ -18,19 +25,40 @@
 /* Astryx 화면은 폰의 라이트/다크를 따른다: 색을 Astryx 토큰에서 만든다. */
 html[data-astryx-theme] {
   --glass-solid: var(--color-background-surface);
-  --glass-sheet: color-mix(in srgb, var(--color-background-surface) 72%, transparent);
+  --glass-sheet: color-mix(in srgb, var(--color-background-surface) 50%, transparent);
   --glass-edge: var(--color-border);
 }
 
+/* 띠 넷: 뒤 밝기를 낮춰(brightness) 뒤의 색·움직임은 지나가고 밝기만 줄게 한다 */
+.tabbar,
+.session-header,
+.resume-strip,
+.rest-bar {
+  -webkit-backdrop-filter: saturate(180%) blur(20px) brightness(0.6);
+  backdrop-filter: saturate(180%) blur(20px) brightness(0.6);
+}
+
+/* 시트(legacy). Astryx 시트는 src/ax/ax.css의 astryx-theme 레이어에 같은 값이 있다(여기 적으면 하위 레이어가 되어 못 이긴다) */
+.sheet {
+  -webkit-backdrop-filter: saturate(180%) blur(20px) brightness(0.5);
+  backdrop-filter: saturate(180%) blur(20px) brightness(0.5);
+}
+
 /* 한 겹: 시트가 떠 있는 동안 아래 띠를 불투명한 면으로 바꿔 흐림이 맨 위 층(시트) 하나만 돌게 한다.
-   명시도 (0,2,0)이라 아래 끄기 규칙·위 Astryx 규칙과 순서에 상관없이 이긴다. */
+   선택자가 띠 흐림 규칙(.tabbar 등, (0,1,0))보다 높아 순서에 상관없이 이긴다 — v1.18이 토큰으로 얻던 보장을 선택자로 얻는다. */
 :root:has(.sheet-backdrop) {
   --glass-bar: var(--glass-solid);
-  --glass-bar-filter: none;
+}
+:root:has(.sheet-backdrop) .tabbar,
+:root:has(.sheet-backdrop) .session-header,
+:root:has(.sheet-backdrop) .resume-strip,
+:root:has(.sheet-backdrop) .rest-bar {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 /*
- * 유리 끄기. Astryx 규칙보다 뒤에 둔다. 순서를 바꾸면 Astryx 화면에서 유리가 안 꺼진다
+ * 유리 끄기. 위 흐림 규칙·Astryx 규칙보다 뒤에 둔다. 순서를 바꾸면 유리가 안 꺼진다
  * (`html:root`와 `html[data-astryx-theme]`는 명시도가 같아 뒤에 있는 쪽이 이긴다).
  * iOS Safari는 prefers-reduced-transparency를 모른다 → 대비 증가(prefers-contrast)가 둘째 신호다.
  * 아래 두 블록의 선언은 글자 그대로 같게 둔다(scripts/lib/glass-check.mjs가 본다).
@@ -39,8 +67,16 @@ html[data-astryx-theme] {
   html:root {
     --glass-bar: var(--glass-solid);
     --glass-sheet: var(--glass-solid);
-    --glass-bar-filter: none;
-    --glass-sheet-filter: none;
+    --glass-scrim: rgba(0, 0, 0, 0.6);
+    --glass-highlight: transparent;
+  }
+  .tabbar,
+  .session-header,
+  .resume-strip,
+  .rest-bar,
+  .sheet {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 }
 
@@ -49,7 +85,15 @@ html[data-astryx-theme] {
   html:root {
     --glass-bar: var(--glass-solid);
     --glass-sheet: var(--glass-solid);
-    --glass-bar-filter: none;
-    --glass-sheet-filter: none;
+    --glass-scrim: rgba(0, 0, 0, 0.6);
+    --glass-highlight: transparent;
+  }
+  .tabbar,
+  .session-header,
+  .resume-strip,
+  .rest-bar,
+  .sheet {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 }

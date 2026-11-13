@@ -1,6 +1,7 @@
 import type { CompensationWatch } from '../lib/compensationWatch'
 import { WATCH_WINDOW } from '../lib/compensationWatch'
 import { describeScale, easierWeight, type WeightScale } from '../lib/weightScale'
+import { SheetFrame } from './SheetFrame'
 
 /**
  * 반복 보상작용 → 무게 하향 제안 (T11).
@@ -34,65 +35,60 @@ export default function CompensationWatchSheet({
   const canLower = lowered !== currentWeight
 
   return (
-    <div className="sheet-backdrop" onClick={onClose}>
-      <div
-        className="sheet"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-label="보상작용 반복 — 무게 하향"
-      >
-        <div className="sheet-grip" />
-        <div className="card-label">보상작용 반복 · {exerciseName}</div>
-        <p className="row-sub">
-          최근 {WATCH_WINDOW}회 수행 중 {watch.count}회에서 기록됐습니다. 루틴 문서 13장:
-          세트 중 이 신호가 보이면 무게가 과한 것입니다.
-        </p>
+    <SheetFrame label="보상작용 반복 — 무게 하향" onClose={onClose}>
+      {(dismiss) => (
+        <>
+          <div className="card-label">보상작용 반복 · {exerciseName}</div>
+          <p className="row-sub">
+            최근 {WATCH_WINDOW}회 수행 중 {watch.count}회에서 기록됐습니다. 루틴 문서 13장:
+            세트 중 이 신호가 보이면 무게가 과한 것입니다.
+          </p>
 
-        <div className="check-list" style={{ marginTop: 12 }}>
-          {watch.notes.map((note) => (
-            <div className="row" key={note}>
-              <div className="row-main">
-                <div className="row-title" style={{ color: 'var(--warn)' }}>
-                  {note}
+          <div className="check-list mt-group">
+            {watch.notes.map((note) => (
+              <div className="row" key={note}>
+                <div className="row-main">
+                  <div className="row-title" style={{ color: 'var(--warn)' }}>
+                    {note}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
 
-        <p className="row-sub" style={{ marginTop: 12 }}>
-          {canLower ? (
-            <>
-              {scale.inverse ? '보조 +' : '한 단위 하향: '}
-              <strong>
-                {currentWeight}kg → {lowered}kg
-              </strong>{' '}
-              ({describeScale(scale)})
-              {scale.inverse && ' — 보조를 늘리면 더 쉬워집니다'}
-              <br />
-              체크하지 않은 세트에만 적용됩니다. 이미 기록한 세트는 그대로입니다.
-            </>
-          ) : (
-            <>더 조절할 단위가 없습니다 ({describeScale(scale)}).</>
-          )}
-        </p>
+          <p className="row-sub mt-group">
+            {canLower ? (
+              <>
+                {scale.inverse ? '보조 +' : '한 단위 하향: '}
+                <strong>
+                  {currentWeight}kg → {lowered}kg
+                </strong>{' '}
+                ({describeScale(scale)})
+                {scale.inverse && ' — 보조를 늘리면 더 쉬워집니다'}
+                <br />
+                체크하지 않은 세트에만 적용됩니다. 이미 기록한 세트는 그대로입니다.
+              </>
+            ) : (
+              <>더 조절할 단위가 없습니다 ({describeScale(scale)}).</>
+            )}
+          </p>
 
-        <button
-          className="btn btn-primary"
-          style={{ marginTop: 8 }}
-          disabled={!canLower}
-          onClick={() => {
-            onApply(lowered)
-            onClose()
-          }}
-        >
-          {lowered}kg로 {scale.inverse ? '보조 늘리기' : '낮추기'}
-        </button>
-        <div style={{ height: 8 }} />
-        <button className="btn" onClick={onClose}>
-          그대로 두기
-        </button>
-      </div>
-    </div>
+          <button
+            className="btn btn-primary mt-row"
+            
+            disabled={!canLower}
+            onClick={() => {
+              onApply(lowered)
+              onClose()
+            }}
+          >
+            {lowered}kg로 {scale.inverse ? '보조 늘리기' : '낮추기'}
+          </button>
+          <button className="btn mt-row" onClick={dismiss}>
+            그대로 두기
+          </button>
+        </>
+      )}
+    </SheetFrame>
   )
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { unlockAudio } from '../lib/beep'
 import { mmss } from '../lib/dates'
+import { SheetFrame } from './SheetFrame'
 
 /**
  * 휴식 타이머 단독 시작 (CC3).
@@ -45,48 +46,48 @@ export default function ManualTimerSheet({
   }
 
   return (
-    <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="휴식 타이머">
-        <div className="sheet-grip" />
-        <div className="card-label">휴식 타이머</div>
-        <p className="row-sub" style={{ whiteSpace: 'normal' }}>
-          세트 체크와 무관하게 시작합니다. 시작한 뒤에는 바에서 ±30초·건너뛰기가 됩니다.
-        </p>
+    <SheetFrame label="휴식 타이머" onClose={onClose}>
+      {(dismiss) => (
+        <>
+          <div className="card-label">휴식 타이머</div>
+          <p className="row-sub" style={{ whiteSpace: 'normal' }}>
+            세트 체크와 무관하게 시작합니다. 시작한 뒤에는 바에서 ±30초·건너뛰기가 됩니다.
+          </p>
 
-        <div className="segment" style={{ marginTop: 10, flexWrap: 'wrap' }}>
-          {TIMER_PRESETS.map((sec) => (
-            <button key={sec} aria-pressed={selected === sec} onClick={() => setSelected(sec)}>
-              {mmss(sec)}
-              {sec === defaultSec && (
-                <span className="row-sub" style={{ marginLeft: 4 }}>
-                  기본
-                </span>
-              )}
+          <div className="segment mt-row" style={{ flexWrap: 'wrap' }}>
+            {TIMER_PRESETS.map((sec) => (
+              <button key={sec} aria-pressed={selected === sec} onClick={() => setSelected(sec)}>
+                {mmss(sec)}
+                {sec === defaultSec && (
+                  <span className="row-sub ml-inline">
+                    기본
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* 종목 휴식이 프리셋에 없는 값이면 그 값도 고를 수 있어야 한다 */}
+          {defaultSec !== undefined && !TIMER_PRESETS.includes(defaultSec as never) && (
+            <button
+              className="btn btn-sm mt-row"
+              
+              aria-pressed={selected === defaultSec}
+              onClick={() => setSelected(defaultSec)}
+            >
+              {defaultLabel ? `${defaultLabel} · ` : ''}
+              {mmss(defaultSec)} (기본)
             </button>
-          ))}
-        </div>
+          )}
 
-        {/* 종목 휴식이 프리셋에 없는 값이면 그 값도 고를 수 있어야 한다 */}
-        {defaultSec !== undefined && !TIMER_PRESETS.includes(defaultSec as never) && (
-          <button
-            className="btn btn-sm"
-            style={{ marginTop: 8 }}
-            aria-pressed={selected === defaultSec}
-            onClick={() => setSelected(defaultSec)}
-          >
-            {defaultLabel ? `${defaultLabel} · ` : ''}
-            {mmss(defaultSec)} (기본)
+          <button className="btn btn-primary mt-group" onClick={startNow}>
+            {mmss(selected)} 시작
           </button>
-        )}
-
-        <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={startNow}>
-          {mmss(selected)} 시작
-        </button>
-        <div style={{ height: 8 }} />
-        <button className="btn" onClick={onClose}>
-          닫기
-        </button>
-      </div>
-    </div>
+          <button className="btn mt-row" onClick={dismiss}>
+            닫기
+          </button>
+        </>
+      )}
+    </SheetFrame>
   )
 }

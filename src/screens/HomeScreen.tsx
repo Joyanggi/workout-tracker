@@ -319,7 +319,7 @@ export default function HomeScreen({
         </button>
         <button
           onClick={() => dismiss(BANNER_DELOAD)}
-          style={{ background: 'transparent', marginLeft: 0 }}
+          className="banner-dismiss" style={{ background: 'transparent' }}
         >
           <span style={{ color: 'var(--warn)' }}>나중에</span>
         </button>
@@ -335,7 +335,7 @@ export default function HomeScreen({
         </span>
         <button
           onClick={() => dismiss(BANNER_BACKUP)}
-          style={{ background: 'transparent', marginLeft: 0 }}
+          className="banner-dismiss" style={{ background: 'transparent' }}
         >
           <span style={{ color: 'var(--warn)' }}>나중에</span>
         </button>
@@ -353,7 +353,7 @@ export default function HomeScreen({
         </button>
         <button
           onClick={() => dismiss(BANNER_PHASE)}
-          style={{ background: 'transparent', marginLeft: 0 }}
+          className="banner-dismiss" style={{ background: 'transparent' }}
         >
           <span style={{ color: 'var(--ok)' }}>나중에</span>
         </button>
@@ -375,7 +375,7 @@ export default function HomeScreen({
         </span>
         <button
           onClick={() => dismiss(BANNER_COMPENSATION)}
-          style={{ background: 'transparent', marginLeft: 'auto' }}
+          className="ml-auto" style={{ background: 'transparent' }}
         >
           <span style={{ color: 'var(--warn)' }}>나중에</span>
         </button>
@@ -437,7 +437,7 @@ export default function HomeScreen({
           </span>
           <button
             onClick={() => dismiss(BANNER_BACKUP)}
-            style={{ background: 'transparent', marginLeft: 0 }}
+            className="banner-dismiss" style={{ background: 'transparent' }}
           >
             <span style={{ color: 'var(--warn)' }}>나중에</span>
           </button>
@@ -497,7 +497,7 @@ export default function HomeScreen({
         <div className="today-reason">{card.reason}</div>
         {gapNotice && <div className="today-sub">{gapNotice}</div>}
         {staleLine && <div className="today-sub">{staleLine}</div>}
-        <div className="today-sub" style={{ marginTop: 8 }}>
+        <div className="today-sub mt-row">
           {displayed.exercises
             .slice()
             .sort((a, b) => a.plannedOrder - b.plannedOrder)
@@ -527,9 +527,9 @@ export default function HomeScreen({
         </button>
       </div>
 
-      <div style={{ height: 12 }} />
-
-      <WeekDots dots={dots} target={routine.days.length} strengthCount={dash.strengthWeek} />
+      <div className="mt-group">
+        <WeekDots dots={dots} target={routine.days.length} strengthCount={dash.strengthWeek} />
+      </div>
 
       <MuscleVolumeBars
         bars={volume.bars}
@@ -540,20 +540,20 @@ export default function HomeScreen({
       {currentPhase === 0 && (
         <div className="card">
           <div className="week-head">
-            <div className="card-label" style={{ marginBottom: 0 }}>
+            <div className="card-label label-flush">
               Phase 0 진행
             </div>
             <div className="week-count">
               {phase0.streak}/{phase0.target}주
             </div>
           </div>
-          <div className="mbar-track" style={{ marginTop: 8 }}>
+          <div className="mbar-track mt-row">
             <div
               className={`mbar-fill${phase0.achieved ? ' mbar-fill-met' : ''}`}
               style={{ transform: `scaleX(${Math.min(1, phase0.streak / phase0.target)})` }}
             />
           </div>
-          <p className="row-sub" style={{ marginTop: 8 }}>
+          <p className="row-sub mt-row">
             주 {routine.rules.deloadMinSessionsPerWeek}회 이상 연속
             {phase0.allowanceUsed > 0 && ` · 주 ${routine.rules.deloadMinSessionsPerWeek - 1}회 통과 ${phase0.allowanceUsed}회 사용`}
             {phase0.achieved && ' · 조건 충족! 설정에서 Phase 1로 전환할 수 있어요'}
@@ -563,20 +563,20 @@ export default function HomeScreen({
 
       <div className="card">
         <div className="week-head">
-          <div className="card-label" style={{ marginBottom: 0 }}>
+          <div className="card-label label-flush">
             디로드 카운터
           </div>
           <div className="week-count">
             {deload.performedWeeks}/{deload.target}주
           </div>
         </div>
-        <div className="mbar-track" style={{ marginTop: 8 }}>
+        <div className="mbar-track mt-row">
           <div
             className={`mbar-fill${deload.due ? ' mbar-fill-warn' : ''}`}
             style={{ transform: `scaleX(${Math.min(1, deload.performedWeeks / deload.target)})` }}
           />
         </div>
-        <p className="row-sub" style={{ marginTop: 8 }}>
+        <p className="row-sub mt-row">
           주 {routine.rules.deloadMinSessionsPerWeek}회 이상인 주만 카운트 · 4주+ 공백이나 디로드
           수행 시 리셋
         </p>
@@ -584,17 +584,17 @@ export default function HomeScreen({
 
       {suggestion.scores.length > 0 && (
         <details className="card">
-          <summary className="card-label" style={{ marginBottom: 0, cursor: 'pointer' }}>
+          <summary className="card-label label-flush" style={{ cursor: 'pointer' }}>
             제안 근거 (부족분 점수)
           </summary>
-          <div style={{ marginTop: 8 }}>
+          <div className="mt-row">
             {suggestion.scores.map((s) => (
               <div className="row" key={s.dayId}>
                 <div className="row-main">
                   <div className="row-title">
                     {findDayForRecord(routine, s.dayId)?.name ?? s.dayId}
                     {s.penalized && (
-                      <span className="chip chip-warn" style={{ marginLeft: 6 }}>
+                      <span className="chip chip-warn ml-inline">
                         회복 감쇠
                       </span>
                     )}
@@ -610,7 +610,7 @@ export default function HomeScreen({
                 <div className="row-meta">{s.score.toFixed(1)}</div>
               </div>
             ))}
-            <p className="row-sub" style={{ marginTop: 8 }}>
+            <p className="row-sub mt-row">
               ★ = 이번 주 첫 노출 (주 2회 빈도 확보 우선)
             </p>
           </div>

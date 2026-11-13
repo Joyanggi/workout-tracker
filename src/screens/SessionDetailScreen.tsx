@@ -78,7 +78,7 @@ export default function SessionDetailScreen({
         {session.date} ({weekdayKo(session.date)}) · {formatClock(session.startedAt)}
         {session.endedAt && `–${formatClock(session.endedAt)}`}
         {session.mode !== 'normal' && (
-          <span className="chip chip-warn" style={{ marginLeft: 6 }}>
+          <span className="chip chip-warn ml-inline">
             {session.mode === 'return' ? '복귀' : '디로드'}
           </span>
         )}
@@ -170,7 +170,7 @@ export default function SessionDetailScreen({
           ))}
         </div>
         {session.cardio && (
-          <div className="btn-row" style={{ marginTop: 8 }}>
+          <div className="btn-row mt-row">
             {/*
               문자열 로컬 상태로 받고 blur에서 커밋한다. 값을 직접 파싱하면 지우는 순간
               Number('') → 0이 저장되고, 그 0이 다시 value로 내려와 "0"이 지워지지 않는다.
@@ -224,7 +224,7 @@ export default function SessionDetailScreen({
           </button>
         ) : !plan ? (
           <>
-            <p className="row-sub" style={{ marginBottom: 8 }}>
+            <p className="row-sub mb-row">
               이 세션을 어느 Day로 옮길까요? 기록 키(종목@Day)가 함께 재매핑됩니다.
             </p>
             <div className="pill-row">
@@ -236,8 +236,7 @@ export default function SessionDetailScreen({
                   </button>
                 ))}
             </div>
-            <div style={{ height: 8 }} />
-            <button className="btn btn-sm" onClick={() => setChangingDay(false)}>
+            <button className="btn btn-sm mt-row" onClick={() => setChangingDay(false)}>
               취소
             </button>
           </>
@@ -248,7 +247,7 @@ export default function SessionDetailScreen({
             </p>
             {plan.remapped.length > 0 && (
               <>
-                <div className="card-label" style={{ marginTop: 10 }}>
+                <div className="card-label mt-row">
                   기록 키 재매핑 {plan.remapped.length}건
                 </div>
                 {plan.remapped.map((r) => (
@@ -259,12 +258,12 @@ export default function SessionDetailScreen({
               </>
             )}
             {plan.unchanged.length > 0 && (
-              <p className="row-sub" style={{ marginTop: 10 }}>
+              <p className="row-sub mt-row">
                 키 유지 {plan.unchanged.length}건 (같은 정규 Day에 기록)
               </p>
             )}
             {plan.kept.length > 0 && (
-              <div className="warn-box" style={{ marginTop: 10 }}>
+              <div className="warn-box mt-row">
                 <strong>{plan.toDayId}에 없는 종목 {plan.kept.length}개</strong>
                 <br />
                 {plan.kept.map((k) => nameOf(k.from)).join(', ')}
@@ -272,7 +271,7 @@ export default function SessionDetailScreen({
                 기록은 지우지 않고 원래 키를 유지합니다. 상세에서는 읽기 전용으로 표시됩니다.
               </div>
             )}
-            <div className="btn-row" style={{ marginTop: 12 }}>
+            <div className="btn-row mt-group">
               <button className="btn btn-sm" onClick={() => setPendingDayId(null)}>
                 취소
               </button>
@@ -334,7 +333,7 @@ export default function SessionDetailScreen({
       */}
       {!diet.loading && diet.plans.length > 0 && (
         <>
-          <div className="card-label" style={{ marginTop: 4 }}>
+          <div className="card-label mt-row">
             {session.date} 식단
           </div>
           <DietDayEditor

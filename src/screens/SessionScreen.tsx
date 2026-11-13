@@ -204,7 +204,7 @@ export default function SessionScreen({
           <div className="session-meta">
             {formatElapsed(elapsed)} · {totalDone}/{totalPlanned}세트
             {session.mode !== 'normal' && (
-              <span className="chip chip-warn" style={{ marginLeft: 6 }}>
+              <span className="chip chip-warn ml-inline">
                 {session.mode === 'return' ? '복귀' : '디로드'}
               </span>
             )}
